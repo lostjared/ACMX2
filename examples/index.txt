@@ -1,0 +1,3 @@
+color_swirl_c.glsl
+diagsquare.glsl
+ripple_a.glsl

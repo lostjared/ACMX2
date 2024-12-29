@@ -52,7 +52,7 @@ public:
     }
 
     void inc() {
-        if(library_index < programs.size())
+        if(library_index+1 < programs.size())
             library_index++;
     }
     void dec() {
@@ -63,9 +63,22 @@ public:
     size_t index() { return library_index; }
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
-    
+    float alpha = 1.0;
+    int alpha_dir = 0;
     void update() {
         programs[index()]->setUniform("time_f", SDL_GetTicks()/1000.0f);
+        if(alpha_dir == 0) {
+            alpha -= 0.05f;
+            if(alpha <= 0.2f) 
+                alpha_dir = 1;
+        } else {
+            alpha += 0.05f;
+            if(alpha >= 1.0f)
+                alpha_dir = 0;
+        }
+        GLint loc = glGetUniformLocation(programs.back()->id(), "alpha");
+        glUniform1f(loc, alpha);
+                
     }
     
 private:
