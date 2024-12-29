@@ -5,12 +5,42 @@
 #include<fstream>
 #include<string>
 #include<algorithm>
+#include<tuple>
+#include<unordered_map>
 #include<opencv2/opencv.hpp>
+#include<filesystem>
 
 class ShaderLibrary {
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
+
+    void loadProgram(gl::GLWindow *win, const std::string text) {
+        programs.push_back(std::make_unique<gl::ShaderProgram>());
+        if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text)) {
+            throw mx::Exception("Error loading shader program: " + text);
+        }
+        GLenum error;
+        error = glGetError();
+        if(error != GL_NO_ERROR){
+            throw mx::Exception("OpenGL Error: on ShaderLibary::loadProgram: " + std::to_string(error));
+        }
+        programs.back()->useProgram();
+        programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
+        programs.back()->setUniform("mv_matrix", glm::mat4(1.0f));
+        GLint loc = glGetUniformLocation(programs.back()->id(), "iResolution");
+        glUniform2f(loc, win->w, win->h);
+        error = glGetError();
+        if(error != GL_NO_ERROR) {
+            throw mx::Exception("setUniform");
+        }
+        mx::system_out << "acmx2: Compiled Shader 0: " << text << "\n";
+        std::filesystem::path file_path(text);
+        std::string name = file_path.stem().string();
+        if(!name.empty()) {
+            program_names[programs.size()-1] = name;
+        }
+    }
 
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
         std::fstream file;
@@ -21,16 +51,16 @@ public:
         size_t index = 0;
         GLenum error;
         while(!file.eof()) {
-            std::string line;
-            std::getline(file, line);
-            if(file && !line.empty() && line.find("material") == std::string::npos) {
+            std::string line_data;
+            std::getline(file, line_data);
+            if(file && !line_data.empty() && line_data.find("material") == std::string::npos) {
                 programs.push_back(std::make_unique<gl::ShaderProgram>());
-                if(!programs.back()->loadProgram(text + "/vertex.glsl", text + "/" + line)) {
-                    throw mx::Exception("acmx2: Error could not load shader: " + line);
+                if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
+                    throw mx::Exception("acmx2: Error could not load shader: " + line_data);
                 }
                 error = glGetError();
                 if(error != GL_NO_ERROR) {
-                    throw mx::Exception("load program");
+                    throw mx::Exception("OpenGL Error loading shader program");
                 }
                 programs.back()->useProgram();
                 programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
@@ -41,23 +71,32 @@ public:
                 if(error != GL_NO_ERROR) {
                     throw mx::Exception("setUniform");
                 }
-                mx::system_out << "acmx2: Compiled Shader " << index++ << ": " << line << "\n";
+                mx::system_out << "acmx2: Compiled Shader " << index++ << ": " << line_data << "\n";
+
+                std::filesystem::path file_path(line_data);
+                std::string name = file_path.stem().string();
+                if(!name.empty()) {
+                    program_names[programs.size()-1] = name;
+                }
            }
         }
         file.close();
     }
 
     void setIndex(size_t i) {
-        library_index = i;
+        if(i < programs.size())
+            library_index = i;
+        
+        mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i] << "]\n";
     }
 
     void inc() {
         if(library_index+1 < programs.size())
-            library_index++;
+            setIndex(library_index+1);
     }
     void dec() {
         if(library_index > 0)
-            library_index--;
+            setIndex(library_index-1);
     }
     
     size_t index() { return library_index; }
@@ -66,7 +105,7 @@ public:
     float alpha = 1.0;
     int alpha_dir = 0;
     void update() {
-        programs[index()]->setUniform("time_f", SDL_GetTicks()/1000.0f);
+        programs[index()]->setUniform("time_f", static_cast<float>(SDL_GetTicks())/1000.0f);
         if(alpha_dir == 0) {
             alpha -= 0.05f;
             if(alpha <= 0.2f) 
@@ -84,14 +123,15 @@ public:
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
+    std::unordered_map<int, std::string> program_names;
 };
 
 class ACView : public gl::GLObject {
     cv::Mat frame;
     ShaderLibrary library;
-    std::string flib;
+    std::tuple<int, std::string, int> flib;
 public:
-    ACView(int index, const std::string &slib) : camera_index{index}, flib{slib} {
+    ACView(int index, std::tuple<int, std::string, int> &slib) : camera_index{index}, flib{slib} {
     }
     ~ACView() override {
         if(camera_texture) {
@@ -101,7 +141,12 @@ public:
 
     virtual void load(gl::GLWindow *win) override {
         the_font.loadFont(win->util.getFilePath("data/font.ttf"), 16);
-        library.loadPrograms(win, flib);
+        if(std::get<0>(flib) == 1)
+            library.loadPrograms(win, std::get<1>(flib));
+        else 
+            library.loadProgram(win, std::get<1>(flib));
+
+        library.setIndex(std::get<2>(flib));
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
@@ -196,7 +241,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(const std::string &path, const std::string &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
+    MainWindow(const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
         setObject(new ACView(camera_device, filename));
         object->load(this);
@@ -227,18 +272,25 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('d', "Camera Device")
           .addOptionDoubleValue('D', "device", "Device Index")
           .addOptionSingleValue('s', "Shader Library Index File")
-          .addOptionSingleValue('S', "Shader Library Index File");
-    Argument<std::string> arg;
+          .addOptionDoubleValue('S', "shaders", "Shader Library Index File")
+          .addOptionSingleValue('f', "Fragment Shader")
+          .addOptionDoubleValue('F', "fragmente", "Fragment Shader")
+          .addOptionSingleValue('h', "Shader Index")
+          .addOptionDoubleValue('H', "shader", "Shader Index");
+            
+   Argument<std::string> arg;
     std::string path;
     int value = 0;
     int tw = 1280, th = 720;
     int camera_device = 0;
-    std::string library = "index.txt";
+    std::string library = "./filters";
+    std::string fragment = "frag.glsl";
+    int mode = 0;
+    int shader_index = 0;
 
     try {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
-                case 'h':
                 case 'v':
                     parser.help(std::cout);
                     exit(EXIT_SUCCESS);
@@ -268,7 +320,17 @@ int main(int argc, char **argv) {
                 break;
                 case 's':
                 case 'S':
+                    mode = 1;
                     library = arg.arg_value;
+                    break;
+                case 'F':
+                case 'f':
+                    mode = 0;
+                    fragment = arg.arg_value;
+                    break;
+                case 'h':
+                case 'H':
+                    shader_index = atoi(arg.arg_value.c_str());
                     break;
 
             }
@@ -276,7 +338,7 @@ int main(int argc, char **argv) {
     } catch (const ArgException<std::string>& e) {
         mx::system_err << e.text() << "\n";
         mx::system_err.flush();
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
     
     if(path.empty()) {
@@ -284,12 +346,13 @@ int main(int argc, char **argv) {
         path = ".";
     }
     try {
-        MainWindow main_window(path, library, camera_device, tw, th);
+        auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
+        MainWindow main_window(path, t, camera_device, tw, th);
         main_window.loop();
     } catch(const mx::Exception &e) {
-        mx::system_err << "mx: Exception: " << e.text() << "\n";
+        mx::system_err << "acmx2: Exception: " << e.text() << "\n";
         mx::system_err.flush();
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     } 
-    return 0;
+    return EXIT_SUCCESS;
 }
