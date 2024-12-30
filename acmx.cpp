@@ -87,6 +87,7 @@ public:
         if(i < programs.size())
             library_index = i;   
         mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i] << "]\n";
+        fflush(stdout);
     }
     void inc() {
         if(library_index+1 < programs.size())
@@ -251,6 +252,7 @@ public:
 };
 
 int main(int argc, char **argv) {
+    fflush(stdout);
     Argz<std::string> parser(argc, argv);    
     parser.addOptionSingle('v', "Display help message")
           .addOptionSingleValue('p', "assets path")
@@ -262,7 +264,7 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('s', "Shader Library Index File")
           .addOptionDoubleValue('S', "shaders", "Shader Library Index File")
           .addOptionSingleValue('f', "Fragment Shader")
-          .addOptionDoubleValue('F', "fragmente", "Fragment Shader")
+          .addOptionDoubleValue('F', "fragment", "Fragment Shader")
           .addOptionSingleValue('h', "Shader Index")
           .addOptionDoubleValue('H', "shader", "Shader Index");        
     Argument<std::string> arg;
@@ -271,7 +273,7 @@ int main(int argc, char **argv) {
     int tw = 1280, th = 720;
     int camera_device = 0;
     std::string library = "./filters";
-    std::string fragment = "frag.glsl";
+    std::string fragment = "./frag.glsl";
     int mode = 0;
     int shader_index = 0;
     try {
