@@ -10,7 +10,8 @@ find_package(OpenCV REQUIRED)
 add_executable(acmx2 acmx.cpp)
 target_include_directories(acmx2 PRIVATE 
     ${CMAKE_PREFIX_PATH}/include/mx2
-    /usr/include
+    /usr/include/mx2
+    /usr/local/include/mx2
     ${SDL2_INCLUDE_DIRS} 
     ${SDL2_TTF_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
