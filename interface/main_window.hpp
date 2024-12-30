@@ -7,7 +7,9 @@
 #include<QTextEdit>
 #include<QMenuBar>
 #include<QProcess>
+#include<QSettings>
 #include"prop.hpp"
+#include"editor.hpp"
 
 class ReadOnlyStringListModel : public QStringListModel {
     Q_OBJECT
@@ -28,25 +30,34 @@ public:
     void Log(const QString &message);
     void Write(const QString &message);
     bool loadShaders(const QString &path);
-
 public slots:
     void fileOpenProp();
     void fileExit();
     void runSelected();
     void runAll();
+    void cameraSettings();
+    void listClicked(const QModelIndex &i);
+    QString readFileContents(const QString &filePath);
 private:
     QListView        *list_view;
     QStringList       items;
     ReadOnlyStringListModel *model;
     QTextEdit   *bottomTextBox;
     QMenu *fileMenu;
+    QMenu *cameraMenu;
     QMenu *runMenu;
     QMenu *helpMenu;
     QAction *fileMenu_prop, *fileMenu_exit;
+    QAction *cameraSet;
     QAction *runMenu_select, *runMenu_all;
     QString executable_path;
     QString shader_path;
     QProcess *process;
+    QSize camera_res;
+    unsigned int camera_index;
+    QString concatList(const QStringList lst);
+    QVector<TextEditor *> open_files;
+    QSettings appSettings;
 };
 
 

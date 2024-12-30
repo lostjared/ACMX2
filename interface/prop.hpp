@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
+#include <QSettings>
 
 class PropWindow : public QDialog {
     Q_OBJECT
@@ -22,6 +23,7 @@ private slots:
 public:
     QLineEdit *exePathLineEdit;
     QLineEdit *shaderDirLineEdit;
+    
 };
 
 #endif
