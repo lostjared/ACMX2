@@ -50,7 +50,7 @@ void GlslSyntaxHighlighter::initHighlightingRules()
     };
 
     QTextCharFormat keywordFormat;
-    keywordFormat.setForeground(Qt::darkBlue);
+    keywordFormat.setForeground(Qt::blue);
     keywordFormat.setFontWeight(QFont::Bold);
 
     for (const QString &pattern : keywordPatterns) {

@@ -29,7 +29,7 @@ void TextEditor::init() {
     QVBoxLayout* layout = new QVBoxLayout(this);
     m_textEdit = new CustomTextEdit(this);
     m_textEdit->setTabStopDistance(4 * m_textEdit->fontMetrics().horizontalAdvance(' '));
-    m_textEdit->setStyleSheet("QPlainTextEdit { font-size: 24px; font-family: 'Courier New', Courier, monospace; background-color:rgb(223, 219, 219); }");
+    m_textEdit->setStyleSheet("QPlainTextEdit { color: white;  font-size: 24px; font-family: 'Courier New', Courier, monospace; background-color: black; }");
     layout->addWidget(m_textEdit);
     m_highlighter = new GlslSyntaxHighlighter(m_textEdit->document());
     setLayout(layout);
