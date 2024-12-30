@@ -16,8 +16,10 @@ void MainWindow::initControls() {
 
     connect(process, &QProcess::readyReadStandardError, this, [=]() {
         QString errorOutput = process->readAllStandardError();
-        if(!errorOutput.contains("GStreamer"))
-            Log("<b style='color:red;'>Error:</b> " + errorOutput + "<br>");
+        if(!errorOutput.contains("GStreamer")) {
+            errorOutput.replace("\n", "<br>");
+            this->Write("<b style='color:red;'>Error:</b> " + errorOutput);
+        }
     });
 
     connect(process, &QProcess::finished, this, [=](int exitCode, QProcess::ExitStatus) {
