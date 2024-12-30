@@ -174,7 +174,7 @@ public:
         win->text.setColor({ 255, 255, 255, 255 });
         win->text.printText_Solid(the_font, 25, 25, "ACMX2 - https://lostsidedead.biz");
     }
-    virtual void event(gl::GLWindow *win, SDL_Event &e) {
+    virtual void event(gl::GLWindow *win, SDL_Event &e) override {
         switch(e.type) {
             case SDL_KEYDOWN:
                 switch(e.key.keysym.sym) {
@@ -248,7 +248,7 @@ public:
         swap();
         delay();
     }
-    void event(SDL_Event &e) {}
+    void event(SDL_Event &e) override {}
 };
 
 int main(int argc, char **argv) {
