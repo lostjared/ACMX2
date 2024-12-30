@@ -6,6 +6,29 @@
 #include"syntax.hpp"
 #include<QVector>
 
+#include <QKeyEvent>
+
+class CustomTextEdit : public QPlainTextEdit
+{
+    Q_OBJECT
+
+public:
+    explicit CustomTextEdit(QWidget *parent = nullptr) : QPlainTextEdit(parent)
+    {
+        setTabStopDistance(4 * fontMetrics().horizontalAdvance(' '));
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent *event) override
+    {
+        if (event->key() == Qt::Key_Tab) {
+            insertPlainText("    "); 
+        } else {
+            QPlainTextEdit::keyPressEvent(event);
+        }
+    }
+};
+
 class TextEditor : public QDialog
 {
     Q_OBJECT
@@ -19,10 +42,12 @@ public:
 private:
     void init();
     int index;
-    QPlainTextEdit*      m_textEdit  = nullptr;
+    CustomTextEdit*      m_textEdit  = nullptr;
     GlslSyntaxHighlighter* m_highlighter = nullptr;
     QString filename;
     QVector<TextEditor *> *vec;
 };
+
+
 
 #endif

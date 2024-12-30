@@ -27,7 +27,7 @@ void TextEditor::setFileName(const QString &filen) {
 
 void TextEditor::init() {
     QVBoxLayout* layout = new QVBoxLayout(this);
-    m_textEdit = new QPlainTextEdit(this);
+    m_textEdit = new CustomTextEdit(this);
     m_textEdit->setTabStopDistance(4 * m_textEdit->fontMetrics().horizontalAdvance(' '));
     m_textEdit->setStyleSheet("QPlainTextEdit { font-size: 24px; font-family: 'Courier New', Courier, monospace; background-color:rgb(223, 219, 219); }");
     layout->addWidget(m_textEdit);
@@ -48,6 +48,7 @@ void TextEditor::init() {
         vec->removeAt(index);
         this->deleteLater();
     });
+    m_textEdit->setTabStopDistance(5 * QFontMetrics(m_textEdit->font()).horizontalAdvance(' '));
 }
 
 void TextEditor::saveContents() {
