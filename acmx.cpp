@@ -161,7 +161,9 @@ public:
             cv::flip(frame, frame, 0);
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
-        }   
+        }
+        fflush(stdout);
+        fflush(stderr);
     }
     virtual void draw(gl::GLWindow *win) override {
         if(cap.isOpened() && cap.read(frame)) {
@@ -237,6 +239,8 @@ public:
         util.path = path;
         setObject(new ACView(camera_device, filename));
         object->load(this);
+        fflush(stdout);
+        fflush(stderr);
     }
     ~MainWindow() override {}
 
