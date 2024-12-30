@@ -1,20 +1,27 @@
-#ifndef __CONSOLE__H_
-#define __CONSOLE__H_
+#ifndef PROP_WINDOW_HPP
+#define PROP_WINDOW_HPP
 
-#include<QWidget>
-#include<QDialog>
+#include <QDialog>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QFileDialog>
 
 class PropWindow : public QDialog {
-Q_OBJECT
+    Q_OBJECT
+
 public:
-    PropWindow(QWidget *parent) : QDialog(parent) {
-
-    }
+    PropWindow(QWidget *parent = nullptr);
     void init();
+
+private slots:
+    void selectExecutable();
+    void selectShaderDirectory();
+public:
+    QLineEdit *exePathLineEdit;
+    QLineEdit *shaderDirLineEdit;
 };
-
-
-
-
 
 #endif
