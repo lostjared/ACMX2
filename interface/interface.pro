@@ -17,3 +17,5 @@ QT += widgets
 # Input
 HEADERS += prop.hpp editor.hpp main_window.hpp settings.hpp syntax.hpp shaderlibrary.hpp shader.hpp
 SOURCES += prop.cpp editor.cpp main.cpp main_window.cpp settings.cpp syntax.cpp shaderlibrary.cpp shader.cpp
+RC_FILE = win-icon.rc
+RESOURCES += qresource.qrc
