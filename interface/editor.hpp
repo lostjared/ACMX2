@@ -1,7 +1,7 @@
 #ifndef __EDITOR__H__
 #define __EDITOR__H__
 
-#include<QDialog.h>
+#include<QDialog>
 
 class TextEditor : public QDialog {
 Q_OBJECT

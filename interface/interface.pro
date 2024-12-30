@@ -15,5 +15,5 @@ QT += widgets
 #DEFINES += QT_DISABLE_DEPRECATED_UP_TO=0x060000 # disables all APIs deprecated in Qt 6.0.0 and earlier
 
 # Input
-HEADERS += console.hpp editor.hpp main_window.hpp
-SOURCES += console.cpp editor.cpp main.cpp main_window.cpp
+HEADERS += prop.hpp editor.hpp main_window.hpp
+SOURCES += prop.cpp editor.cpp main.cpp main_window.cpp
