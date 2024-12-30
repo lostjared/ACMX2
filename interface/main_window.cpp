@@ -14,15 +14,15 @@ void MainWindow::initControls() {
     });
 
     connect(process, &QProcess::readyReadStandardError, this, [=]() {
-        QString errorOutput = process->readAllStandardError();
-        Log("<b style='color:red;'>Error:</b> " + errorOutput);
+        //QString errorOutput = process->readAllStandardError();
+        //Log("<b style='color:red;'>Error:</b> " + errorOutput);
     });
 
     connect(process, &QProcess::finished, this, [=](int exitCode, QProcess::ExitStatus) {
         QString text;
         QTextStream stream(&text);
         stream << "acmx2: Exited with Code: " << exitCode;
-        Log(text);
+        Log(text + "<br>");
     });
     setGeometry(150, 150, 1280, 720);
     setWindowTitle("ACMX2 - Interface");
@@ -89,7 +89,7 @@ void MainWindow::fileOpenProp() {
         }
         if(loadShaders(shaderDir)) {
             Log("Executable Path: " + exePath);
-            Log("Shader Directory: " + shaderDir);
+            Log("Shader Directory: " + shaderDir + "<br>");
             executable_path = exePath;
             shader_path = shaderDir;
         }
