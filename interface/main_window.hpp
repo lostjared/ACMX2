@@ -37,7 +37,10 @@ public slots:
     void runAll();
     void cameraSettings();
     void listClicked(const QModelIndex &i);
-    QString readFileContents(const QString &filePath);
+    void newList();
+    void newShader();
+    void menuUp();
+    void menuDown();
 private:
     QListView        *list_view;
     QStringList       items;
@@ -46,10 +49,13 @@ private:
     QMenu *fileMenu;
     QMenu *cameraMenu;
     QMenu *runMenu;
+    QMenu *listMenu;
     QMenu *helpMenu;
     QAction *fileMenu_prop, *fileMenu_exit;
     QAction *cameraSet;
     QAction *runMenu_select, *runMenu_all;
+    QAction *listMenu_new,*listMenu_shader, *listMenu_up, *listMenu_down;
+    QAction *helpMenu_about;
     QString executable_path;
     QString shader_path;
     QProcess *process;
@@ -57,7 +63,7 @@ private:
     unsigned int camera_index;
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
-    QSettings appSettings;
+    QString readFileContents(const QString &filePath);
 };
 
 

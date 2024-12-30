@@ -5,6 +5,7 @@
 #include<QFile>
 #include<QTextStream>
 #include"settings.hpp"
+#include"shaderlibrary.hpp"
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -34,6 +35,7 @@ void MainWindow::initControls() {
     fileMenu = menuBarPtr->addMenu(tr("File"));
     cameraMenu = menuBarPtr->addMenu(tr("Camera"));
     runMenu = menuBarPtr->addMenu(tr("Run"));
+    listMenu = menuBarPtr->addMenu(tr("List"));
     helpMenu = menuBarPtr->addMenu(tr("Help"));
     fileMenu_prop = new QAction(tr("Properties"), this);
     fileMenu->addAction(fileMenu_prop);
@@ -54,6 +56,24 @@ void MainWindow::initControls() {
     runMenu_all->setShortcut(QKeySequence("Ctrl+E"));
     connect(runMenu_all, &QAction::triggered, this, &MainWindow::runAll);
     runMenu->addAction(runMenu_all);
+    listMenu_new = new QAction(tr("New Shader Library"), this);
+    connect(listMenu_new,  &QAction::triggered, this, &MainWindow::newList);
+    listMenu->addAction(listMenu_new);
+    listMenu_shader = new QAction(tr("New Shader GLSL File"), this);
+    connect(listMenu_shader,  &QAction::triggered, this, &MainWindow::newShader);
+    listMenu->addAction(listMenu_shader);
+    listMenu->addSeparator();
+    listMenu_up = new QAction(tr("Shift Shader Up"), this);
+    connect(listMenu_up,  &QAction::triggered, this, &MainWindow::menuUp);
+    listMenu->addAction(listMenu_up);
+    listMenu_down = new QAction(tr("Shift Shader Down"), this);
+    connect(listMenu_down,  &QAction::triggered, this, &MainWindow::menuDown);
+    listMenu->addAction(listMenu_down);
+    helpMenu_about = new QAction("About", this);
+    connect(helpMenu_about, &QAction::triggered, this, [=](){
+        QMessageBox::information(this, "About", "ACMX2 - (C) 2025 LostSideDead Software\n");
+    });
+    helpMenu->addAction(helpMenu_about);
     model = new ReadOnlyStringListModel(this);
     model->setStringList(items);
     list_view = new QListView(this);
@@ -82,6 +102,29 @@ void MainWindow::initControls() {
         shader_path = path;
         loadShaders(path);
     }
+}
+
+void MainWindow::newList() {
+    LibraryWindow library(this);
+
+    if(library.exec() == QDialog::Accepted) {
+        shader_path = library.getShaderPath();
+        loadShaders(shader_path);
+        QSettings appSettings("LostSideDead");
+        appSettings.setValue("shaders", shader_path);
+    }
+}
+
+void MainWindow::newShader() {
+
+}
+
+void MainWindow::menuUp() {
+
+}
+
+void MainWindow::menuDown() {
+
 }
 
 QString MainWindow::readFileContents(const QString &filePath)
