@@ -1,3 +1,4 @@
+#define AC_VERSION "0.1.0"
 #include<mx.hpp>
 #include<argz.hpp>
 #include<gl.hpp>
@@ -11,10 +12,11 @@
 #include<filesystem>
 
 class ShaderLibrary {
+    float alpha = 1.0;
+    int alpha_dir = 0;
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
-
     void loadProgram(gl::GLWindow *win, const std::string text) {
         programs.push_back(std::make_unique<gl::ShaderProgram>());
         if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text)) {
@@ -41,7 +43,6 @@ public:
             program_names[programs.size()-1] = name;
         }
     }
-
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
         std::fstream file;
         file.open(text + "/index.txt", std::ios::in);
@@ -82,14 +83,11 @@ public:
         }
         file.close();
     }
-
     void setIndex(size_t i) {
         if(i < programs.size())
-            library_index = i;
-        
+            library_index = i;   
         mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i] << "]\n";
     }
-
     void inc() {
         if(library_index+1 < programs.size())
             setIndex(library_index+1);
@@ -98,12 +96,9 @@ public:
         if(library_index > 0)
             setIndex(library_index-1);
     }
-    
     size_t index() { return library_index; }
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
-    float alpha = 1.0;
-    int alpha_dir = 0;
     void update() {
         programs[index()]->setUniform("time_f", static_cast<float>(SDL_GetTicks())/1000.0f);
         if(alpha_dir == 0) {
@@ -117,9 +112,7 @@ public:
         }
         GLint loc = glGetUniformLocation(programs.back()->id(), "alpha");
         glUniform1f(loc, alpha);
-                
     }
-    
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
@@ -138,7 +131,6 @@ public:
             glDeleteTextures(1, &camera_texture);
         }
     }
-
     virtual void load(gl::GLWindow *win) override {
         the_font.loadFont(win->util.getFilePath("data/font.ttf"), 16);
         if(std::get<0>(flib) == 1)
@@ -168,8 +160,7 @@ public:
             cv::flip(frame, frame, 0);
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
-        }
-        
+        }   
     }
     virtual void draw(gl::GLWindow *win) override {
         if(cap.isOpened() && cap.read(frame)) {
@@ -256,15 +247,12 @@ public:
         swap();
         delay();
     }
-    
-    void event(SDL_Event &e) {
-        
-    }
+    void event(SDL_Event &e) {}
 };
 
 int main(int argc, char **argv) {
     Argz<std::string> parser(argc, argv);    
-    parser.addOptionSingle('h', "Display help message")
+    parser.addOptionSingle('v', "Display help message")
           .addOptionSingleValue('p', "assets path")
           .addOptionDoubleValue('P', "path", "assets path")
           .addOptionSingleValue('r',"Resolution WidthxHeight")
@@ -276,9 +264,8 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('f', "Fragment Shader")
           .addOptionDoubleValue('F', "fragmente", "Fragment Shader")
           .addOptionSingleValue('h', "Shader Index")
-          .addOptionDoubleValue('H', "shader", "Shader Index");
-            
-   Argument<std::string> arg;
+          .addOptionDoubleValue('H', "shader", "Shader Index");        
+    Argument<std::string> arg;
     std::string path;
     int value = 0;
     int tw = 1280, th = 720;
@@ -287,11 +274,13 @@ int main(int argc, char **argv) {
     std::string fragment = "frag.glsl";
     int mode = 0;
     int shader_index = 0;
-
     try {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
                 case 'v':
+                    std::cout << "acmx2: v" << AC_VERSION << "\n";
+                    std::cout << "(C) 2025 LostSideDead.\n";
+                    std::cout << "https://lostsidedead.biz\n";
                     parser.help(std::cout);
                     exit(EXIT_SUCCESS);
                     break;
@@ -332,15 +321,13 @@ int main(int argc, char **argv) {
                 case 'H':
                     shader_index = atoi(arg.arg_value.c_str());
                     break;
-
             }
         }
     } catch (const ArgException<std::string>& e) {
         mx::system_err << e.text() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
-    }
-    
+    }    
     if(path.empty()) {
         mx::system_out << "mx: No path provided trying default current directory.\n";
         path = ".";
@@ -353,6 +340,14 @@ int main(int argc, char **argv) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
-    } 
+    } catch(std::exception &e) {
+        mx::system_err << "acmx2: Exception: " << e.what() << "\n";
+        mx::system_err.flush();
+        return EXIT_FAILURE;
+    } catch(...) {
+        mx::system_err << "acmx2: Exception Occoured.\n";
+        mx::system_err.flush();
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }
