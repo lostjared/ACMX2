@@ -10,6 +10,8 @@
 #include<QSettings>
 #include"prop.hpp"
 #include"editor.hpp"
+#include"shader.hpp"
+#include"shaderlibrary.hpp"
 
 class ReadOnlyStringListModel : public QStringListModel {
     Q_OBJECT
@@ -30,6 +32,8 @@ public:
     void Log(const QString &message);
     void Write(const QString &message);
     bool loadShaders(const QString &path);
+    void updateIndex();
+    
 public slots:
     void fileOpenProp();
     void fileExit();
@@ -41,6 +45,8 @@ public slots:
     void newShader();
     void menuUp();
     void menuDown();
+    void menuRemove();
+
 private:
     QListView        *list_view;
     QStringList       items;
@@ -54,7 +60,7 @@ private:
     QAction *fileMenu_prop, *fileMenu_exit;
     QAction *cameraSet;
     QAction *runMenu_select, *runMenu_all;
-    QAction *listMenu_new,*listMenu_shader, *listMenu_up, *listMenu_down;
+    QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down;
     QAction *helpMenu_about;
     QString executable_path;
     QString shader_path;

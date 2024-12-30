@@ -5,7 +5,6 @@
 #include<QFile>
 #include<QTextStream>
 #include"settings.hpp"
-#include"shaderlibrary.hpp"
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -63,6 +62,10 @@ void MainWindow::initControls() {
     connect(listMenu_shader,  &QAction::triggered, this, &MainWindow::newShader);
     listMenu->addAction(listMenu_shader);
     listMenu->addSeparator();
+    listMenu_remove = new QAction(tr("Remove Shader"), this);
+    connect(listMenu_remove, &QAction::triggered, this, &MainWindow::menuRemove);
+    listMenu->addAction(listMenu_remove);
+    listMenu->addSeparator();
     listMenu_up = new QAction(tr("Shift Shader Up"), this);
     connect(listMenu_up,  &QAction::triggered, this, &MainWindow::menuUp);
     listMenu->addAction(listMenu_up);
@@ -116,17 +119,90 @@ void MainWindow::newList() {
 }
 
 void MainWindow::newShader() {
+    ShaderDialog new_shader(this);
+    new_shader.setShaderPath(shader_path);
+    if(new_shader.exec() == QDialog::Accepted) {
+        loadShaders(shader_path);
+        QSettings appSettings("LostSideDead");
+        appSettings.setValue("shaders", shader_path);
+    }
+}
 
+void MainWindow::menuRemove() {
+    QModelIndex currentIndex = list_view->selectionModel()->currentIndex();
+    if (!currentIndex.isValid()) {
+        return;
+    }
+    model->removeRow(currentIndex.row());
+    updateIndex();
+}
+
+void MainWindow::updateIndex() {
+     QFile file(shader_path + "/index.txt");
+     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        QAbstractItemModel *model = list_view->model();
+        if (!model) {
+            return;
+        }
+        int rowCount = model->rowCount();
+        for (int row = 0; row < rowCount; ++row) {
+            QModelIndex index = model->index(row, 0);
+            QVariant data = model->data(index, Qt::DisplayRole);
+            out << data.toString() << "\n"; 
+        }
+        file.close();   
+    } else {
+        
+    }
 }
 
 void MainWindow::menuUp() {
-
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        QMessageBox::warning(list_view, "Error", "The model is not a QStringListModel.");
+        return;
+    }
+    QModelIndex currentIndex = list_view->selectionModel()->currentIndex();
+    if (!currentIndex.isValid()) {
+        return;
+    }
+    int currentRow = currentIndex.row();
+    if (currentRow == 0) {
+        return;
+    }
+    QStringList items = model->stringList();
+    items.swapItemsAt(currentRow, currentRow - 1);
+    model->setStringList(items);
+    QModelIndex newIndex = model->index(currentRow - 1);
+    list_view->selectionModel()->setCurrentIndex(newIndex, QItemSelectionModel::Select);
+    updateIndex();
 }
 
 void MainWindow::menuDown() {
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        return;
+    }
+    QModelIndex currentIndex = list_view->selectionModel()->currentIndex();
+    if (!currentIndex.isValid()) {
+        return;
+    }
+    int currentRow = currentIndex.row();
+    int rowCount = model->rowCount();
 
+    if (currentRow >= rowCount - 1) {
+        return;
+    }
+
+    QStringList items = model->stringList();
+    items.swapItemsAt(currentRow, currentRow + 1);
+    model->setStringList(items);
+    QModelIndex newIndex = model->index(currentRow + 1);
+    list_view->selectionModel()->setCurrentIndex(newIndex, QItemSelectionModel::Select);
+    updateIndex();
 }
-
+ 
 QString MainWindow::readFileContents(const QString &filePath)
 {
     QFile file(filePath);

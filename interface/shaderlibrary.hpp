@@ -1,5 +1,5 @@
-#ifndef __SHADER_LIB_H__
-#define __SHADER_LIB_H__
+#ifndef __SHADER_LIB_H__Y
+#define __SHADER_LIB_H__Y
 
 #include <QDialog>
 #include <QPushButton>
