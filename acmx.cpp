@@ -10,6 +10,8 @@
 #include<unordered_map>
 #include<opencv2/opencv.hpp>
 #include<filesystem>
+#include<chrono>
+#include<ctime>
 
 class ShaderLibrary {
     float alpha = 1.0;
@@ -124,10 +126,21 @@ class ACView : public gl::GLObject {
     cv::Mat frame;
     ShaderLibrary library;
     std::tuple<int, std::string, int> flib;
+    std::string prefix_path;
 public:
-    ACView(int index, std::tuple<int, std::string, int> &slib) : camera_index{index}, flib{slib} {
+    ACView(int index, std::tuple<int, std::string, int> &slib, std::string prefix) : camera_index{index}, flib{slib}, prefix_path{prefix} {
     }
     ~ACView() override {
+
+        if (captureFBO) {
+            glDeleteFramebuffers(1, &captureFBO);
+            captureFBO = 0;
+        }
+        if (fboTexture) {
+            glDeleteTextures(1, &fboTexture);
+            fboTexture = 0;
+        }
+
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
         }
@@ -162,17 +175,48 @@ public:
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         }
+
+        setupCaptureFBO(win->w, win->h);
         fflush(stdout);
         fflush(stderr);
     }
+
+    bool snapshot = false;
+
     virtual void draw(gl::GLWindow *win) override {
-        if(cap.isOpened() && cap.read(frame)) {
+        if (cap.isOpened() && cap.read(frame)) {
             cv::flip(frame, frame, 0);
             updateTexture(camera_texture, frame);
-            library.useProgram();
-            library.update();
-            sprite.draw(camera_texture, 0, 0, frame.cols, frame.rows);
         }
+        glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+        glViewport(0, 0, camera_width, camera_height);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        library.useProgram();
+        library.update();
+        sprite.draw(camera_texture, 0, 0, frame.cols, frame.rows);
+        if(snapshot == true) {
+            static unsigned int offset = 0;
+            std::vector<unsigned char> pixels(camera_width * camera_height * 4);
+            glBindTexture(GL_TEXTURE_2D, fboTexture);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+            glBindTexture(GL_TEXTURE_2D, 0);
+            auto now = std::chrono::system_clock::now();
+            std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+            std::tm localTime = *std::localtime(&now_c);
+            std::ostringstream oss;
+            oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
+            std::string name = prefix_path + oss.str() + "-" + std::to_string(offset) + ".png";
+            png::SavePNG_RGBA(name.c_str(), pixels.data(), camera_width, camera_height);
+            mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+            snapshot = false;
+            ++offset;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, win->w, win->h);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        library.useProgram();
+        library.update();
+        sprite.draw(fboTexture, 0, 0, win->w, win->h);
         win->text.setColor({ 255, 255, 255, 255 });
         win->text.printText_Solid(the_font, 25, 25, "ACMX2 - https://lostsidedead.biz");
     }
@@ -187,6 +231,9 @@ public:
                     case SDLK_DOWN:
                         library.inc();
                         sprite.setShader(library.shader());
+                    break;
+                    case SDLK_z:
+                        snapshot = true;
                     break;
                 }
             break;
@@ -222,6 +269,7 @@ public:
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frame.cols, frame.rows, GL_RGBA, GL_UNSIGNED_BYTE, frame.ptr());
         glBindTexture(GL_TEXTURE_2D, 0);
     }
+    
 private:
     mx::Font the_font;
     gl::GLSprite sprite;
@@ -231,11 +279,44 @@ private:
     int camera_width = 0;
     int camera_height = 0;
     GLuint camera_texture = 0;
+    GLuint captureFBO = 0;   
+    GLuint fboTexture = 0;   
+
+    void setupCaptureFBO(int width, int height) {
+        glGenFramebuffers(1, &captureFBO);
+        glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+
+        glGenTextures(1, &fboTexture);
+        glBindTexture(GL_TEXTURE_2D, fboTexture);
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGBA,
+                     width,
+                     height,
+                     0,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     nullptr);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER,
+                               GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D,
+                               fboTexture,
+                               0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            throw mx::Exception("FBO is not complete.");
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 };
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
+    MainWindow(const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
@@ -243,7 +324,7 @@ public:
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
-        setObject(new ACView(camera_device, filename));
+        setObject(new ACView(camera_device, filename, prefix));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
@@ -276,7 +357,9 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('f', "Fragment Shader")
           .addOptionDoubleValue('F', "fragment", "Fragment Shader")
           .addOptionSingleValue('h', "Shader Index")
-          .addOptionDoubleValue('H', "shader", "Shader Index");        
+          .addOptionDoubleValue('H', "shader", "Shader Index")
+          .addOptionSingleValue('e', "Save Prefix")
+          .addOptionDoubleValue('E', "prefix", "Save Prefix");
     Argument<std::string> arg;
     std::string path;
     int value = 0;
@@ -284,6 +367,7 @@ int main(int argc, char **argv) {
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
+    std::string prefix_path = "./ACMX2.Snapshot.";
     int mode = 0;
     int shader_index = 0;
     try {
@@ -333,6 +417,10 @@ int main(int argc, char **argv) {
                 case 'H':
                     shader_index = atoi(arg.arg_value.c_str());
                     break;
+                case 'e':
+                case 'E':
+                    prefix_path = arg.arg_value;
+                    break;
             }
         }
     } catch (const ArgException<std::string>& e) {
@@ -346,7 +434,7 @@ int main(int argc, char **argv) {
     }
     try {
         auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
-        MainWindow main_window(path, t, camera_device, tw, th);
+        MainWindow main_window(prefix_path, path, t, camera_device, tw, th);
         main_window.loop();
     } catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
