@@ -146,7 +146,6 @@ public:
         }
     }
     virtual void load(gl::GLWindow *win) override {
-        the_font.loadFont(win->util.getFilePath("data/font.ttf"), 16);
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
         else 
@@ -271,7 +270,6 @@ public:
     }
     
 private:
-    mx::Font the_font;
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
     cv::VideoCapture cap;
