@@ -205,7 +205,13 @@ public:
             std::ostringstream oss;
             oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
             std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(offset) + ".png";
-            png::SavePNG_RGBA(name.c_str(), pixels.data(), camera_width, camera_height);
+            std::vector<unsigned char> flipped_pixels(camera_width * camera_height * 4);
+            for (int y = 0; y < camera_height; ++y) {
+                int src_row_start = y * camera_width * 4;
+                int dest_row_start = (camera_height - 1 - y) * camera_width * 4;
+                std::copy(pixels.begin() + src_row_start, pixels.begin() + src_row_start + camera_width * 4, flipped_pixels.begin() + dest_row_start);
+            }
+            png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), camera_width, camera_height);
             mx::system_out << "acmx2: Took snapshot: " << name << "\n";
             fflush(stdout);
             fflush(stderr);
