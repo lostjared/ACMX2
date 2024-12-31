@@ -205,9 +205,11 @@ public:
             std::tm localTime = *std::localtime(&now_c);
             std::ostringstream oss;
             oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-            std::string name = prefix_path + oss.str() + "-" + std::to_string(offset) + ".png";
+            std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(offset) + ".png";
             png::SavePNG_RGBA(name.c_str(), pixels.data(), camera_width, camera_height);
             mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+            fflush(stdout);
+            fflush(stderr);
             snapshot = false;
             ++offset;
         }
