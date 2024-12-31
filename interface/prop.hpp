@@ -20,10 +20,12 @@ public:
 private slots:
     void selectExecutable();
     void selectShaderDirectory();
+    void selectScreenshotDirectory();
+
 public:
     QLineEdit *exePathLineEdit;
     QLineEdit *shaderDirLineEdit;
-    
+    QLineEdit *screenshotDirLineEdit;
 };
 
 #endif

@@ -103,6 +103,7 @@ void MainWindow::initControls() {
 #else
         executable_path = appSettings.value("exePath", "acmx2").toString();
 #endif
+    prefix_path = appSettings.value("prefix_path", "ACMX2_Snapshot").toString();
     if(!path.isEmpty()) {
         shader_path = path;
         loadShaders(path);
@@ -250,6 +251,8 @@ void MainWindow::fileOpenProp() {
     if (propWindow.exec() == QDialog::Accepted) {
         QString exePath = propWindow.exePathLineEdit->text();
         QString shaderDir = propWindow.shaderDirLineEdit->text();
+        QString prefix = propWindow.screenshotDirLineEdit->text();
+
         if(exePath.length()==0) {
             QMessageBox::information(this, "No Path", "Requires Executable path");
             return;
@@ -260,9 +263,11 @@ void MainWindow::fileOpenProp() {
         }
         if(loadShaders(shaderDir)) {
             Log("Executable Path: " + exePath);
+            Log("Prefix Path: " + prefix);
             Log("Shader Directory: " + shaderDir + "<br>");
             executable_path = exePath;
             shader_path = shaderDir;
+            prefix_path = prefix;
         }
     } else {
         Log("Canceled");
@@ -311,6 +316,7 @@ void MainWindow::runSelected() {
     stream << camera_res.width() << "x" << camera_res.height();
     arguments << "--resolution" << res;
     arguments << "--device" << QString::number(camera_index);
+    arguments << "--prefix" << prefix_path;
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -332,6 +338,7 @@ void MainWindow::runAll() {
     stream << camera_res.width() << "x" << camera_res.height();
     arguments << "--resolution" << res;
     arguments << "--device" << QString::number(camera_index);
+    arguments << "--prefix" << prefix_path;
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {

@@ -67,6 +67,7 @@ private:
     QProcess *process;
     QSize camera_res;
     unsigned int camera_index;
+    QString prefix_path;
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
     QString readFileContents(const QString &filePath);
