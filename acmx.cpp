@@ -227,7 +227,7 @@ public:
       }
     virtual void event(gl::GLWindow *win, SDL_Event &e) override {
         switch(e.type) {
-            case SDL_KEYDOWN:
+            case SDL_KEYUP:
                 switch(e.key.keysym.sym) {
                     case SDLK_UP:
                         library.dec();
