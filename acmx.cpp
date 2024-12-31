@@ -237,6 +237,12 @@ class MainWindow : public gl::GLWindow {
 public:
     MainWindow(const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
+        SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
+        if(!ico) {
+            throw mx::Exception("Could not load icon: " + util.getFilePath("data/win-icon.png"));
+        }
+        setWindowIcon(ico);
+        SDL_FreeSurface(ico);
         setObject(new ACView(camera_device, filename));
         object->load(this);
         fflush(stdout);
