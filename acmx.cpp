@@ -219,9 +219,7 @@ public:
         library.useProgram();
         library.update();
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
-        win->text.setColor({ 255, 255, 255, 255 });
-        win->text.printText_Solid(the_font, 25, 25, "ACMX2 - https://lostsidedead.biz");
-    }
+      }
     virtual void event(gl::GLWindow *win, SDL_Event &e) override {
         switch(e.type) {
             case SDL_KEYDOWN:
