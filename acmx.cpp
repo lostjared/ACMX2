@@ -369,7 +369,7 @@ int main(int argc, char **argv) {
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
-    std::string prefix_path = "./ACMX2.Snapshot.";
+    std::string prefix_path = ".";
     int mode = 0;
     int shader_index = 0;
     try {
