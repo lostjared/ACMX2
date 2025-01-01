@@ -113,11 +113,24 @@ public:
     }
 
     void incTime(float value) {
-        time_f += value;
+        if(!time_active) {
+            time_f += value;
+            mx::system_out << "acmx2: Time step forward: " << time_f << "\n";
+            fflush(stdout);
+        }
     }
 
     void decTime(float value) {
-        time_f -= value;
+        if(!time_active) {
+            if(time_f-value > 1.0) {
+                time_f -= value;
+                mx::system_out << "acmx2: Time step back: " << time_f << "\n";
+            } else {
+                time_f = 1.0f;
+                mx::system_out << "acmx2: Time reset to: " << time_f << "\n";
+            }
+            fflush(stdout);
+        }
     }
 
     void activeTime(bool t) {
