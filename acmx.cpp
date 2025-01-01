@@ -15,7 +15,8 @@
 
 class ShaderLibrary {
     float alpha = 1.0;
-    int alpha_dir = 0;
+    float time_f = 1.0f;
+    bool time_active = true;
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
@@ -103,19 +104,28 @@ public:
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
     void update() {
-        programs[index()]->setUniform("time_f", static_cast<float>(SDL_GetTicks())/1000.0f);
-        if(alpha_dir == 0) {
-            alpha -= 0.05f;
-            if(alpha <= 0.2f) 
-                alpha_dir = 1;
-        } else {
-            alpha += 0.05f;
-            if(alpha >= 1.0f)
-                alpha_dir = 0;
-        }
+        if(time_active) 
+            time_f = static_cast<float>(SDL_GetTicks())/1000.0f;
+
+        programs[index()]->setUniform("time_f", time_f);
         GLint loc = glGetUniformLocation(programs.back()->id(), "alpha");
         glUniform1f(loc, alpha);
     }
+
+    void incTime(float value) {
+        time_f += value;
+    }
+
+    void decTime(float value) {
+        time_f -= value;
+    }
+
+    void activeTime(bool t) {
+        time_active = t;
+    }
+
+    bool timeActive() const { return time_active; }
+
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
@@ -240,6 +250,14 @@ public:
                     case SDLK_z:
                         snapshot = true;
                     break;
+                    case SDLK_t:
+                        library.activeTime(!library.timeActive());
+                    break;
+                    case SDLK_i:
+                        library.incTime(0.1f);
+                        break;
+                    case SDLK_o:
+                        library.decTime(0.1f);
                 }
             break;
         }
