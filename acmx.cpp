@@ -1,4 +1,4 @@
-#define AC_VERSION "0.1.0"
+#define AC_VERSION "0.3.0"
 #include<mx.hpp>
 #include<argz.hpp>
 #include<gl.hpp>
@@ -266,13 +266,18 @@ public:
                     case SDLK_t:
                         library.activeTime(!library.timeActive());
                     break;
+                }
+                break;
+            case SDL_KEYDOWN:
+                switch(e.key.keysym.sym) {
                     case SDLK_i:
                         library.incTime(0.1f);
                         break;
                     case SDLK_o:
                         library.decTime(0.1f);
+                        break;
                 }
-            break;
+                break;
         }
     }
 
