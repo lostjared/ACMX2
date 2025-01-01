@@ -30,11 +30,12 @@ void MainWindow::initControls() {
     });
     camera_index = 0;
     camera_res = QSize(1280, 720);
+    screen_res = QSize(0, 0);
     setGeometry(150, 150, 1280, 720);
     setWindowTitle("ACMX2 - Interface");
     QMenuBar *menuBarPtr = menuBar();
     fileMenu = menuBarPtr->addMenu(tr("File"));
-    cameraMenu = menuBarPtr->addMenu(tr("Camera"));
+    cameraMenu = menuBarPtr->addMenu(tr("Session"));
     runMenu = menuBarPtr->addMenu(tr("Run"));
     listMenu = menuBarPtr->addMenu(tr("List"));
     helpMenu = menuBarPtr->addMenu(tr("Help"));
@@ -45,7 +46,7 @@ void MainWindow::initControls() {
     fileMenu_exit = new QAction(tr("Exit"), this);
     connect(fileMenu_exit, &QAction::triggered, this, &MainWindow::fileExit);
     fileMenu->addAction(fileMenu_exit);
-    cameraSet = new QAction(tr("Settings"), this);
+    cameraSet = new QAction(tr("Session Properties"), this);
     connect(cameraSet, &QAction::triggered, this, &MainWindow::cameraSettings);
     cameraMenu->addAction(cameraSet);
     runMenu_select = new QAction(tr("Run Selected"), this);
@@ -314,8 +315,19 @@ void MainWindow::runSelected() {
     QString res;
     QTextStream stream(&res);
     stream << camera_res.width() << "x" << camera_res.height();
-    arguments << "--resolution" << res;
-    arguments << "--device" << QString::number(camera_index);
+    QString scr_res;
+    QTextStream stream_r(&scr_res);
+    stream_r << screen_res.width() << "x" << screen_res.height();
+    if(video_file.isEmpty()) {
+        arguments << "--camera-res" << res;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
+        arguments << "--device" << QString::number(camera_index);
+    } else {
+        arguments << "--input" << video_file;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
+    }
     arguments << "--prefix" << prefix_path;
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
@@ -336,9 +348,17 @@ void MainWindow::runAll() {
     QString res;
     QTextStream stream(&res);
     stream << camera_res.width() << "x" << camera_res.height();
-    arguments << "--resolution" << res;
-    arguments << "--device" << QString::number(camera_index);
-    arguments << "--prefix" << prefix_path;
+    QString scr_res;
+    QTextStream stream_r(&scr_res);
+    stream_r << screen_res.width() << "x" << screen_res.height();
+    if(video_file.isEmpty()) {
+        arguments << "--camera-res" << res;
+        arguments << "--resolution" << scr_res;
+        arguments << "--device" << QString::number(camera_index);
+    } else {
+        arguments << "--input" << video_file;
+        arguments << "--resolution" << scr_res;
+    }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -348,10 +368,22 @@ void MainWindow::runAll() {
 }
 
 void MainWindow::cameraSettings() {
-    SettingsWindow settings(this);
-    if(settings.exec() == QDialog::Accepted) {
-        camera_index = settings.getSelectedCameraIndex();
-        camera_res = settings.getSelectedResolution();
+    SettingsWindow settingsWindow(this);
+    if(settingsWindow.exec() == QDialog::Accepted) {
+        if (settingsWindow.isUsingVideoFile()) {
+            QString videoFile = settingsWindow.getSelectedVideoFile();
+            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
+            screen_res = screenResolution;
+            video_file = videoFile;
+        } else {
+            int cameraIndex = settingsWindow.getSelectedCameraIndex();
+            QSize cameraResolution = settingsWindow.getSelectedCameraResolution();
+            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
+            screen_res = screenResolution;
+            camera_index  = cameraIndex;
+            video_file = "";
+            camera_res = cameraResolution;
+        }
     }
 }
 

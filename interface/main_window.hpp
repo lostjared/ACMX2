@@ -65,8 +65,9 @@ private:
     QString executable_path;
     QString shader_path;
     QProcess *process;
-    QSize camera_res;
+    QSize camera_res, screen_res;
     unsigned int camera_index;
+    QString video_file;
     QString prefix_path;
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
