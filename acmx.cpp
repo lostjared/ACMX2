@@ -240,6 +240,11 @@ public:
             cv::flip(frame, frame, 0);
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
+        } else {
+            mx::system_out << "acmx2: capture device closed.";
+            fflush(stdout);
+            fflush(stderr);
+            win->quit();
         }
         setupCaptureFBO(win->w, win->h);
         fflush(stdout);
@@ -252,6 +257,11 @@ public:
         if (cap.isOpened() && cap.read(frame)) {
             cv::flip(frame, frame, 0);
             updateTexture(camera_texture, frame);
+        } else {
+            mx::system_out << "acmx2: capture device closed.";
+            fflush(stdout);
+            fflush(stderr);
+            win->quit();
         }
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
