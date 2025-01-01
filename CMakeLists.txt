@@ -17,4 +17,4 @@ target_include_directories(acmx2 PRIVATE
     ${OpenCV_INCLUDE_DIRS}
 )
 target_link_libraries(acmx2 PRIVATE libmx2::mx ${SDL2_LIBRARIES} ${SDL2_TTF_LIBRARIES} ${OpenCV_LIBRARIES})
-install(FILES acmx2 DESTINATION bin)
+install(TARGETS acmx2 DESTINATION bin)
