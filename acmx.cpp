@@ -12,6 +12,7 @@
 #include<filesystem>
 #include<chrono>
 #include<ctime>
+#include<optional>
 
 class ShaderLibrary {
     float alpha = 1.0;
@@ -150,8 +151,11 @@ class ACView : public gl::GLObject {
     ShaderLibrary library;
     std::tuple<int, std::string, int> flib;
     std::string prefix_path;
+    std::string filename;
+    double fps = 30;
+    std::optional<cv::Size> sizev, sizec;
 public:
-    ACView(int index, std::tuple<int, std::string, int> &slib, std::string prefix) : camera_index{index}, flib{slib}, prefix_path{prefix} {
+    ACView(std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, int index, std::tuple<int, std::string, int> &slib, std::string prefix) : sizec{csize}, sizev{vsize}, filename{filen}, camera_index{index}, flib{slib}, prefix_path{prefix} {
     }
     ~ACView() override {
 
@@ -179,17 +183,56 @@ public:
         if (error != GL_NO_ERROR) {
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
         }
-        cap.open(camera_index);
-        if(!cap.isOpened()) {
-            throw mx::Exception("Could not open camera at index: " + std::to_string(camera_index));
+        int w = 1280, h = 720;
+        if(filename.empty()) {
+#ifdef _WIN32
+            cap.open(camera_index, cv::CAP_DSHOW);
+#else
+            cap.open(camera_index);
+#endif
+            if(!cap.isOpened()) {
+                throw mx::Exception("Could not open camera at index: " + std::to_string(camera_index));
+            }
+            if(sizec.has_value()) {
+                cap.set(cv::CAP_PROP_FRAME_WIDTH, sizec.value().width);
+                cap.set(cv::CAP_PROP_FRAME_HEIGHT, sizec.value().height);
+            }
+            else {
+                cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
+                cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
+            }
+            w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+            h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+            fps = cap.get(cv::CAP_PROP_FPS);
+            mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
+            if(sizev.has_value()) {
+                w = sizev.value().width;
+                h = sizev.value().height;
+                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+            }
+            win->setWindowSize(w, h);
+            win->w = w;
+            win->h = h;
         }
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
-        int w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
-        int h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-        mx::system_out << "acmx2: Camera opened at resolution: " << w << "x" << h << "\n";
-        camera_width = w;
-        camera_height = h;
+        else {
+            cap.open(filename);
+            if(!cap.isOpened()) {
+                throw mx::Exception("Could not open video file: " + filename);
+            }
+            w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
+            h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+            fps = cap.get(cv::CAP_PROP_FPS);
+            mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: "  << fps << "\n";
+            if(sizev.has_value()) {
+                w = sizev.value().width;
+                h = sizev.value().height;
+                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+            }
+            win->setWindowSize(w, h);
+            win->w = w;
+            win->h = h;
+        }
+
         if(cap.read(frame)) {
             sprite.initSize(w, h);
             sprite.setName("samp");
@@ -197,7 +240,6 @@ public:
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         }
-
         setupCaptureFBO(win->w, win->h);
         fflush(stdout);
         fflush(stderr);
@@ -211,14 +253,14 @@ public:
             updateTexture(camera_texture, frame);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-        glViewport(0, 0, camera_width, camera_height);
+        glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         library.useProgram();
         library.update();
-        sprite.draw(camera_texture, 0, 0, frame.cols, frame.rows);
+        sprite.draw(camera_texture, 0, 0, win->w, win->h);
         if(snapshot == true) {
             static unsigned int offset = 0;
-            std::vector<unsigned char> pixels(camera_width * camera_height * 4);
+            std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             glBindTexture(GL_TEXTURE_2D, 0);
@@ -227,14 +269,14 @@ public:
             std::tm localTime = *std::localtime(&now_c);
             std::ostringstream oss;
             oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-            std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(offset) + ".png";
-            std::vector<unsigned char> flipped_pixels(camera_width * camera_height * 4);
-            for (int y = 0; y < camera_height; ++y) {
-                int src_row_start = y * camera_width * 4;
-                int dest_row_start = (camera_height - 1 - y) * camera_width * 4;
-                std::copy(pixels.begin() + src_row_start, pixels.begin() + src_row_start + camera_width * 4, flipped_pixels.begin() + dest_row_start);
+            std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(win->w) + "x" + std::to_string(win->h) + "-" + std::to_string(offset) + ".png";
+            std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
+            for (int y = 0; y < win->h; ++y) {
+                int src_row_start = y * win->w * 4;
+                int dest_row_start = (win->h - 1 - y) * win->w * 4;
+                std::copy(pixels.begin() + src_row_start, pixels.begin() + src_row_start + win->w * 4, flipped_pixels.begin() + dest_row_start);
             }
-            png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), camera_width, camera_height);
+            png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), win->w, win->h);
             mx::system_out << "acmx2: Took snapshot: " << name << "\n";
             fflush(stdout);
             fflush(stderr);
@@ -316,8 +358,6 @@ private:
     gl::ShaderProgram shader;
     cv::VideoCapture cap;
     int camera_index = 0;
-    int camera_width = 0;
-    int camera_height = 0;
     GLuint camera_texture = 0;
     GLuint captureFBO = 0;   
     GLuint fboTexture = 0;   
@@ -356,7 +396,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
+    MainWindow(std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
@@ -364,7 +404,7 @@ public:
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
-        setObject(new ACView(camera_device, filename, prefix));
+        setObject(new ACView(csize, vsize,filen, camera_device, filename, prefix));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
@@ -404,6 +444,10 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('R',"resolution", "Resolution WidthxHeight")
           .addOptionSingleValue('d', "Camera Device")
           .addOptionDoubleValue('D', "device", "Device Index")
+          .addOptionSingleValue('c', "Camera Resolution")
+          .addOptionDoubleValue('C', "camera-res", "Camera Resolution")
+          .addOptionSingleValue('i', "Input file")
+          .addOptionDoubleValue('I', "input", "Input file")
           .addOptionSingleValue('s', "Shader Library Index File")
           .addOptionDoubleValue('S', "shaders", "Shader Library Index File")
           .addOptionSingleValue('f', "Fragment Shader")
@@ -413,7 +457,7 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('e', "Save Prefix")
           .addOptionDoubleValue('E', "prefix", "Save Prefix");
     Argument<std::string> arg;
-    std::string path;
+    std::string path, filename;
     int value = 0;
     int tw = 1280, th = 720;
     int camera_device = 0;
@@ -422,6 +466,8 @@ int main(int argc, char **argv) {
     std::string prefix_path = ".";
     int mode = 0;
     int shader_index = 0;
+    std::optional<cv::Size> sizev = std::nullopt;
+    std::optional<cv::Size> csize = std::nullopt;
     try {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
@@ -451,6 +497,23 @@ int main(int argc, char **argv) {
                     right = arg.arg_value.substr(pos+1);
                     tw = atoi(left.c_str());
                     th = atoi(right.c_str());
+                    sizev = cv::Size(tw, th);
+                }
+                break;
+                case 'C':
+                case 'c': {
+                    auto pos = arg.arg_value.find("x");
+                    if(pos == std::string::npos)  {
+                        mx::system_err << "Error invalid camera resolution use WidthxHeight\n";
+                        mx::system_err.flush();
+                        exit(EXIT_FAILURE);
+                    }
+                    std::string left, right;
+                    left = arg.arg_value.substr(0, pos);
+                    right = arg.arg_value.substr(pos+1);
+                    int xw = atoi(left.c_str());
+                    int xh = atoi(right.c_str());
+                    csize = cv::Size(xw, xh);
                 }
                 break;
                 case 'd':
@@ -475,6 +538,10 @@ int main(int argc, char **argv) {
                 case 'E':
                     prefix_path = arg.arg_value;
                     break;
+                case 'i':
+                case 'I':
+                    filename = arg.arg_value;
+                    break;
             }
         }
     } catch (const ArgException<std::string>& e) {
@@ -488,7 +555,7 @@ int main(int argc, char **argv) {
     }
     try {
         auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
-        MainWindow main_window(prefix_path, path, t, camera_device, tw, th);
+        MainWindow main_window(csize, sizev, filename, prefix_path, path, t, camera_device, tw, th);
         main_window.loop();
     } catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
