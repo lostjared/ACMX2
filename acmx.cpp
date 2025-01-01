@@ -444,6 +444,16 @@ const char *message = R"(
 }
 )";
 
+template<typename T>
+void printAbout(Argz<T> &parser) { 
+    std::cout << "acmx2: v" << AC_VERSION << "\n";
+    std::cout << "(C) 2025 LostSideDead.\n";
+    std::cout << "https://lostsidedead.biz\n";
+    std::cout << "Command Line Arguments:\n";
+    parser.help(std::cout);
+    std::cout << message;
+}
+
 
 int main(int argc, char **argv) {
     fflush(stdout);
@@ -467,6 +477,10 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('H', "shader", "Shader Index")
           .addOptionSingleValue('e', "Save Prefix")
           .addOptionDoubleValue('E', "prefix", "Save Prefix");
+
+    if(argc == 1) {
+        printAbout(parser);
+    }
     Argument<std::string> arg;
     std::string path, filename;
     int value = 0;
@@ -483,12 +497,7 @@ int main(int argc, char **argv) {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
                 case 'v':
-                    std::cout << "acmx2: v" << AC_VERSION << "\n";
-                    std::cout << "(C) 2025 LostSideDead.\n";
-                    std::cout << "https://lostsidedead.biz\n";
-                    std::cout << "Command Line Arguments:\n";
-                    parser.help(std::cout);
-                    std::cout << message;
+                    printAbout(parser);
                     exit(EXIT_SUCCESS);
                     break;
                 case 'p':
@@ -561,8 +570,8 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }    
     if(path.empty()) {
-        mx::system_out << "mx: For help use -v\nNo path provided trying default current directory.\n";
         path = ".";
+        mx::system_out << "acmx2: Path name not provided using default current path...\n";
     }
     try {
         auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
