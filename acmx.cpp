@@ -377,6 +377,18 @@ public:
     void event(SDL_Event &e) override {}
 };
 
+const char *message = R"(
+-[ Keyboard controls ]- {
+    Up arrow - Shift Up
+    Down arrow - Shift Down
+    T - enable/disable time
+    I - step forward in disabled time
+    O - step backward in disabled time
+    Z - take snapshot
+}
+)";
+
+
 int main(int argc, char **argv) {
     fflush(stdout);
     Argz<std::string> parser(argc, argv);    
@@ -412,7 +424,9 @@ int main(int argc, char **argv) {
                     std::cout << "acmx2: v" << AC_VERSION << "\n";
                     std::cout << "(C) 2025 LostSideDead.\n";
                     std::cout << "https://lostsidedead.biz\n";
+                    std::cout << "Command Line Arguments:\n";
                     parser.help(std::cout);
+                    std::cout << message;
                     exit(EXIT_SUCCESS);
                     break;
                 case 'p':
@@ -464,7 +478,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }    
     if(path.empty()) {
-        mx::system_out << "mx: No path provided trying default current directory.\n";
+        mx::system_out << "mx: For help use -v\nNo path provided trying default current directory.\n";
         path = ".";
     }
     try {
