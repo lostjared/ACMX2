@@ -353,11 +353,13 @@ void MainWindow::runAll() {
     stream_r << screen_res.width() << "x" << screen_res.height();
     if(video_file.isEmpty()) {
         arguments << "--camera-res" << res;
-        arguments << "--resolution" << scr_res;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
     } else {
         arguments << "--input" << video_file;
-        arguments << "--resolution" << scr_res;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
     }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
