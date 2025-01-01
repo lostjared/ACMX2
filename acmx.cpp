@@ -77,7 +77,8 @@ public:
                     throw mx::Exception("setUniform");
                 }
                 mx::system_out << "acmx2: Compiled Shader " << index++ << ": " << line_data << "\n";
-
+                fflush(stdout);
+                fflush(stderr);
                 std::filesystem::path file_path(line_data);
                 std::string name = file_path.stem().string();
                 if(!name.empty()) {
