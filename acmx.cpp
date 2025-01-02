@@ -11,6 +11,7 @@
 #include<opencv2/opencv.hpp>
 #include<filesystem>
 #include<chrono>
+#include<thread>
 #include<ctime>
 #include<optional>
 #include "ffwrite.hpp"
@@ -149,17 +150,19 @@ private:
 };
 
 class ACView : public gl::GLObject {
-    cv::Mat frame;
-    ShaderLibrary library;
-    std::tuple<int, std::string, int> flib;
+    int bit_rate = 15000;
     std::string prefix_path;
     std::string filename, ofilename;
-    double fps = 30;
+    int camera_index = 0;
+    std::tuple<int, std::string, int> flib;
     std::optional<cv::Size> sizev, sizec;
+    cv::Mat frame;
+    ShaderLibrary library;
     Writer writer;
-    int bit_rate = 15000;
+    double fps = 30;
 public:
-    ACView(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, int index, std::tuple<int, std::string, int> &slib, std::string prefix) : bit_rate{Kbps}, sizec{csize}, sizev{vsize}, filename{filen}, ofilename{ofilen}, camera_index{index}, flib{slib}, prefix_path{prefix} {
+    ACView(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, int index, std::tuple<int, std::string, int> &slib, std::string prefix, double fps_value) 
+        : bit_rate{Kbps}, prefix_path{prefix}, filename{filen}, ofilename{ofilen}, camera_index{index}, flib{slib}, sizev{vsize}, sizec{csize}, fps{fps_value} {
     }
     ~ACView() override {
 
@@ -205,6 +208,7 @@ public:
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
             }
+            cap.set(cv::CAP_PROP_FPS, fps);
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
@@ -217,6 +221,15 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+            if(!ofilename.empty()) {
+                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
+                    fflush(stdout);
+                    fflush(stderr);
+                } else {
+                    throw mx::Exception("Could not open output video file: " +  ofilename + " for writing...");
+                }
+            }
         }
         else {
             cap.open(filename);
@@ -239,10 +252,13 @@ public:
             win->w = w;
             win->h = h;
             if(!ofilename.empty()) {
-                writer.open(ofilename, w, h, fps, bit_rate);
-                mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
-                fflush(stdout);
-                fflush(stderr);
+                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
+                    fflush(stdout);
+                    fflush(stderr);
+                } else {
+                    throw mx::Exception("Could not open output video file: " + ofilename + " for writing.");
+                }
             }
         }
 
@@ -284,7 +300,7 @@ public:
         library.useProgram();
         library.update();
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
-        if(snapshot == true || !ofilename.empty()) {
+        if(snapshot == true || writer.is_open()) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -298,8 +314,29 @@ public:
                         flipped_pixels.begin() + dest_row_start);
             }
 
-            if(!ofilename.empty() && writer.is_open()) {
-                writer.write(flipped_pixels.data());
+            if(writer.is_open()) {
+                static auto lastFrameTime = std::chrono::steady_clock::now();
+                if(filename.empty()) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto frameDuration = std::chrono::duration<double, std::milli>(1000.0 / fps);
+                    auto elapsedTime = now - lastFrameTime;
+                    int frameCount = static_cast<int>(elapsedTime / frameDuration);
+                    frameCount = std::max(1, frameCount); // Ensure at least one frame is written
+                    for (int i = 0; i < frameCount; ++i) {
+                        writer.write(flipped_pixels.data());
+                    }
+                    auto durationToAdd = std::chrono::duration_cast<std::chrono::steady_clock::duration>(frameCount * frameDuration);
+                    lastFrameTime += durationToAdd;
+                } else {
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
+                    double frameDuration = 1000.0 / fps;
+                    writer.write(flipped_pixels.data());
+                    if (elapsed < frameDuration) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(frameDuration - elapsed)));
+                    }
+                    lastFrameTime = std::chrono::steady_clock::now();
+                }
             }
             if(snapshot == true) {
                 static unsigned int offset = 0;
@@ -326,7 +363,8 @@ public:
         library.useProgram();
         library.update();
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
-      }
+    }
+
     virtual void event(gl::GLWindow *win, SDL_Event &e) override {
         switch(e.type) {
             case SDL_KEYUP:
@@ -394,7 +432,6 @@ private:
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
     cv::VideoCapture cap;
-    int camera_index = 0;
     GLuint camera_texture = 0;
     GLuint captureFBO = 0;   
     GLuint fboTexture = 0;   
@@ -433,7 +470,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
+    MainWindow(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, double fps_value, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
@@ -441,7 +478,7 @@ public:
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
-        setObject(new ACView(Kbps, csize, vsize,filen,ofilen,camera_device, filename, prefix));
+        setObject(new ACView(Kbps, csize, vsize,filen,ofilen,camera_device, filename, prefix, fps_value));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
@@ -506,7 +543,9 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('o', "output file")
           .addOptionDoubleValue('O', "output", "output file")
           .addOptionSingleValue('b', "Bitrate in Kbps")
-          .addOptionDoubleValue('B', "bitrate", "Bitrate in Kbps");
+          .addOptionDoubleValue('B', "bitrate", "Bitrate in Kbps")
+          .addOptionSingleValue('u', "frames per second")
+          .addOptionDoubleValue('U', "fps", "Frames per second");
 
     if(argc == 1) {
         printAbout(parser);
@@ -524,6 +563,7 @@ int main(int argc, char **argv) {
     int shader_index = 0;
     std::optional<cv::Size> sizev = std::nullopt;
     std::optional<cv::Size> csize = std::nullopt;
+    double fps_value = 30.0;
     try {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
@@ -601,6 +641,10 @@ int main(int argc, char **argv) {
                 case 'B':
                     Kbps = atoi(arg.arg_value.c_str());
                     break;
+                case 'u':
+                case 'U':
+                    fps_value = atof(arg.arg_value.c_str());
+                    break;
             }
         }
     } catch (const ArgException<std::string>& e) {
@@ -614,7 +658,7 @@ int main(int argc, char **argv) {
     }
     try {
         auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
-        MainWindow main_window(Kbps, csize, sizev, filename, ofilename, prefix_path, path, t, camera_device, tw, th);
+        MainWindow main_window(Kbps, csize, sizev, filename, ofilename, prefix_path, path, t, camera_device, fps_value, tw, th);
         main_window.loop();
     } catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
