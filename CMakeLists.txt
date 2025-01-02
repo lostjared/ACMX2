@@ -17,8 +17,8 @@ message(STATUS "AVUTIL_LIB: ${AVUTIL_LIB}")
 message(STATUS "SWSCALE_LIB: ${SWSCALE_LIB}")
 set(FF_LIBS ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
 add_library(ffwrite STATIC ffwrite.cpp)
-target_include_directories(ffwrite PRIVATE ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(ffwrite PRIVATE ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB} ${OpenCV_LIBRARIES})
+target_include_directories(ffwrite PRIVATE)
+target_link_libraries(ffwrite PRIVATE ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
 add_executable(acmx2 acmx.cpp)
 target_include_directories(acmx2 PRIVATE 
     ${CMAKE_PREFIX_PATH}/include/mx2

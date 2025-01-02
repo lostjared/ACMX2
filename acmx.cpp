@@ -293,12 +293,13 @@ public:
             for (int y = 0; y < win->h; ++y) {
                 int src_row_start = y * win->w * 4;
                 int dest_row_start = (win->h - 1 - y) * win->w * 4;
-                std::copy(pixels.begin() + src_row_start, pixels.begin() + src_row_start + win->w * 4, flipped_pixels.begin() + dest_row_start);
+                std::copy(pixels.begin() + src_row_start,
+                        pixels.begin() + src_row_start + win->w * 4,
+                        flipped_pixels.begin() + dest_row_start);
             }
+
             if(!ofilename.empty() && writer.is_open()) {
-                cv::Mat image(win->h, win->w, CV_8UC4, flipped_pixels.data());
-                cv::cvtColor(image, image, cv::COLOR_RGBA2BGR);
-                writer.write(image);
+                writer.write(flipped_pixels.data());
             }
             if(snapshot == true) {
                 static unsigned int offset = 0;
