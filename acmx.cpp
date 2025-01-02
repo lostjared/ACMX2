@@ -13,6 +13,7 @@
 #include<chrono>
 #include<ctime>
 #include<optional>
+#include "ffwrite.hpp"
 
 class ShaderLibrary {
     float alpha = 1.0;
@@ -152,11 +153,13 @@ class ACView : public gl::GLObject {
     ShaderLibrary library;
     std::tuple<int, std::string, int> flib;
     std::string prefix_path;
-    std::string filename;
+    std::string filename, ofilename;
     double fps = 30;
     std::optional<cv::Size> sizev, sizec;
+    Writer writer;
+    int bit_rate = 15000;
 public:
-    ACView(std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, int index, std::tuple<int, std::string, int> &slib, std::string prefix) : sizec{csize}, sizev{vsize}, filename{filen}, camera_index{index}, flib{slib}, prefix_path{prefix} {
+    ACView(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, int index, std::tuple<int, std::string, int> &slib, std::string prefix) : bit_rate{Kbps}, sizec{csize}, sizev{vsize}, filename{filen}, ofilename{ofilen}, camera_index{index}, flib{slib}, prefix_path{prefix} {
     }
     ~ACView() override {
 
@@ -223,15 +226,24 @@ public:
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
+            
             mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: "  << fps << "\n";
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+                fflush(stdout);
+                fflush(stderr);
             }
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+            if(!ofilename.empty()) {
+                writer.open(ofilename, w, h, fps, bit_rate);
+                mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
+                fflush(stdout);
+                fflush(stderr);
+            }
         }
 
         if(cap.read(frame)) {
@@ -261,7 +273,10 @@ public:
             mx::system_out << "acmx2: capture device closed.";
             fflush(stdout);
             fflush(stderr);
+            if(writer.is_open())
+                writer.close();
             win->quit();
+            return;
         }
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
@@ -269,7 +284,7 @@ public:
         library.useProgram();
         library.update();
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
-        if(snapshot == true) {
+        if(snapshot == true || !ofilename.empty()) {
             static unsigned int offset = 0;
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
@@ -287,13 +302,21 @@ public:
                 int dest_row_start = (win->h - 1 - y) * win->w * 4;
                 std::copy(pixels.begin() + src_row_start, pixels.begin() + src_row_start + win->w * 4, flipped_pixels.begin() + dest_row_start);
             }
-            png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), win->w, win->h);
-            mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+            if(!ofilename.empty() && writer.is_open()) {
+                cv::Mat image(win->h, win->w, CV_8UC4, flipped_pixels.data());
+                writer.write(image);
+            }
+            if(snapshot == true) {
+                png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), win->w, win->h);
+                mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+            }
             fflush(stdout);
             fflush(stderr);
             snapshot = false;
             ++offset;
         }
+
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -407,7 +430,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
+    MainWindow(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
         util.path = path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
@@ -415,7 +438,7 @@ public:
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
-        setObject(new ACView(csize, vsize,filen, camera_device, filename, prefix));
+        setObject(new ACView(Kbps, csize, vsize,filen,ofilen,camera_device, filename, prefix));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
@@ -476,15 +499,20 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('h', "Shader Index")
           .addOptionDoubleValue('H', "shader", "Shader Index")
           .addOptionSingleValue('e', "Save Prefix")
-          .addOptionDoubleValue('E', "prefix", "Save Prefix");
+          .addOptionDoubleValue('E', "prefix", "Save Prefix")
+          .addOptionSingleValue('o', "output file")
+          .addOptionDoubleValue('O', "output", "output file")
+          .addOptionSingleValue('b', "Bitrate in Kbps")
+          .addOptionDoubleValue('B', "bitrate", "Bitrate in Kbps");
 
     if(argc == 1) {
         printAbout(parser);
     }
     Argument<std::string> arg;
-    std::string path, filename;
+    std::string path, filename, ofilename;
     int value = 0;
     int tw = 1280, th = 720;
+    int Kbps = 15000;
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
@@ -562,6 +590,14 @@ int main(int argc, char **argv) {
                 case 'I':
                     filename = arg.arg_value;
                     break;
+                case 'o':
+                case 'O':
+                    ofilename = arg.arg_value;
+                    break;
+                case 'b':
+                case 'B':
+                    Kbps = atoi(arg.arg_value.c_str());
+                    break;
             }
         }
     } catch (const ArgException<std::string>& e) {
@@ -575,7 +611,7 @@ int main(int argc, char **argv) {
     }
     try {
         auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
-        MainWindow main_window(csize, sizev, filename, prefix_path, path, t, camera_device, tw, th);
+        MainWindow main_window(Kbps, csize, sizev, filename, ofilename, prefix_path, path, t, camera_device, tw, th);
         main_window.loop();
     } catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
