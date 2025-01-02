@@ -285,17 +285,10 @@ public:
         library.update();
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
         if(snapshot == true || !ofilename.empty()) {
-            static unsigned int offset = 0;
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             glBindTexture(GL_TEXTURE_2D, 0);
-            auto now = std::chrono::system_clock::now();
-            std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-            std::tm localTime = *std::localtime(&now_c);
-            std::ostringstream oss;
-            oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-            std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(win->w) + "x" + std::to_string(win->h) + "-" + std::to_string(offset) + ".png";
             std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
             for (int y = 0; y < win->h; ++y) {
                 int src_row_start = y * win->w * 4;
@@ -304,16 +297,25 @@ public:
             }
             if(!ofilename.empty() && writer.is_open()) {
                 cv::Mat image(win->h, win->w, CV_8UC4, flipped_pixels.data());
+                cv::cvtColor(image, image, cv::COLOR_RGBA2BGR);
                 writer.write(image);
             }
             if(snapshot == true) {
+                static unsigned int offset = 0;
+                auto now = std::chrono::system_clock::now();
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                std::tm localTime = *std::localtime(&now_c);
+                std::ostringstream oss;
+                oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
+                std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(win->w) + "x" + std::to_string(win->h) + "-" + std::to_string(offset) + ".png";
                 png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), win->w, win->h);
                 mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                ++offset;
             }
             fflush(stdout);
             fflush(stderr);
             snapshot = false;
-            ++offset;
+            
         }
 
 
@@ -446,7 +448,7 @@ public:
     ~MainWindow() override {}
 
     void draw() override {
-        glClearColor(0.f, 0.f, 0.f, 1.f);
+        glClearColor(0.f, 0.f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glViewport(0, 0, w, h);
         object->draw(this);

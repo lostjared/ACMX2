@@ -97,7 +97,7 @@ void Writer::write(const cv::Mat &frame_mat) {
         return;
     }
     cv::Mat yuv_frame;
-    cv::cvtColor(frame_mat, yuv_frame, cv::COLOR_RGBA2YUV_I420);
+    cv::cvtColor(frame_mat, yuv_frame, cv::COLOR_BGR2YUV_I420);
     int y_size = codec_context->width * codec_context->height;
     memcpy(frame->data[0], yuv_frame.data, y_size);                   
     memcpy(frame->data[1], yuv_frame.data + y_size, y_size / 4);      
