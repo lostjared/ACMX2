@@ -71,7 +71,7 @@ void GlslSyntaxHighlighter::initHighlightingRules()
     }
 
     QTextCharFormat numberFormat;
-    numberFormat.setForeground(Qt::darkMagenta);
+    numberFormat.setForeground(Qt::darkCyan);
 
     {
         HighlightingRule rule;
