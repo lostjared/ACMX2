@@ -69,6 +69,9 @@ private:
     unsigned int camera_index;
     QString video_file;
     QString prefix_path;
+    QString output_file;
+    int output_kbps = 15000;
+    double output_fps = 30.0f;
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
     QString readFileContents(const QString &filePath);

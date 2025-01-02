@@ -323,12 +323,20 @@ void MainWindow::runSelected() {
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
+        arguments << "--fps" << QString::number(output_fps);
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
     }
     arguments << "--prefix" << prefix_path;
+
+    if(!output_file.isEmpty()) {
+        arguments << "--output" << output_file;
+        arguments << "--bitrate" << QString::number(output_kbps);
+    }
+
+
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -356,11 +364,21 @@ void MainWindow::runAll() {
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
+        arguments << "--fps" << QString::number(output_fps);
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
-            arguments << "--resolution" << scr_res;
+        arguments << "--resolution" << scr_res;
     }
+
+    arguments << "--prefix" << prefix_path;
+
+    if(!output_file.isEmpty()) {
+        arguments << "--output" << output_file;
+        arguments << "--bitrate" << QString::number(output_kbps);
+    }
+
+
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -372,8 +390,8 @@ void MainWindow::runAll() {
 void MainWindow::cameraSettings() {
     SettingsWindow settingsWindow(this);
     if(settingsWindow.exec() == QDialog::Accepted) {
-        if (settingsWindow.isUsingVideoFile()) {
-            QString videoFile = settingsWindow.getSelectedVideoFile();
+        if (settingsWindow.isUsingInputVideoFile()) {
+            QString videoFile = settingsWindow.getInputVideoFile();
             QSize screenResolution = settingsWindow.getSelectedScreenResolution();
             screen_res = screenResolution;
             video_file = videoFile;
@@ -385,6 +403,14 @@ void MainWindow::cameraSettings() {
             camera_index  = cameraIndex;
             video_file = "";
             camera_res = cameraResolution;
+            output_fps = settingsWindow.getCameraFPS();
+        }
+        if(settingsWindow.isSavingToOutputVideoFile()) {
+            output_file = settingsWindow.getOutputVideoFile();
+            output_kbps = settingsWindow.getSaveFileKbps();
+        } else {
+            output_file = "";
+            output_kbps = 15000;
         }
     }
 }

@@ -8,9 +8,10 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPushButton>
+#include <QCheckBox>
 #include <QFileDialog>
 #include <QRadioButton>
+#include <QSpinBox>
 
 class SettingsWindow : public QDialog {
     Q_OBJECT
@@ -22,24 +23,36 @@ public:
     int getSelectedCameraIndex() const;
     QSize getSelectedCameraResolution() const;
     QSize getSelectedScreenResolution() const;
-    QString getSelectedVideoFile() const;
-    bool isUsingVideoFile() const;
+    int getCameraFPS() const;
+    int getSaveFileKbps() const;
+    QString getInputVideoFile() const;
+    QString getOutputVideoFile() const;
+    bool isUsingInputVideoFile() const;
+    bool isSavingToOutputVideoFile() const;
 
 private slots:
     void acceptSettings();
     void rejectSettings();
-    void browseVideoFile();
+    void browseInputVideoFile();
+    void browseOutputVideoFile();
 
 private:
     QRadioButton *cameraOptionRadioButton;
-    QRadioButton *videoOptionRadioButton;
+    QRadioButton *inputVideoOptionRadioButton;
 
     QComboBox *cameraIndexComboBox;
     QComboBox *cameraResolutionComboBox;
     QComboBox *screenResolutionComboBox;
 
-    QLineEdit *videoFileLineEdit;
-    QPushButton *browseButton;
+    QSpinBox *cameraFPSSpinBox;
+    QSpinBox *saveFileKbpsSpinBox;
+
+    QLineEdit *inputVideoFileLineEdit;
+    QPushButton *browseInputVideoButton;
+
+    QCheckBox *saveOutputVideoCheckBox;
+    QLineEdit *outputVideoFileLineEdit;
+    QPushButton *browseOutputVideoButton;
 
     QPushButton *okButton;
     QPushButton *cancelButton;
@@ -47,8 +60,12 @@ private:
     int selectedCameraIndex;
     QSize selectedCameraResolution;
     QSize selectedScreenResolution;
-    QString selectedVideoFile;
-    bool useVideoFile;
+    int cameraFPS;
+    int saveFileKbps;
+    QString inputVideoFile;
+    QString outputVideoFile;
+    bool useInputVideoFile;
+    bool saveOutputVideoFile;
 };
 
 #endif

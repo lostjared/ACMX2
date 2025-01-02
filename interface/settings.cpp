@@ -1,83 +1,125 @@
 #include "settings.hpp"
+#include<QMessageBox>
 
 SettingsWindow::SettingsWindow(QWidget *parent)
     : QDialog(parent),
       selectedCameraIndex(0),
       selectedCameraResolution(640, 480),
       selectedScreenResolution(1280, 720),
-      useVideoFile(false) {
+      cameraFPS(30),
+      saveFileKbps(1500),
+      useInputVideoFile(false),
+      saveOutputVideoFile(false) {
     init();
 }
 
 void SettingsWindow::init() {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-    // Option to select camera or video file
     cameraOptionRadioButton = new QRadioButton("Use Camera", this);
-    videoOptionRadioButton = new QRadioButton("Use Video File", this);
+    inputVideoOptionRadioButton = new QRadioButton("Use Video File as Input", this);
     cameraOptionRadioButton->setChecked(true);
 
     mainLayout->addWidget(cameraOptionRadioButton);
-    mainLayout->addWidget(videoOptionRadioButton);
+    mainLayout->addWidget(inputVideoOptionRadioButton);
 
-    // Camera selection
     QLabel *cameraIndexLabel = new QLabel("Select Camera Index:", this);
     cameraIndexComboBox = new QComboBox(this);
     for (int i = 0; i <= 9; ++i) {
         cameraIndexComboBox->addItem(QString::number(i));
     }
-    mainLayout->addWidget(cameraIndexLabel);
-    mainLayout->addWidget(cameraIndexComboBox);
 
-    // Camera resolution selection
     QLabel *cameraResolutionLabel = new QLabel("Select Camera Resolution:", this);
     cameraResolutionComboBox = new QComboBox(this);
     QStringList cameraResolutions = {
         "640x360", "640x480", "960x720", "1280x720", "1920x1080", "3840x2160"
     };
     cameraResolutionComboBox->addItems(cameraResolutions);
-    cameraResolutionComboBox->setCurrentIndex(3); // Default: 1280x720
-    mainLayout->addWidget(cameraResolutionLabel);
-    mainLayout->addWidget(cameraResolutionComboBox);
+    cameraResolutionComboBox->setCurrentIndex(3);
 
-    // Video file selection
-    QHBoxLayout *videoFileLayout = new QHBoxLayout;
-    videoFileLineEdit = new QLineEdit(this);
-    browseButton = new QPushButton("Browse", this);
-    videoFileLayout->addWidget(videoFileLineEdit);
-    videoFileLayout->addWidget(browseButton);
+    QLabel *cameraFPSLabel = new QLabel("Set Camera FPS:", this);
+    cameraFPSSpinBox = new QSpinBox(this);
+    cameraFPSSpinBox->setRange(1, 120);
+    cameraFPSSpinBox->setValue(30);
 
-    QLabel *videoFileLabel = new QLabel("Select Video File:", this);
-    mainLayout->addWidget(videoFileLabel);
-    mainLayout->addLayout(videoFileLayout);
+    QHBoxLayout *inputVideoFileLayout = new QHBoxLayout;
+    inputVideoFileLineEdit = new QLineEdit(this);
+    inputVideoFileLineEdit->setReadOnly(true);
+    browseInputVideoButton = new QPushButton("Browse", this);
+    inputVideoFileLayout->addWidget(inputVideoFileLineEdit);
+    inputVideoFileLayout->addWidget(browseInputVideoButton);
 
-    // Screen resolution selection
+    saveOutputVideoCheckBox = new QCheckBox("Save Output to Video File", this);
+
+    QHBoxLayout *outputVideoFileLayout = new QHBoxLayout;
+    outputVideoFileLineEdit = new QLineEdit(this);
+    outputVideoFileLineEdit->setReadOnly(true);
+    browseOutputVideoButton = new QPushButton("Browse", this);
+    outputVideoFileLayout->addWidget(outputVideoFileLineEdit);
+    outputVideoFileLayout->addWidget(browseOutputVideoButton);
+
+    QLabel *saveFileKbpsLabel = new QLabel("Set Save File Kbps:", this);
+    saveFileKbpsSpinBox = new QSpinBox(this);
+    saveFileKbpsSpinBox->setRange(100, 50000);
+    saveFileKbpsSpinBox->setValue(1500);
+
     QLabel *screenResolutionLabel = new QLabel("Select Screen Resolution:", this);
     screenResolutionComboBox = new QComboBox(this);
     QStringList screenResolutions = {
-        "Default","640x360", "640x480", "960x720", "1280x720", "1440x1080", 
+        "Default", "640x360", "640x480", "960x720", "1280x720", "1440x1080", 
         "1920x1080", "2560x1440", "3840x2160"
     };
     screenResolutionComboBox->addItems(screenResolutions);
-    screenResolutionComboBox->setCurrentIndex(0); 
-    mainLayout->addWidget(screenResolutionLabel);
-    mainLayout->addWidget(screenResolutionComboBox);
+    screenResolutionComboBox->setCurrentIndex(0);
 
-    // Buttons
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     okButton = new QPushButton("OK", this);
     cancelButton = new QPushButton("Cancel", this);
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
 
+    mainLayout->addWidget(cameraIndexLabel);
+    mainLayout->addWidget(cameraIndexComboBox);
+    mainLayout->addWidget(cameraResolutionLabel);
+    mainLayout->addWidget(cameraResolutionComboBox);
+    mainLayout->addWidget(cameraFPSLabel);
+    mainLayout->addWidget(cameraFPSSpinBox);
+    mainLayout->addLayout(inputVideoFileLayout);
+    mainLayout->addWidget(saveOutputVideoCheckBox);
+    mainLayout->addLayout(outputVideoFileLayout);
+    mainLayout->addWidget(saveFileKbpsLabel);
+    mainLayout->addWidget(saveFileKbpsSpinBox);
+    mainLayout->addWidget(screenResolutionLabel);
+    mainLayout->addWidget(screenResolutionComboBox);
     mainLayout->addLayout(buttonLayout);
 
     setLayout(mainLayout);
     setWindowTitle("Settings");
 
+    connect(cameraOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
+        cameraIndexComboBox->setEnabled(checked);
+        cameraResolutionComboBox->setEnabled(checked);
+        cameraFPSSpinBox->setEnabled(checked);
+        inputVideoFileLineEdit->setEnabled(!checked);
+        browseInputVideoButton->setEnabled(!checked);
+    });
+
+    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        outputVideoFileLineEdit->setEnabled(checked);
+        browseOutputVideoButton->setEnabled(checked);
+        saveFileKbpsSpinBox->setEnabled(checked);
+    });
+
     connect(okButton, &QPushButton::clicked, this, &SettingsWindow::acceptSettings);
     connect(cancelButton, &QPushButton::clicked, this, &SettingsWindow::rejectSettings);
-    connect(browseButton, &QPushButton::clicked, this, &SettingsWindow::browseVideoFile);
+    connect(browseInputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseInputVideoFile);
+    connect(browseOutputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseOutputVideoFile);
+
+    inputVideoFileLineEdit->setEnabled(false);
+    browseInputVideoButton->setEnabled(false);
+    outputVideoFileLineEdit->setEnabled(false);
+    browseOutputVideoButton->setEnabled(false);
+    saveFileKbpsSpinBox->setEnabled(false);
 }
 
 int SettingsWindow::getSelectedCameraIndex() const {
@@ -92,25 +134,43 @@ QSize SettingsWindow::getSelectedScreenResolution() const {
     return selectedScreenResolution;
 }
 
-QString SettingsWindow::getSelectedVideoFile() const {
-    return selectedVideoFile;
+int SettingsWindow::getCameraFPS() const {
+    return cameraFPS;
 }
 
-bool SettingsWindow::isUsingVideoFile() const {
-    return useVideoFile;
+int SettingsWindow::getSaveFileKbps() const {
+    return saveFileKbps;
+}
+
+QString SettingsWindow::getInputVideoFile() const {
+    return inputVideoFile;
+}
+
+QString SettingsWindow::getOutputVideoFile() const {
+    return outputVideoFile;
+}
+
+bool SettingsWindow::isUsingInputVideoFile() const {
+    return useInputVideoFile;
+}
+
+bool SettingsWindow::isSavingToOutputVideoFile() const {
+    return saveOutputVideoFile;
 }
 
 void SettingsWindow::acceptSettings() {
-    useVideoFile = videoOptionRadioButton->isChecked();
+    useInputVideoFile = inputVideoOptionRadioButton->isChecked();
+    saveOutputVideoFile = saveOutputVideoCheckBox->isChecked();
 
-    if (useVideoFile) {
-        selectedVideoFile = videoFileLineEdit->text();
+    if (useInputVideoFile) {
+        inputVideoFile = inputVideoFileLineEdit->text();
     } else {
         selectedCameraIndex = cameraIndexComboBox->currentText().toInt();
         QStringList cameraResParts = cameraResolutionComboBox->currentText().split('x');
         if (cameraResParts.size() == 2) {
             selectedCameraResolution = QSize(cameraResParts[0].toInt(), cameraResParts[1].toInt());
         }
+        cameraFPS = cameraFPSSpinBox->value();
     }
 
     QStringList screenResParts = screenResolutionComboBox->currentText().split('x');
@@ -120,6 +180,16 @@ void SettingsWindow::acceptSettings() {
         selectedScreenResolution = QSize(0, 0);
     }
 
+    if (saveOutputVideoFile) {
+        outputVideoFile = outputVideoFileLineEdit->text();
+        if(outputVideoFile.isEmpty()) {
+            QMessageBox::information(this, "Output required", "Requires you set a output filename");
+            reject();
+            return;
+        }
+        saveFileKbps = saveFileKbpsSpinBox->value();
+    }
+
     accept();
 }
 
@@ -127,9 +197,19 @@ void SettingsWindow::rejectSettings() {
     reject();
 }
 
-void SettingsWindow::browseVideoFile() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Select Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)");
+void SettingsWindow::browseInputVideoFile() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Select Input Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)");
     if (!fileName.isEmpty()) {
-        videoFileLineEdit->setText(fileName);
+        inputVideoFileLineEdit->setText(fileName);
+    }
+}
+
+void SettingsWindow::browseOutputVideoFile() {
+    QString fileName = QFileDialog::getSaveFileName(this, "Select Output Video File", "", "MP4 Files (*.mp4)");
+    if (!fileName.isEmpty()) {
+        if (!fileName.endsWith(".mp4")) {
+            fileName += ".mp4";
+        }
+        outputVideoFileLineEdit->setText(fileName);
     }
 }
