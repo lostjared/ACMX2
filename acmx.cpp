@@ -107,13 +107,23 @@ public:
     size_t index() { return library_index; }
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
-    void update() {
+    void update(gl::GLWindow *win) {
         if(time_active) 
             time_f = static_cast<float>(SDL_GetTicks())/1000.0f;
 
         programs[index()]->setUniform("time_f", time_f);
-        GLint loc = glGetUniformLocation(programs.back()->id(), "alpha");
+        GLint loc = glGetUniformLocation(programs[index()]->id(), "alpha");
         glUniform1f(loc, alpha);
+        GLuint iTimeLoc = glGetUniformLocation(programs[index()]->id(), "iTime");
+        float currentTime = SDL_GetTicks() / 1000.0f; 
+        glUniform1f(iTimeLoc, currentTime);
+        GLuint iMouseLoc = glGetUniformLocation(programs[index()]->id(), "iMouse");
+        int mouseX, mouseY;
+        Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
+        float normalizedMouseX = static_cast<float>(mouseX);
+        float normalizedMouseY = static_cast<float>(mouseY); 
+        float mouseZ = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) ? 1.0f : 0.0f;
+        glUniform4f(iMouseLoc, normalizedMouseX, normalizedMouseY, mouseZ, 0.0f);
     }
 
     void incTime(float value) {
@@ -142,7 +152,10 @@ public:
     }
 
     bool timeActive() const { return time_active; }
+    
+    void event(SDL_Event &e) {
 
+    }
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
@@ -298,7 +311,7 @@ public:
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         library.useProgram();
-        library.update();
+        library.update(win);
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
         if(snapshot == true || writer.is_open()) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
@@ -361,7 +374,7 @@ public:
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         library.useProgram();
-        library.update();
+        library.update(win);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
     }
 
@@ -396,6 +409,7 @@ public:
                 }
                 break;
         }
+        library.event(e);
     }
 
     GLuint loadTexture(cv::Mat &frame) {
