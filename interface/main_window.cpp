@@ -104,7 +104,7 @@ void MainWindow::initControls() {
 #else
         executable_path = appSettings.value("exePath", "acmx2").toString();
 #endif
-    prefix_path = appSettings.value("prefix_path", "ACMX2_Snapshot").toString();
+    prefix_path = appSettings.value("prefix_path", ".").toString();
     if(!path.isEmpty()) {
         shader_path = path;
         loadShaders(path);

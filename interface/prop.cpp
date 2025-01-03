@@ -84,6 +84,16 @@ void PropWindow::init() {
     exePathLineEdit->setText(filePath);
     shaderDirLineEdit->setText(shader_);
     screenshotDirLineEdit->setText(screenshotDir);
+    exePathLineEdit->setMinimumHeight(30);
+    shaderDirLineEdit->setMinimumHeight(30);
+    screenshotDirLineEdit->setMinimumHeight(30);
+
+    exeBrowseButton->setMinimumHeight(30);
+    shaderDirBrowseButton->setMinimumHeight(30);
+    screenshotDirBrowseButton->setMinimumHeight(30);
+
+    okButton->setMinimumHeight(30);
+    cancelButton->setMinimumHeight(30);
 }
 
 void PropWindow::selectExecutable() {
