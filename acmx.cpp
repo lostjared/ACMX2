@@ -52,6 +52,7 @@ public:
             program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
+            program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
         }
     }
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -95,6 +96,7 @@ public:
                     program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
+                    program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
                 }
            }
         }
@@ -136,6 +138,8 @@ public:
         float normalizedMouseY = static_cast<float>(mouseY); 
         float mouseZ = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) ? 1.0f : 0.0f;
         glUniform4f(iMouseLoc, normalizedMouseX, normalizedMouseY, mouseZ, 0.0f);
+        GLuint iResolution = program_names[index()].iResolution;
+        glUniform2f(iResolution, win->w, win->h);
     }
 
     void incTime(float value) {
@@ -174,7 +178,7 @@ private:
 
     struct ProgramData {
         std::string name;
-        GLuint loc, iTime, iMouse, time_f;
+        GLuint loc, iTime, iMouse, time_f, iResolution;
     };
 
     std::unordered_map<int, ProgramData> program_names;
