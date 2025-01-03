@@ -7,7 +7,7 @@ SettingsWindow::SettingsWindow(QWidget *parent)
       selectedCameraResolution(640, 480),
       selectedScreenResolution(1280, 720),
       cameraFPS(30),
-      saveFileKbps(1500),
+      saveFileKbps(2500),
       useInputVideoFile(false),
       saveOutputVideoFile(false) {
     init();

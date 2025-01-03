@@ -182,7 +182,7 @@ private:
 };
 
 class ACView : public gl::GLObject {
-    int bit_rate = 15000;
+    int bit_rate = 25000;
     std::string prefix_path;
     std::string filename, ofilename;
     int camera_index = 0;
@@ -587,7 +587,7 @@ int main(int argc, char **argv) {
     std::string path, filename, ofilename;
     int value = 0;
     int tw = 1280, th = 720;
-    int Kbps = 15000;
+    int Kbps = 25000;
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
