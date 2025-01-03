@@ -23,9 +23,7 @@ add_executable(acmx2 acmx.cpp)
 target_compile_options(ffwrite PRIVATE -O2 -Wall -pedantic)
 target_compile_options(acmx2 PRIVATE -O2 -Wall -pedantic)
 target_include_directories(acmx2 PRIVATE 
-    ${CMAKE_PREFIX_PATH}/include/mx2
-    /usr/include/mx2
-    /usr/local/include/mx2
+    ${libmx2_INCLUDE_DIRS}
     ${SDL2_INCLUDE_DIRS} 
     ${SDL2_TTF_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
