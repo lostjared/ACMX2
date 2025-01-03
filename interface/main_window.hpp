@@ -46,7 +46,17 @@ public slots:
     void menuUp();
     void menuDown();
     void menuRemove();
+protected:
 
+     void closeEvent(QCloseEvent *event) override {
+        if (process->state() == QProcess::Running) {
+            process->terminate();
+            if (!process->waitForFinished(10000)) {
+                process->kill(); 
+            }
+        }
+        QMainWindow::closeEvent(event); 
+    }
 private:
     QListView        *list_view;
     QStringList       items;
@@ -55,11 +65,13 @@ private:
     QMenu *fileMenu;
     QMenu *cameraMenu;
     QMenu *runMenu;
+    QMenu *playbackMenu;
     QMenu *listMenu;
     QMenu *helpMenu;
     QAction *fileMenu_prop, *fileMenu_exit;
     QAction *cameraSet;
     QAction *runMenu_select, *runMenu_all;
+    QAction *play_repeat, *play_stop;
     QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down;
     QAction *helpMenu_about;
     QString executable_path;

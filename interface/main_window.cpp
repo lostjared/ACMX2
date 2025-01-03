@@ -27,6 +27,7 @@ void MainWindow::initControls() {
         QTextStream stream(&text);
         stream << "acmx2: Exited with Code: " << exitCode;
         Log(text + "<br>");
+        play_stop->setEnabled(false);
     });
     camera_index = 0;
     camera_res = QSize(1280, 720);
@@ -36,6 +37,7 @@ void MainWindow::initControls() {
     QMenuBar *menuBarPtr = menuBar();
     fileMenu = menuBarPtr->addMenu(tr("File"));
     cameraMenu = menuBarPtr->addMenu(tr("Session"));
+    playbackMenu = menuBarPtr->addMenu(tr("Playback"));
     runMenu = menuBarPtr->addMenu(tr("Run"));
     listMenu = menuBarPtr->addMenu(tr("List"));
     helpMenu = menuBarPtr->addMenu(tr("Help"));
@@ -58,6 +60,16 @@ void MainWindow::initControls() {
     runMenu_all->setShortcut(QKeySequence("Ctrl+E"));
     connect(runMenu_all, &QAction::triggered, this, &MainWindow::runAll);
     runMenu->addAction(runMenu_all);
+    play_repeat = new QAction(tr("Repeat"), this);
+    play_repeat->setCheckable(true);
+    play_repeat->setChecked(false);
+    playbackMenu->addAction(play_repeat);
+    play_stop = new QAction(tr("Stop"), this);
+    play_stop->setEnabled(false);
+    connect(play_stop, &QAction::triggered, this,   [=]() {
+        process->terminate();
+    });
+    playbackMenu->addAction(play_stop);
     listMenu_new = new QAction(tr("New Shader Library"), this);
     connect(listMenu_new,  &QAction::triggered, this, &MainWindow::newList);
     listMenu->addAction(listMenu_new);
@@ -324,6 +336,8 @@ void MainWindow::runSelected() {
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
         arguments << "--fps" << QString::number(output_fps);
+        if(play_repeat->isChecked())
+            arguments << "--repeat";
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
@@ -342,6 +356,8 @@ void MainWindow::runSelected() {
     if(!process->waitForStarted()) {
         Log("<b style='color:red;'>Failed to start the program.</b>");
         QMessageBox::critical(this, "Error", "Failed to start the program.");
+    } else {
+        play_stop->setEnabled(true);
     }
 }
 void MainWindow::runAll() {
@@ -365,6 +381,8 @@ void MainWindow::runAll() {
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
         arguments << "--fps" << QString::number(output_fps);
+        if(play_repeat->isChecked())
+            arguments << "--repeat";
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
@@ -384,6 +402,8 @@ void MainWindow::runAll() {
     if(!process->waitForStarted()) {
         Log("<b style='color:red;'>Failed to start the program.</b>");
         QMessageBox::critical(this, "Error", "Failed to start the program.");
+    } else {
+        play_stop->setEnabled(true);
     }
 }
 
