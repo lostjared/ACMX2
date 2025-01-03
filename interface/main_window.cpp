@@ -364,7 +364,15 @@ void MainWindow::runAll() {
     if(shader_path.length()==0) {
         QMessageBox::information(this, "Select Shaders", "Select Shader Path");
         return;
-   }
+    }
+    int index = 0;
+    QItemSelectionModel *selectionModel = list_view->selectionModel();
+    if (!selectionModel->hasSelection()) {
+        index =  0;
+    } else {
+        QModelIndex selectedIndex = selectionModel->currentIndex();
+        index = selectedIndex.row();
+    }
     QStringList arguments;
     QString dirPath = QCoreApplication::applicationDirPath();
     QString shader_file = shader_path;
@@ -388,15 +396,12 @@ void MainWindow::runAll() {
         if(screen_res.width() != 0)
         arguments << "--resolution" << scr_res;
     }
-
     arguments << "--prefix" << prefix_path;
-
     if(!output_file.isEmpty()) {
         arguments << "--output" << output_file;
         arguments << "--bitrate" << QString::number(output_kbps);
     }
-
-
+    arguments << "--shader" << QString::number(index);
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
