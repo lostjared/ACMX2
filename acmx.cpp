@@ -46,7 +46,12 @@ public:
         std::filesystem::path file_path(text);
         std::string name = file_path.stem().string();
         if(!name.empty()) {
-            program_names[programs.size()-1] = name;
+            size_t pos = programs.size()-1;
+            program_names[pos].name = name;
+            program_names[pos].loc = glGetUniformLocation(programs.back()->id(), "alpha");
+            program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
+            program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
+            program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
         }
     }
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -84,7 +89,12 @@ public:
                 std::filesystem::path file_path(line_data);
                 std::string name = file_path.stem().string();
                 if(!name.empty()) {
-                    program_names[programs.size()-1] = name;
+                    size_t pos = programs.size()-1;
+                    program_names[pos].name = name;
+                    program_names[pos].loc = glGetUniformLocation(programs.back()->id(), "alpha");
+                    program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
+                    program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
+                    program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                 }
            }
         }
@@ -93,7 +103,7 @@ public:
     void setIndex(size_t i) {
         if(i < programs.size())
             library_index = i;   
-        mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i] << "]\n";
+        mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i].name << "]\n";
         fflush(stdout);
     }
     void inc() {
@@ -105,6 +115,7 @@ public:
             setIndex(library_index-1);
     }
     size_t index() { return library_index; }
+
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
     void update(gl::GLWindow *win) {
@@ -112,12 +123,14 @@ public:
             time_f = static_cast<float>(SDL_GetTicks())/1000.0f;
 
         programs[index()]->setUniform("time_f", time_f);
-        GLint loc = glGetUniformLocation(programs[index()]->id(), "alpha");
+        GLuint time_f_loc = program_names[index()].time_f;
+        glUniform1f(time_f_loc, time_f);
+        GLint loc = program_names[index()].loc;
         glUniform1f(loc, alpha);
-        GLuint iTimeLoc = glGetUniformLocation(programs[index()]->id(), "iTime");
+        GLuint iTimeLoc = program_names[index()].iTime;
         float currentTime = SDL_GetTicks() / 1000.0f; 
         glUniform1f(iTimeLoc, currentTime);
-        GLuint iMouseLoc = glGetUniformLocation(programs[index()]->id(), "iMouse");
+        GLuint iMouseLoc = program_names[index()].iMouse;
         int mouseX, mouseY;
         Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
         float normalizedMouseX = static_cast<float>(mouseX);
@@ -159,7 +172,13 @@ public:
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
-    std::unordered_map<int, std::string> program_names;
+
+    struct ProgramData {
+        std::string name;
+        GLuint loc, iTime, iMouse, time_f;
+    };
+
+    std::unordered_map<int, ProgramData> program_names;
 };
 
 class ACView : public gl::GLObject {
