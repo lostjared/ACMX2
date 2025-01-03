@@ -9,7 +9,6 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
-
 #include <string>
 
 class Writer {
@@ -37,6 +36,7 @@ private:
     AVFrame* frameYUV = nullptr;
     SwsContext* sws_ctx = nullptr;
     AVRational time_base;
+    void calculateFPSFraction(float fps, int &fps_num, int &fps_den);
 };
 
 #endif

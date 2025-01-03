@@ -2,6 +2,26 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <numeric>
+
+void Writer::calculateFPSFraction(float fps, int &fps_num, int &fps_den) {
+    const float epsilon = 0.001f; 
+    fps_den = 1001;
+       if (std::fabs(fps - 29.97f) < epsilon) {
+        fps_num = 30000;
+        fps_den = 1001;
+    } else if (std::fabs(fps - 59.94f) < epsilon) {
+        fps_num = 60000;
+        fps_den = 1001;
+    } else {
+        float precision = 1000.0f;
+        fps_num = static_cast<int>(std::round(fps * precision));
+        fps_den = static_cast<int>(precision);
+        int gcd = std::gcd(fps_num, fps_den);
+        fps_num /= gcd;
+        fps_den /= gcd;
+    }
+}
 
 bool Writer::open(const std::string& filename,int w, int h, float fps, int bitrate_kbps) {
     avformat_network_init();
@@ -25,6 +45,7 @@ bool Writer::open(const std::string& filename,int w, int h, float fps, int bitra
     height = h;
     int fps_num = 0;
     int fps_den = 0;
+    /*
     if (std::fabs(fps - 29.97f) < 0.001f) {
         fps_num = 30000;
         fps_den = 1001;
@@ -32,8 +53,8 @@ bool Writer::open(const std::string& filename,int w, int h, float fps, int bitra
 
         fps_num = static_cast<int>(std::round(fps * 1000.0));
         fps_den = 1000;
-    }
-
+    }*/
+   calculateFPSFraction(fps, fps_num, fps_den);
     time_base = AVRational{fps_den, fps_num};
     stream->time_base = time_base;
     codec_ctx = avcodec_alloc_context3(codec);
