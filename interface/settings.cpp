@@ -61,7 +61,7 @@ void SettingsWindow::init() {
     QLabel *saveFileKbpsLabel = new QLabel("Set Save File Kbps:", this);
     saveFileKbpsSpinBox = new QSpinBox(this);
     saveFileKbpsSpinBox->setRange(100, 50000);
-    saveFileKbpsSpinBox->setValue(1500);
+    saveFileKbpsSpinBox->setValue(25000);
 
     QLabel *screenResolutionLabel = new QLabel("Select Screen Resolution:", this);
     screenResolutionComboBox = new QComboBox(this);
