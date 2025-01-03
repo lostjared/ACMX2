@@ -122,7 +122,6 @@ public:
         if(time_active) 
             time_f = static_cast<float>(SDL_GetTicks())/1000.0f;
 
-        programs[index()]->setUniform("time_f", time_f);
         GLuint time_f_loc = program_names[index()].time_f;
         glUniform1f(time_f_loc, time_f);
         GLint loc = program_names[index()].loc;
