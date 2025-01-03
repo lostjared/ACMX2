@@ -180,6 +180,23 @@ private:
     std::unordered_map<int, ProgramData> program_names;
 };
 
+struct Arguments {
+    std::string path, filename, ofilename;
+    int tw = 1280, th = 720;
+    int Kbps = 25000;
+    int camera_device = 0;
+    std::string library = "./filters";
+    std::string fragment = "./frag.glsl";
+    std::string prefix_path = ".";
+    int mode = 0;
+    int shader_index = 0;
+    std::optional<cv::Size> sizev = std::nullopt;
+    std::optional<cv::Size> csize = std::nullopt;
+    double fps_value = 30.0;
+    bool repeat = false;
+    std::tuple<int, std::string, int> slib;
+};
+
 class ACView : public gl::GLObject {
     int bit_rate = 25000;
     std::string prefix_path;
@@ -191,9 +208,10 @@ class ACView : public gl::GLObject {
     ShaderLibrary library;
     Writer writer;
     double fps = 30;
+    bool repeat = false;
 public:
-    ACView(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, int index, std::tuple<int, std::string, int> &slib, std::string prefix, double fps_value) 
-        : bit_rate{Kbps}, prefix_path{prefix}, filename{filen}, ofilename{ofilen}, camera_index{index}, flib{slib}, sizev{vsize}, sizec{csize}, fps{fps_value} {
+    ACView(const Arguments &args) 
+        : bit_rate{args.Kbps}, prefix_path{args.prefix_path}, filename{args.filename}, ofilename{args.ofilename}, camera_index{args.camera_device}, flib{args.slib}, sizev{args.sizev}, sizec{args.csize}, fps{args.fps_value}, repeat{args.repeat} {
     }
     ~ACView() override {
 
@@ -317,13 +335,29 @@ public:
             cv::flip(frame, frame, 0);
             updateTexture(camera_texture, frame);
         } else {
-            mx::system_out << "acmx2: capture device closed.";
-            fflush(stdout);
-            fflush(stderr);
-            if(writer.is_open())
-                writer.close();
-            win->quit();
-            return;
+            if(cap.isOpened() && !filename.empty() && repeat == true) {
+                mx::system_out << "acmx2: video loop...\n";
+                fflush(stdout);
+                fflush(stderr);
+                cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                if(!cap.read(frame)) {
+                    mx::system_out << "acmx2: capture device closed.\n";
+                    fflush(stdout);
+                    fflush(stderr);
+                    if(writer.is_open())
+                        writer.close();
+                    win->quit();
+                    return;
+                }
+            } else {
+                mx::system_out << "acmx2: capture device closed.";
+                fflush(stdout);
+                fflush(stderr);
+                if(writer.is_open())
+                    writer.close();
+                win->quit();
+                return;
+            }
         }
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
@@ -502,15 +536,15 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(int Kbps, std::optional<cv::Size> &csize, std::optional<cv::Size> &vsize, const std::string &filen, const std::string &ofilen, const std::string &prefix, const std::string &path, std::tuple<int, std::string, int> &filename, int camera_device, double fps_value, int tw, int th) : gl::GLWindow("ACMX2", tw, th) {
-        util.path = path;
+    MainWindow(const Arguments &args) : gl::GLWindow("ACMX2", args.tw, args.th) {
+        util.path = args.path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
             throw mx::Exception("Could not load icon: " + util.getFilePath("data/win-icon.png"));
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
-        setObject(new ACView(Kbps, csize, vsize,filen,ofilen,camera_device, filename, prefix, fps_value));
+        setObject(new ACView(args));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
@@ -577,25 +611,15 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('b', "Bitrate in Kbps")
           .addOptionDoubleValue('B', "bitrate", "Bitrate in Kbps")
           .addOptionSingleValue('u', "frames per second")
-          .addOptionDoubleValue('U', "fps", "Frames per second");
-
+          .addOptionDoubleValue('U', "fps", "Frames per second")
+          .addOptionSingle('a', "Repeat")
+          .addOptionDouble('A', "repeat", "Video repeat");
     if(argc == 1) {
         printAbout(parser);
     }
     Argument<std::string> arg;
-    std::string path, filename, ofilename;
+    Arguments args;
     int value = 0;
-    int tw = 1280, th = 720;
-    int Kbps = 25000;
-    int camera_device = 0;
-    std::string library = "./filters";
-    std::string fragment = "./frag.glsl";
-    std::string prefix_path = ".";
-    int mode = 0;
-    int shader_index = 0;
-    std::optional<cv::Size> sizev = std::nullopt;
-    std::optional<cv::Size> csize = std::nullopt;
-    double fps_value = 30.0;
     try {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
@@ -605,7 +629,7 @@ int main(int argc, char **argv) {
                     break;
                 case 'p':
                 case 'P':
-                    path = arg.arg_value;
+                    args.path = arg.arg_value;
                 break;
                 case 'r':
                 case 'R': {
@@ -618,9 +642,9 @@ int main(int argc, char **argv) {
                     std::string left, right;
                     left = arg.arg_value.substr(0, pos);
                     right = arg.arg_value.substr(pos+1);
-                    tw = atoi(left.c_str());
-                    th = atoi(right.c_str());
-                    sizev = cv::Size(tw, th);
+                    args.tw = atoi(left.c_str());
+                    args.th = atoi(right.c_str());
+                    args.sizev = cv::Size(args.tw, args.th);
                 }
                 break;
                 case 'C':
@@ -636,46 +660,50 @@ int main(int argc, char **argv) {
                     right = arg.arg_value.substr(pos+1);
                     int xw = atoi(left.c_str());
                     int xh = atoi(right.c_str());
-                    csize = cv::Size(xw, xh);
+                    args.csize = cv::Size(xw, xh);
                 }
                 break;
                 case 'd':
                 case 'D':
-                    camera_device = atoi(arg.arg_value.c_str());
+                    args.camera_device = atoi(arg.arg_value.c_str());
                 break;
                 case 's':
                 case 'S':
-                    mode = 1;
-                    library = arg.arg_value;
+                    args.mode = 1;
+                    args.library = arg.arg_value;
                     break;
                 case 'F':
                 case 'f':
-                    mode = 0;
-                    fragment = arg.arg_value;
+                    args.mode = 0;
+                    args.fragment = arg.arg_value;
                     break;
                 case 'h':
                 case 'H':
-                    shader_index = atoi(arg.arg_value.c_str());
+                    args.shader_index = atoi(arg.arg_value.c_str());
                     break;
                 case 'e':
                 case 'E':
-                    prefix_path = arg.arg_value;
+                    args.prefix_path = arg.arg_value;
                     break;
                 case 'i':
                 case 'I':
-                    filename = arg.arg_value;
+                    args.filename = arg.arg_value;
                     break;
                 case 'o':
                 case 'O':
-                    ofilename = arg.arg_value;
+                    args.ofilename = arg.arg_value;
                     break;
                 case 'b':
                 case 'B':
-                    Kbps = atoi(arg.arg_value.c_str());
+                    args.Kbps = atoi(arg.arg_value.c_str());
                     break;
                 case 'u':
                 case 'U':
-                    fps_value = atof(arg.arg_value.c_str());
+                    args.fps_value = atof(arg.arg_value.c_str());
+                    break;
+                case 'a':
+                case 'A':
+                    args.repeat = true;
                     break;
             }
         }
@@ -684,13 +712,13 @@ int main(int argc, char **argv) {
         mx::system_err.flush();
         return EXIT_FAILURE;
     }    
-    if(path.empty()) {
-        path = ".";
+    if(args.path.empty()) {
+        args.path = ".";
         mx::system_out << "acmx2: Path name not provided using default current path...\n";
     }
     try {
-        auto t = std::make_tuple(mode, (mode == 0) ? fragment : library, (mode == 0) ? 0 : shader_index);
-        MainWindow main_window(Kbps, csize, sizev, filename, ofilename, prefix_path, path, t, camera_device, fps_value, tw, th);
+        args.slib = std::make_tuple(args.mode, (args.mode == 0) ? args.fragment : args.library, (args.mode == 0) ? 0 : args.shader_index);
+        MainWindow main_window(args);
         main_window.loop();
     } catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
