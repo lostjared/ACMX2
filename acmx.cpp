@@ -14,6 +14,13 @@
 #include<thread>
 #include<ctime>
 #include<optional>
+#include<mutex>
+#include<condition_variable>
+#include<queue>
+#include<atomic>
+#include<iomanip>
+#include<ctime>
+#include<sstream>
 #include "ffwrite.hpp"
 
 class ShaderLibrary {
@@ -202,25 +209,33 @@ struct Arguments {
     bool full = false;
 };
 
-class ACView : public gl::GLObject {
-    int bit_rate = 25000;
-    std::string prefix_path;
-    std::string filename, ofilename;
-    int camera_index = 0;
-    std::tuple<int, std::string, int> flib;
-    std::optional<cv::Size> sizev, sizec;
-    cv::Mat frame;
-    ShaderLibrary library;
-    Writer writer;
-    double fps = 30;
-    bool repeat = false;
-    bool full = false;
-public:
-    ACView(const Arguments &args) 
-        : bit_rate{args.Kbps}, prefix_path{args.prefix_path}, filename{args.filename}, ofilename{args.ofilename}, camera_index{args.camera_device}, flib{args.slib}, sizev{args.sizev}, sizec{args.csize}, fps{args.fps_value}, repeat{args.repeat}, full{args.full}{
-    }
-    ~ACView() override {
 
+struct FrameData {
+    std::vector<unsigned char> pixels;
+    int width = 0;
+    int height = 0;
+    bool isSnapshot = false; 
+};
+
+class ACView : public gl::GLObject {
+public:
+    ACView(const Arguments &args)
+        : bit_rate{args.Kbps},
+          prefix_path{args.prefix_path},
+          filename{args.filename},
+          ofilename{args.ofilename},
+          camera_index{args.camera_device},
+          flib{args.slib},
+          sizev{args.sizev},
+          sizec{args.csize},
+          fps{args.fps_value},
+          repeat{args.repeat},
+          full{args.full}
+    {
+        running = true; 
+    }
+
+    ~ACView() override {
         if (captureFBO) {
             glDeleteFramebuffers(1, &captureFBO);
             captureFBO = 0;
@@ -229,18 +244,21 @@ public:
             glDeleteTextures(1, &fboTexture);
             fboTexture = 0;
         }
-
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
         }
+
+
+        stopWriterThread();
     }
+
     virtual void load(gl::GLWindow *win) override {
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
-        else 
+        else
             library.loadProgram(win, std::get<1>(flib));
-
         library.setIndex(std::get<2>(flib));
+
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
@@ -253,13 +271,12 @@ public:
             cap.open(camera_index);
 #endif
             if(!cap.isOpened()) {
-                throw mx::Exception("Could not open camera at index: " + std::to_string(camera_index));
+                throw mx::Exception("Could not open camera index: " + std::to_string(camera_index));
             }
             if(sizec.has_value()) {
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, sizec.value().width);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, sizec.value().height);
-            }
-            else {
+            } else {
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
             }
@@ -267,7 +284,9 @@ public:
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
+
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
+
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
@@ -279,14 +298,11 @@ public:
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
                     mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
-                    fflush(stdout);
-                    fflush(stderr);
                 } else {
-                    throw mx::Exception("Could not open output video file: " +  ofilename + " for writing...");
+                    throw mx::Exception("Could not open output video file: " +  ofilename);
                 }
             }
-        }
-        else {
+        } else {
             cap.open(filename);
             if(!cap.isOpened()) {
                 throw mx::Exception("Could not open video file: " + filename);
@@ -294,14 +310,12 @@ public:
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
-            
-            mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: "  << fps << "\n";
+
+            mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: " << fps << "\n";
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
-                fflush(stdout);
-                fflush(stderr);
             }
             win->setWindowSize(w, h);
             win->w = w;
@@ -309,10 +323,8 @@ public:
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
                     mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
-                    fflush(stdout);
-                    fflush(stderr);
                 } else {
-                    throw mx::Exception("Could not open output video file: " + ofilename + " for writing.");
+                    throw mx::Exception("Could not open output video file: " + ofilename);
                 }
             }
         }
@@ -324,20 +336,21 @@ public:
             camera_texture = loadTexture(frame);
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         } else {
-            mx::system_out << "acmx2: capture device closed.";
-            fflush(stdout);
-            fflush(stderr);
+            mx::system_out << "acmx2: capture device closed.\n";
             win->quit();
+            return;
         }
+
         setupCaptureFBO(win->w, win->h);
-        fflush(stdout);
-        fflush(stderr);
+
         if(full) {
             win->setFullScreen(true);
         }
-    }
 
-    bool snapshot = false;
+        if(writer.is_open() || true /* snapshots possible */) {
+            startWriterThread();
+        }
+    }
 
     virtual void draw(gl::GLWindow *win) override {
         if (cap.isOpened() && cap.read(frame)) {
@@ -346,24 +359,18 @@ public:
         } else {
             if(cap.isOpened() && !filename.empty() && repeat == true) {
                 mx::system_out << "acmx2: video loop...\n";
-                fflush(stdout);
-                fflush(stderr);
                 cap.set(cv::CAP_PROP_POS_FRAMES, 0);
                 if(!cap.read(frame)) {
                     mx::system_out << "acmx2: capture device closed.\n";
-                    fflush(stdout);
-                    fflush(stderr);
-                    if(writer.is_open())
-                        writer.close();
+                    if(writer.is_open()) writer.close();
                     win->quit();
                     return;
                 }
+                cv::flip(frame, frame, 0);
+                updateTexture(camera_texture, frame);
             } else {
-                mx::system_out << "acmx2: capture device closed.";
-                fflush(stdout);
-                fflush(stderr);
-                if(writer.is_open())
-                    writer.close();
+                mx::system_out << "acmx2: capture device closed.\n";
+                if(writer.is_open()) writer.close();
                 win->quit();
                 return;
             }
@@ -371,10 +378,13 @@ public:
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         library.useProgram();
         library.update(win);
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
-        if(snapshot == true || writer.is_open()) {
+        bool needWriter = (writer.is_open() || snapshot);
+
+        if (needWriter) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
@@ -384,56 +394,26 @@ public:
                 int src_row_start = y * win->w * 4;
                 int dest_row_start = (win->h - 1 - y) * win->w * 4;
                 std::copy(pixels.begin() + src_row_start,
-                        pixels.begin() + src_row_start + win->w * 4,
-                        flipped_pixels.begin() + dest_row_start);
+                          pixels.begin() + src_row_start + (win->w * 4),
+                          flipped_pixels.begin() + dest_row_start);
             }
-
-            if(writer.is_open()) {
-                static auto lastFrameTime = std::chrono::steady_clock::now();
-                if(filename.empty()) {
-                    auto now = std::chrono::steady_clock::now();
-                    auto frameDuration = std::chrono::duration<double, std::milli>(1000.0 / fps);
-                    auto elapsedTime = now - lastFrameTime;
-                    int frameCount = static_cast<int>(elapsedTime / frameDuration);
-                    frameCount = std::max(1, frameCount); 
-                    for (int i = 0; i < frameCount; ++i) {
-                        writer.write(flipped_pixels.data());
-                    }
-                    auto durationToAdd = std::chrono::duration_cast<std::chrono::steady_clock::duration>(frameCount * frameDuration);
-                    lastFrameTime += durationToAdd;
-                } else {
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
-                    double frameDuration = 1000.0 / fps;
-                    writer.write(flipped_pixels.data());
-                    if (elapsed < frameDuration) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(frameDuration - elapsed)));
-                    }
-                    lastFrameTime = std::chrono::steady_clock::now();
-                }
+            FrameData fd;
+            fd.pixels = std::move(flipped_pixels);
+            fd.width  = win->w;
+            fd.height = win->h;
+            fd.isSnapshot = snapshot; 
+            snapshot = false;         
+            {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                frameQueue.push(std::move(fd));
             }
-            if(snapshot == true) {
-                static unsigned int offset = 0;
-                auto now = std::chrono::system_clock::now();
-                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-                std::tm localTime = *std::localtime(&now_c);
-                std::ostringstream oss;
-                oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-                std::string name = prefix_path + "/ACMX2.Snapshot-" + oss.str() + "-" + std::to_string(win->w) + "x" + std::to_string(win->h) + "-" + std::to_string(offset) + ".png";
-                png::SavePNG_RGBA(name.c_str(), flipped_pixels.data(), win->w, win->h);
-                mx::system_out << "acmx2: Took snapshot: " << name << "\n";
-                ++offset;
-            }
-            fflush(stdout);
-            fflush(stderr);
-            snapshot = false;
-            
+            queueCondVar.notify_one(); 
         }
-
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         library.useProgram();
         library.update(win);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
@@ -446,26 +426,21 @@ public:
                     case SDLK_UP:
                         library.dec();
                         sprite.setShader(library.shader());
-                    break;
+                        break;
                     case SDLK_DOWN:
                         library.inc();
                         sprite.setShader(library.shader());
-                    break;
+                        break;
                     case SDLK_z:
                         snapshot = true;
-                    break;
+                        break;
                     case SDLK_t:
                         library.activeTime(!library.timeActive());
-                    break;
+                        break;
                     case SDLK_f:
-                        if(full) {
-                            full = false;
-                            win->setFullScreen(full);
-                        } else {
-                            full = true;
-                            win->setFullScreen(full);
-                        }
-                    break;
+                        full = !full;
+                        win->setFullScreen(full);
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -482,43 +457,35 @@ public:
         library.event(e);
     }
 
-    GLuint loadTexture(cv::Mat &frame) {
-        GLuint texture = 0;
-        glGenTextures(1, &texture);
-        GLenum error = glGetError();
-        if (error != GL_NO_ERROR) {
-            throw mx::Exception("OpenGL error occurred: glGenTextures: GL Error: " + std::to_string(error));
-        }
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);    
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, frame.ptr());
-        error = glGetError();
-        if (error != GL_NO_ERROR) {
-            throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
-        }
-        glBindTexture(GL_TEXTURE_2D, 0);
-        return texture;
-    }
-
-    void updateTexture(GLuint texture, cv::Mat &frame) {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, frame.cols, frame.rows, GL_RGBA, GL_UNSIGNED_BYTE, frame.ptr());
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    
 private:
+    int bit_rate = 25000;
+    std::string prefix_path;
+    std::string filename, ofilename;
+    int camera_index = 0;
+    std::tuple<int, std::string, int> flib;
+    std::optional<cv::Size> sizev, sizec;
+    cv::Mat frame;
+    ShaderLibrary library;
+    Writer writer;
+    double fps = 30;
+    bool repeat = false;
+    bool full = false;
+    bool snapshot = false;
+
+    cv::VideoCapture cap;
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
-    cv::VideoCapture cap;
     GLuint camera_texture = 0;
-    GLuint captureFBO = 0;   
-    GLuint fboTexture = 0;   
+    GLuint captureFBO     = 0;
+    GLuint fboTexture     = 0;
+    std::thread writerThread;
+    std::atomic<bool> running{false};
+
+    std::queue<FrameData> frameQueue;
+    std::mutex queueMutex;
+    std::condition_variable queueCondVar;
+
+    std::chrono::steady_clock::time_point lastFrameTime = std::chrono::steady_clock::now();
 
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
@@ -538,6 +505,7 @@ private:
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
         glFramebufferTexture2D(GL_FRAMEBUFFER,
                                GL_COLOR_ATTACHMENT0,
                                GL_TEXTURE_2D,
@@ -548,7 +516,130 @@ private:
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             throw mx::Exception("FBO is not complete.");
         }
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    GLuint loadTexture(cv::Mat &frame) {
+        GLuint texture = 0;
+        glGenTextures(1, &texture);
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            throw mx::Exception("OpenGL error: glGenTextures() returned " + std::to_string(error));
+        }
+
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, frame.ptr());
+
+        error = glGetError();
+        if (error != GL_NO_ERROR) {
+            throw mx::Exception("OpenGL error: glTexImage2D() returned " + std::to_string(error));
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return texture;
+    }
+
+    void updateTexture(GLuint texture, cv::Mat &frame) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                        frame.cols, frame.rows,
+                        GL_RGBA,
+                        GL_UNSIGNED_BYTE,
+                        frame.ptr());
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    void startWriterThread() {
+        if (writerThread.joinable()) return; 
+        running = true;
+        writerThread = std::thread([this]() {
+            auto localLastFrameTime = std::chrono::steady_clock::now();
+            static unsigned int snapshotOffset = 0; 
+
+            while (running) {
+                FrameData fd;
+                {
+                    std::unique_lock<std::mutex> lock(queueMutex);
+                    queueCondVar.wait(lock, [this](){
+                        return !frameQueue.empty() || !running;
+                    });
+                    if (!running && frameQueue.empty()) {
+                        break;
+                    }
+              
+                    fd = std::move(frameQueue.front());
+                    frameQueue.pop();
+                }
+
+              
+                if (writer.is_open()) {
+                    if (filename.empty()) {            
+                        static double accumulatorMs = 0.0; 
+                        auto now = std::chrono::steady_clock::now();
+                        double dtMs = std::chrono::duration<double, std::milli>(now - lastFrameTime).count();
+                        lastFrameTime = now;
+                        accumulatorMs += dtMs;
+                        double frameDurationMs = 1000.0 / fps;  
+                        if (accumulatorMs >= frameDurationMs) {
+                            writer.write(fd.pixels.data());
+                            accumulatorMs -= frameDurationMs;
+                        }
+                    } else {
+              
+                        auto now = std::chrono::steady_clock::now();
+                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - localLastFrameTime).count();
+                        double frameDuration = 1000.0 / fps;
+
+                        writer.write(fd.pixels.data());
+
+                        if (elapsed < frameDuration) {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(
+                                static_cast<int>(frameDuration - elapsed)
+                            ));
+                        }
+                        localLastFrameTime = std::chrono::steady_clock::now();
+                    }
+                }
+
+              
+                if (fd.isSnapshot) {
+                    auto now = std::chrono::system_clock::now();
+                    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                    std::tm localTime = *std::localtime(&now_c);
+
+                    std::ostringstream oss;
+                    oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
+                    std::string name = prefix_path + "/ACMX2.Snapshot-" +
+                                       oss.str() + "-" +
+                                       std::to_string(fd.width) + "x" +
+                                       std::to_string(fd.height) + "-" +
+                                       std::to_string(snapshotOffset++) + ".png";
+
+                    png::SavePNG_RGBA(name.c_str(),
+                                      fd.pixels.data(),
+                                      fd.width, fd.height);
+
+                    mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                }
+            } 
+        });
+    }
+
+    void stopWriterThread() {
+        running = false;
+        queueCondVar.notify_all();  // Wake it up
+        if (writerThread.joinable()) {
+            writerThread.join();
+        }
     }
 };
 
