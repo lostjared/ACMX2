@@ -199,6 +199,7 @@ struct Arguments {
     double fps_value = 30.0;
     bool repeat = false;
     std::tuple<int, std::string, int> slib;
+    bool full = false;
 };
 
 class ACView : public gl::GLObject {
@@ -213,9 +214,10 @@ class ACView : public gl::GLObject {
     Writer writer;
     double fps = 30;
     bool repeat = false;
+    bool full = false;
 public:
     ACView(const Arguments &args) 
-        : bit_rate{args.Kbps}, prefix_path{args.prefix_path}, filename{args.filename}, ofilename{args.ofilename}, camera_index{args.camera_device}, flib{args.slib}, sizev{args.sizev}, sizec{args.csize}, fps{args.fps_value}, repeat{args.repeat} {
+        : bit_rate{args.Kbps}, prefix_path{args.prefix_path}, filename{args.filename}, ofilename{args.ofilename}, camera_index{args.camera_device}, flib{args.slib}, sizev{args.sizev}, sizec{args.csize}, fps{args.fps_value}, repeat{args.repeat}, full{args.full}{
     }
     ~ACView() override {
 
@@ -330,6 +332,9 @@ public:
         setupCaptureFBO(win->w, win->h);
         fflush(stdout);
         fflush(stderr);
+        if(full) {
+            win->setFullScreen(true);
+        }
     }
 
     bool snapshot = false;
@@ -390,7 +395,7 @@ public:
                     auto frameDuration = std::chrono::duration<double, std::milli>(1000.0 / fps);
                     auto elapsedTime = now - lastFrameTime;
                     int frameCount = static_cast<int>(elapsedTime / frameDuration);
-                    frameCount = std::max(1, frameCount); // Ensure at least one frame is written
+                    frameCount = std::max(1, frameCount); 
                     for (int i = 0; i < frameCount; ++i) {
                         writer.write(flipped_pixels.data());
                     }
@@ -451,6 +456,15 @@ public:
                     break;
                     case SDLK_t:
                         library.activeTime(!library.timeActive());
+                    break;
+                    case SDLK_f:
+                        if(full) {
+                            full = false;
+                            win->setFullScreen(full);
+                        } else {
+                            full = true;
+                            win->setFullScreen(full);
+                        }
                     break;
                 }
                 break;
@@ -574,6 +588,7 @@ const char *message = R"(
     I - step forward in disabled time
     O - step backward in disabled time
     Z - take snapshot
+    F - Toggle fullscreen
 }
 )";
 
@@ -617,7 +632,10 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('u', "frames per second")
           .addOptionDoubleValue('U', "fps", "Frames per second")
           .addOptionSingle('a', "Repeat")
-          .addOptionDouble('A', "repeat", "Video repeat");
+          .addOptionDouble('A', "repeat", "Video repeat")
+          .addOptionSingle('n', "fullscreen")
+          .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
+
     if(argc == 1) {
         printAbout(parser);
     }
@@ -708,6 +726,10 @@ int main(int argc, char **argv) {
                 case 'a':
                 case 'A':
                     args.repeat = true;
+                    break;
+                case 'n':
+                case 'N':
+                    args.full = true;
                     break;
             }
         }
