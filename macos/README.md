@@ -1,6 +1,6 @@
 Run 
 ```bash
-sudo ./install.sh
+./install.sh
 ```
 
 should build and install
