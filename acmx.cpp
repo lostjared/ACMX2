@@ -286,7 +286,8 @@ public:
             fps = cap.get(cv::CAP_PROP_FPS);
 
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
-
+            fflush(stderr);
+            fflush(stdout);
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
@@ -316,6 +317,7 @@ public:
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+                
             }
             win->setWindowSize(w, h);
             win->w = w;
@@ -327,6 +329,8 @@ public:
                     throw mx::Exception("Could not open output video file: " + ofilename);
                 }
             }
+            fflush(stderr);
+            fflush(stdout);
         }
 
         if(cap.read(frame)) {
@@ -337,6 +341,8 @@ public:
             sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         } else {
             mx::system_out << "acmx2: capture device closed.\n";
+            fflush(stderr);
+            fflush(stdout);
             win->quit();
             return;
         }
@@ -362,6 +368,8 @@ public:
                 cap.set(cv::CAP_PROP_POS_FRAMES, 0);
                 if(!cap.read(frame)) {
                     mx::system_out << "acmx2: capture device closed.\n";
+                    fflush(stderr);
+                    fflush(stdout);
                     if(writer.is_open()) writer.close();
                     win->quit();
                     return;
@@ -370,6 +378,8 @@ public:
                 updateTexture(camera_texture, frame);
             } else {
                 mx::system_out << "acmx2: capture device closed.\n";
+                fflush(stderr);
+                fflush(stdout);
                 if(writer.is_open()) writer.close();
                 win->quit();
                 return;
@@ -476,8 +486,8 @@ private:
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
     GLuint camera_texture = 0;
-    GLuint captureFBO     = 0;
-    GLuint fboTexture     = 0;
+    GLuint captureFBO = 0;
+    GLuint fboTexture = 0;
     std::thread writerThread;
     std::atomic<bool> running{false};
 
@@ -516,7 +526,6 @@ private:
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             throw mx::Exception("FBO is not complete.");
         }
-
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
@@ -629,6 +638,8 @@ private:
                                       fd.width, fd.height);
 
                     mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                    fflush(stdout);
+                    fflush(stderr);
                 }
             } 
         });
