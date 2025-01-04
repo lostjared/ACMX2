@@ -135,7 +135,7 @@ public:
         int mouseX, mouseY;
         Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
         float normalizedMouseX = static_cast<float>(mouseX);
-        float normalizedMouseY = static_cast<float>(mouseY); 
+        float normalizedMouseY = static_cast<float>(win->h - mouseY); 
         float mouseZ = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) ? 1.0f : 0.0f;
         glUniform4f(iMouseLoc, normalizedMouseX, normalizedMouseY, mouseZ, 0.0f);
         GLuint iResolution = program_names[index()].iResolution;
