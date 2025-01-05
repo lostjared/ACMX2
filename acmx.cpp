@@ -264,6 +264,7 @@ public:
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
         }
         int w = 1280, h = 720;
+        int frame_w = w, frame_h = h;
         if(filename.empty()) {
 #ifdef _WIN32
             cap.open(camera_index, cv::CAP_DSHOW);
@@ -284,7 +285,8 @@ public:
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
-
+            frame_w = w;
+            frame_h = h;
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
             fflush(stderr);
             fflush(stdout);
@@ -312,6 +314,9 @@ public:
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
 
+            frame_w = w;
+            frame_h = h;
+
             mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: " << fps << "\n";
             if(sizev.has_value()) {
                 w = sizev.value().width;
@@ -332,9 +337,9 @@ public:
             fflush(stderr);
             fflush(stdout);
         }
-        sprite.initSize(w, h);
+        sprite.initSize(win->w, win->h);
         sprite.setName("samp");
-        frame = cv::Mat::zeros(h, w, CV_8UC3);
+        frame = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
         camera_texture = loadTexture(frame);
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         setupCaptureFBO(win->w, win->h);
