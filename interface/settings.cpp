@@ -40,7 +40,7 @@ void SettingsWindow::init() {
     QLabel *cameraFPSLabel = new QLabel("Set Camera FPS:", this);
     cameraFPSSpinBox = new QSpinBox(this);
     cameraFPSSpinBox->setRange(1, 120);
-    cameraFPSSpinBox->setValue(30);
+    cameraFPSSpinBox->setValue(24);
 
     QHBoxLayout *inputVideoFileLayout = new QHBoxLayout;
     inputVideoFileLineEdit = new QLineEdit(this);
@@ -61,7 +61,7 @@ void SettingsWindow::init() {
     QLabel *saveFileKbpsLabel = new QLabel("Set Save File Kbps:", this);
     saveFileKbpsSpinBox = new QSpinBox(this);
     saveFileKbpsSpinBox->setRange(100, 50000);
-    saveFileKbpsSpinBox->setValue(25000);
+    saveFileKbpsSpinBox->setValue(10000);
 
     QLabel *screenResolutionLabel = new QLabel("Select Screen Resolution:", this);
     screenResolutionComboBox = new QComboBox(this);

@@ -435,7 +435,7 @@ void MainWindow::cameraSettings() {
             output_kbps = settingsWindow.getSaveFileKbps();
         } else {
             output_file = "";
-            output_kbps = 25000;
+            output_kbps = 10000;
         }
     }
 }

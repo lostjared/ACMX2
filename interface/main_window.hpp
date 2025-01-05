@@ -82,8 +82,8 @@ private:
     QString video_file;
     QString prefix_path;
     QString output_file;
-    int output_kbps = 25000;
-    double output_fps = 30.0f;
+    int output_kbps = 10000;
+    double output_fps = 24.0f;
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
     QString readFileContents(const QString &filePath);
