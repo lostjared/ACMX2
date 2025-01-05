@@ -194,7 +194,7 @@ private:
 struct Arguments {
     std::string path, filename, ofilename;
     int tw = 1280, th = 720;
-    int Kbps = 25000;
+    int Kbps = 10000;
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
@@ -203,7 +203,7 @@ struct Arguments {
     int shader_index = 0;
     std::optional<cv::Size> sizev = std::nullopt;
     std::optional<cv::Size> csize = std::nullopt;
-    double fps_value = 30.0;
+    double fps_value = 24.0;
     bool repeat = false;
     std::tuple<int, std::string, int> slib;
     bool full = false;
@@ -298,9 +298,10 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+            fps = 24;
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
+                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps FPS: " << fps <<"\n";
                 } else {
                     throw mx::Exception("Could not open output video file: " +  ofilename);
                 }
@@ -567,7 +568,10 @@ private:
         running = true;
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
-
+            using clock = std::chrono::steady_clock;
+            double frameDurationMs = 1000.0 / fps;
+            auto lastTime    = clock::now();
+            double accumulatorMs = 0.0;
             while (running) {
                 FrameData fd;
                 {
@@ -586,16 +590,15 @@ private:
               
                 if (writer.is_open()) {
                     if (filename.empty()) {            
-                        static double accumulatorMs = 0.0; 
-                        auto now = std::chrono::steady_clock::now();
-                        double dtMs = std::chrono::duration<double, std::milli>(now - lastFrameTime).count();
-                        lastFrameTime = now;
-                        accumulatorMs += dtMs;
-                        double frameDurationMs = 1000.0 / fps;  
-                        if (accumulatorMs >= frameDurationMs) {
-                            writer.write(fd.pixels.data());
+                        auto now  = clock::now();
+                        double dt = std::chrono::duration<double, std::milli>(now - lastTime).count();
+                        lastTime  = now;
+                        accumulatorMs += dt;
+                        while (accumulatorMs >= frameDurationMs) {
                             accumulatorMs -= frameDurationMs;
+                            writer.write(fd.pixels.data());
                         }
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     } else {
                         writer.write(fd.pixels.data());
                     }
