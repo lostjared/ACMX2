@@ -590,15 +590,18 @@ private:
               
                 if (writer.is_open()) {
                     if (filename.empty()) {            
-                        auto now  = clock::now();
+                        auto now = clock::now();
                         double dt = std::chrono::duration<double, std::milli>(now - lastTime).count();
-                        lastTime  = now;
+                        lastTime = now;
                         accumulatorMs += dt;
                         while (accumulatorMs >= frameDurationMs) {
                             accumulatorMs -= frameDurationMs;
-                            writer.write(fd.pixels.data());
+                            writer.write(fd.pixels.data()); 
                         }
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                        if (accumulatorMs < frameDurationMs) {
+                            auto sleepTimeMs = frameDurationMs - accumulatorMs;
+                            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(sleepTimeMs));
+                        }
                     } else {
                         writer.write(fd.pixels.data());
                     }
