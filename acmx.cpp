@@ -375,6 +375,8 @@ public:
                 }
                 cv::flip(frame, frame, 0);
                 updateTexture(camera_texture, frame);
+                fflush(stdout);
+                fflush(stderr);
             } else {
                 mx::system_out << "acmx2: capture device closed.\n";
                 fflush(stderr);
