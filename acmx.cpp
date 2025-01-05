@@ -370,7 +370,6 @@ public:
                     mx::system_out << "acmx2: capture device closed.\n";
                     fflush(stderr);
                     fflush(stdout);
-                    if(writer.is_open()) writer.close();
                     win->quit();
                     return;
                 }
@@ -380,7 +379,6 @@ public:
                 mx::system_out << "acmx2: capture device closed.\n";
                 fflush(stderr);
                 fflush(stdout);
-                if(writer.is_open()) writer.close();
                 win->quit();
                 return;
             }
