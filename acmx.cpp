@@ -298,7 +298,6 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
-            fps = 24;
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
                     mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps FPS: " << fps <<"\n";
@@ -348,13 +347,13 @@ public:
         if(full) {
             win->setFullScreen(true);
         }
-
         if(writer.is_open() || true /* snapshots possible */) {
             startWriterThread();
         }
     }
 
     virtual void draw(gl::GLWindow *win) override {
+        std::chrono::time_point<std::chrono::steady_clock> now =  std::chrono::steady_clock::now();  
         if (cap.isOpened() && cap.read(frame)) {
             cv::flip(frame, frame, 0);
             updateTexture(camera_texture, frame);
@@ -423,6 +422,13 @@ public:
         library.useProgram();
         library.update(win);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
+        std::chrono::time_point<std::chrono::steady_clock> nowx =  std::chrono::steady_clock::now();
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds>(nowx - now).count();
+        if (fps > 0) {
+            int fps_mil = 1000 / fps;
+            if (m < fps_mil)
+                std::this_thread::sleep_for(std::chrono::milliseconds(fps_mil - m - 1));
+        }
     }
 
     virtual void event(gl::GLWindow *win, SDL_Event &e) override {
@@ -570,45 +576,45 @@ private:
             static unsigned int snapshotOffset = 0; 
             using clock = std::chrono::steady_clock;
             double frameDurationMs = 1000.0 / fps;
-            auto lastTime    = clock::now();
+            auto lastTime = clock::now();
             double accumulatorMs = 0.0;
             FrameData lastFrame;
+
             while (running) {
                 FrameData fd;
                 {
                     std::unique_lock<std::mutex> lock(queueMutex);
-                    queueCondVar.wait(lock, [this](){
+                    queueCondVar.wait(lock, [this]() {
                         return !frameQueue.empty() || !running;
                     });
+
                     if (!running && frameQueue.empty()) {
                         break;
                     }
-              
+
                     fd = std::move(frameQueue.front());
                     frameQueue.pop();
                     lastFrame = fd; 
                 }
 
-              
                 if (writer.is_open()) {
-                    if (filename.empty()) {            
+                    if (filename.empty()) {
                         auto now = clock::now();
                         double dt = std::chrono::duration<double, std::milli>(now - lastTime).count();
                         lastTime = now;
                         accumulatorMs += dt;
-                        while (accumulatorMs >= frameDurationMs) {
+                        int framesToWrite = static_cast<int>(accumulatorMs / frameDurationMs);
+                        const int maxDuplicates = 2; 
+                        framesToWrite = std::min(framesToWrite, maxDuplicates);
+                        for (int i = 0; i < framesToWrite; ++i) {
+                            writer.write(lastFrame.pixels.data());
                             accumulatorMs -= frameDurationMs;
-                            writer.write(lastFrame.pixels.data()); 
                         }
-                        if (accumulatorMs < frameDurationMs) {
-                            auto sleepTimeMs = frameDurationMs - accumulatorMs;
-                            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(sleepTimeMs));
-                        }
-                    } else {
+                    } 
+                    else {
                         writer.write(fd.pixels.data());
                     }
                 }
-
               
                 if (fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
