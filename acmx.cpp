@@ -332,21 +332,11 @@ public:
             fflush(stderr);
             fflush(stdout);
         }
-
-        if(cap.read(frame)) {
-            sprite.initSize(w, h);
-            sprite.setName("samp");
-            cv::flip(frame, frame, 0);
-            camera_texture = loadTexture(frame);
-            sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
-        } else {
-            mx::system_out << "acmx2: capture device closed.\n";
-            fflush(stderr);
-            fflush(stdout);
-            win->quit();
-            return;
-        }
-
+        sprite.initSize(w, h);
+        sprite.setName("samp");
+        frame = cv::Mat::zeros(h, w, CV_8UC3);
+        camera_texture = loadTexture(frame);
+        sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         setupCaptureFBO(win->w, win->h);
 
         if(full) {
@@ -571,7 +561,6 @@ private:
         if (writerThread.joinable()) return; 
         running = true;
         writerThread = std::thread([this]() {
-            auto localLastFrameTime = std::chrono::steady_clock::now();
             static unsigned int snapshotOffset = 0; 
 
             while (running) {
@@ -603,19 +592,7 @@ private:
                             accumulatorMs -= frameDurationMs;
                         }
                     } else {
-              
-                        auto now = std::chrono::steady_clock::now();
-                        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - localLastFrameTime).count();
-                        double frameDuration = 1000.0 / fps;
-
                         writer.write(fd.pixels.data());
-
-                        if (elapsed < frameDuration) {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(
-                                static_cast<int>(frameDuration - elapsed)
-                            ));
-                        }
-                        localLastFrameTime = std::chrono::steady_clock::now();
                     }
                 }
 
