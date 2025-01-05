@@ -336,12 +336,12 @@ void MainWindow::runSelected() {
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
         arguments << "--fps" << QString::number(output_fps);
-        if(play_repeat->isChecked())
-            arguments << "--repeat";
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
+        if(play_repeat->isChecked())
+            arguments << "--repeat";
     }
     arguments << "--prefix" << prefix_path;
 
@@ -389,12 +389,12 @@ void MainWindow::runAll() {
             arguments << "--resolution" << scr_res;
         arguments << "--device" << QString::number(camera_index);
         arguments << "--fps" << QString::number(output_fps);
-        if(play_repeat->isChecked())
-            arguments << "--repeat";
     } else {
         arguments << "--input" << video_file;
         if(screen_res.width() != 0)
         arguments << "--resolution" << scr_res;
+        if(play_repeat->isChecked())
+            arguments << "--repeat";
     }
     arguments << "--prefix" << prefix_path;
     if(!output_file.isEmpty()) {
