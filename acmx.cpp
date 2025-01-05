@@ -572,6 +572,7 @@ private:
             double frameDurationMs = 1000.0 / fps;
             auto lastTime    = clock::now();
             double accumulatorMs = 0.0;
+            FrameData lastFrame;
             while (running) {
                 FrameData fd;
                 {
@@ -585,6 +586,7 @@ private:
               
                     fd = std::move(frameQueue.front());
                     frameQueue.pop();
+                    lastFrame = fd; 
                 }
 
               
@@ -596,7 +598,7 @@ private:
                         accumulatorMs += dt;
                         while (accumulatorMs >= frameDurationMs) {
                             accumulatorMs -= frameDurationMs;
-                            writer.write(fd.pixels.data()); 
+                            writer.write(lastFrame.pixels.data()); 
                         }
                         if (accumulatorMs < frameDurationMs) {
                             auto sleepTimeMs = frameDurationMs - accumulatorMs;
