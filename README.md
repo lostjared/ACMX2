@@ -109,8 +109,8 @@ Below is a summary of the available command-line arguments:
 | `-d`  | `--device`           | Specify camera device index.                      | `--device 1`                  |
 | `-i`  | `--input`            | Input video file. If omitted, uses camera input.  | `--input input.mp4`           |
 | `-s`  | `--shaders`          | Path to a shader library (uses `index.txt`).      | `--shaders ./filters`         |
-| `-f`  | `--fragment`         | Single fragment shader file to load.             | `--fragment ./frag.glsl`      |
-| `-h`  | `--shader-index`     | Shader index within the shader library.           | `--shader-index 2`            |
+| `-f`  | `--fragment`         | Single fragment shader file to load.              | `--fragment ./frag. glsl`     |
+| `-h`  | `--shader`     | Shader index within the shader library.                 | `--shader 2`                  |
 | `-e`  | `--prefix`           | Snapshot save prefix path.                        | `--prefix ./snapshots`        |
 | `-o`  | `--output`           | Output video file name to record.                 | `--output output.mp4`         |
 | `-b`  | `--bitrate`          | Bitrate in Kbps for output video.                 | `--bitrate 5000`              |
