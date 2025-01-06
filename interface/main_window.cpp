@@ -322,6 +322,9 @@ void MainWindow::runSelected() {
     QString data = selectedIndex.data(Qt::DisplayRole).toString();
     QStringList arguments;
     QString dirPath = QCoreApplication::applicationDirPath();
+#ifdef BUILD_BUNDLE
+    executable_path = dirPath + "/../Helpers/acmx2";
+#endif
     QString shader_file = shader_path + "/" + data;
     arguments << "--path" << dirPath << "--fragment" << shader_file;
     QString res;
@@ -375,6 +378,10 @@ void MainWindow::runAll() {
     }
     QStringList arguments;
     QString dirPath = QCoreApplication::applicationDirPath();
+#ifdef BUILD_BUNDLE
+    executable_path = dirPath + "/../Helpers/acmx2";
+#endif
+
     QString shader_file = shader_path;
     arguments << "--path" << dirPath << "--shaders" << shader_file;
     QString res;

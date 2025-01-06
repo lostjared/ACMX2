@@ -1,3 +1,6 @@
+//#define BUILD_BUNDLE 
+//uncomment above if building BUNDLE
+
 #ifndef __APP_WINDOW_H_
 #define __APP_WINDOW_H_
 
