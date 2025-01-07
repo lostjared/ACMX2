@@ -5,6 +5,7 @@
 #include<QFile>
 #include<QTextStream>
 #include"settings.hpp"
+#include"audio-window.hpp"
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -51,6 +52,9 @@ void MainWindow::initControls() {
     cameraSet = new QAction(tr("Session Properties"), this);
     connect(cameraSet, &QAction::triggered, this, &MainWindow::cameraSettings);
     cameraMenu->addAction(cameraSet);
+    audioSet = new QAction(tr("Audio Settings"), this);
+    connect(audioSet,&QAction::triggered, this, &MainWindow::menuAudioSettings);
+    cameraMenu->addAction(audioSet);
     runMenu_select = new QAction(tr("Run Selected"), this);
     runMenu_select->setShortcut(QKeySequence("F5"));
     connect(runMenu_select, &QAction::triggered, this, &MainWindow::runSelected);
@@ -308,6 +312,16 @@ void MainWindow::fileExit() {
     QApplication::quit();
 }
 
+void MainWindow::menuAudioSettings() {
+    AudioSettings audio_set(this);
+    if(audio_set.exec() == QDialog::Accepted) {
+        audio_enabled = audio_set.isAudioReactivityEnabled();
+        audio_channels = audio_set.getNumberOfChannels();
+        audio_sense = audio_set.getSensitivity();
+        Log("Audio Settings Saved");
+    }
+}
+
 void MainWindow::runSelected() {
    if(shader_path.length()==0) {
         QMessageBox::information(this, "Select Shaders", "Select Shader Path");
@@ -351,6 +365,11 @@ void MainWindow::runSelected() {
     if(!output_file.isEmpty()) {
         arguments << "--output" << output_file;
         arguments << "--bitrate" << QString::number(output_kbps);
+    }
+    if(audio_enabled) {
+        arguments << "--enable-audio";
+        arguments << "--channels" << QString::number(audio_channels);
+        arguments << "--sense" << QString::number(audio_sense);
     }
 
 
@@ -409,6 +428,11 @@ void MainWindow::runAll() {
         arguments << "--bitrate" << QString::number(output_kbps);
     }
     arguments << "--shader" << QString::number(index);
+    if(audio_enabled) {
+        arguments << "--enable-audio";
+        arguments << "--channels" << QString::number(audio_channels);
+        arguments << "--sense" << QString::number(audio_sense);
+    }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {

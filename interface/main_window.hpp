@@ -49,6 +49,7 @@ public slots:
     void menuUp();
     void menuDown();
     void menuRemove();
+    void menuAudioSettings();
 protected:
 
      void closeEvent(QCloseEvent *event) override {
@@ -72,7 +73,7 @@ private:
     QMenu *listMenu;
     QMenu *helpMenu;
     QAction *fileMenu_prop, *fileMenu_exit;
-    QAction *cameraSet;
+    QAction *cameraSet, *audioSet;
     QAction *runMenu_select, *runMenu_all;
     QAction *play_repeat, *play_stop;
     QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down;
@@ -90,6 +91,9 @@ private:
     QString concatList(const QStringList lst);
     QVector<TextEditor *> open_files;
     QString readFileContents(const QString &filePath);
+    bool audio_enabled = false;
+    unsigned int audio_channels = 2;
+    float audio_sense = 0.25f;
 };
 
 
