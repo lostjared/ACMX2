@@ -71,6 +71,7 @@ uniform float time_f;
 uniform sampler2D samp;
 uniform vec2 iResolution;
 uniform vec4 iMouse;
+uniform float amp;
 
 void main(void) {
     color = texture(samp, tc);
