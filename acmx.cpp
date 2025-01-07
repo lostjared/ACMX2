@@ -63,8 +63,10 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+#ifdef AUDIO_ENABLED
             program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
             program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
+#endif
         }
     }
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -120,8 +122,10 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+#ifdef AUDIO_ENABLED
                     program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
                     program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
+#endif
                 }
            }
         }
@@ -242,9 +246,11 @@ struct Arguments {
     bool repeat = false;
     std::tuple<int, std::string, int> slib;
     bool full = false;
+#ifdef AUDIO_ENABLED
     bool audio_enabled = false;
     unsigned int audio_channels = 2;
     float audio_sensitivty = 0.25f;
+#endif
 };
 
 
