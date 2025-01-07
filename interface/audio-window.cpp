@@ -13,7 +13,7 @@ AudioSettings::AudioSettings(QWidget *parent)
 
     QLabel *sensitivityLabel = new QLabel("Sensitivity:", this);
     sensitivitySlider = new QSlider(Qt::Horizontal, this);
-    sensitivitySlider->setRange(1, 20); // Map floating-point range [0.1, 2.0] to integers [1, 20]
+    sensitivitySlider->setRange(1, 100); // Map floating-point range [0.1, 2.0] to integers [1, 20]
     sensitivitySlider->setValue(5);    // Default value for sensitivity (e.g., 0.5)
 
     QLabel *sensitivityValueLabel = new QLabel("0.5", this); // Label to show floating-point value
