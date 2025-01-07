@@ -46,6 +46,7 @@ target_include_directories(acmx2 PRIVATE
     ${SDL2_TTF_INCLUDE_DIRS}
     ${OpenCV_INCLUDE_DIRS}
     ${AUDIO_INCLUDE}/rtaudio
+    ${CMAKE_INSTALL_PREFIX}/include
 )
 target_link_libraries(acmx2 PRIVATE 
     libmx2::mx 
