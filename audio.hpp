@@ -7,5 +7,6 @@ int init_audio(unsigned int channels, float sense);
 void close_audio();
 float get_amp();
 float get_sense();
+void set_output(bool o);
 
 #endif

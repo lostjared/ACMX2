@@ -793,13 +793,15 @@ int main(int argc, char **argv) {
           .addOptionSingle('a', "Repeat")
           .addOptionDouble('A', "repeat", "Video repeat")
           .addOptionSingle('n', "fullscreen")
+#ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
-#ifdef AUDIO_ENABLED
           .addOptionSingleValue('l', "Audio channels")
           .addOptionDoubleValue('L', "channels", "Audio channels")
           .addOptionSingleValue('q', "Audio Sensitivty")
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
+          .addOptionSingleValue('y', "Enable Audio Pass-through")
+          .addOptionDoubleValue('Y', "pass-through", "Enable audio pass thorugh")
 #endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
@@ -911,6 +913,11 @@ int main(int argc, char **argv) {
                 case 'q':
                     args.audio_sensitivty = atof(arg.arg_value.c_str());
                     break;
+                case 'Y':
+                case 'y':
+                    set_output(true);
+                    break;
+
 #endif
             }
         }

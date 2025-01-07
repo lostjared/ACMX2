@@ -7,6 +7,7 @@
 float gAmplitude = 0.0f;
 float amp_sense = 25.0f;
 unsigned int input_channels = 2;
+bool output_buffer = false;
 
 int audioCallback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFrames,
     double streamTime, RtAudioStreamStatus status, void* userData) {
@@ -21,7 +22,8 @@ int audioCallback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFra
         for (unsigned int ch = 0; ch < input_channels; ++ch) {
             unsigned int index = i * input_channels + ch;
             sum += std::abs(in[index]);
-            out[index] = in[index]; 
+            if(output_buffer == true)
+                out[index] = in[index]; 
         }
     }
 
@@ -33,6 +35,10 @@ float get_amp() { return gAmplitude; }
 float get_sense() { return amp_sense; }
 
 RtAudio audio;
+
+void set_output(bool o) {
+    output_buffer = o;
+}
 
 int init_audio(unsigned int channels, float sense)  {
     input_channels = channels;
