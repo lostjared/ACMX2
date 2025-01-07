@@ -22,6 +22,9 @@
 #include<ctime>
 #include<sstream>
 #include "ffwrite.hpp"
+#ifdef AUDIO_ENABLED
+#include"audio.hpp"
+#endif
 
 class ShaderLibrary {
     float alpha = 1.0;
@@ -60,6 +63,10 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+#ifdef AUDIO_ENABLED
+            program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
+#endif
+
         }
     }
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -115,6 +122,9 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+#ifdef AUDIO_ENABLED
+                    program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
+#endif
                 }
            }
         }
@@ -162,6 +172,12 @@ public:
         glUniform4f(iMouseLoc, normalizedMouseX, normalizedMouseY, mouseZ, 0.0f);
         GLuint iResolution = program_names[index()].iResolution;
         glUniform2f(iResolution, win->w, win->h);
+#ifdef AUDIO_ENABLED
+        GLuint amp_i = program_names[index()].amp;
+        float amplitude = get_amp() * get_sense();
+        glUniform1f(amp_i, amplitude);
+#endif
+
     }
 
     void incTime(float value) {
@@ -201,6 +217,9 @@ private:
     struct ProgramData {
         std::string name;
         GLuint loc, iTime, iMouse, time_f, iResolution;
+#ifdef AUDIO_ENABLED
+        GLuint amp;
+#endif
     };
 
     std::unordered_map<int, ProgramData> program_names;
@@ -222,6 +241,9 @@ struct Arguments {
     bool repeat = false;
     std::tuple<int, std::string, int> slib;
     bool full = false;
+    bool audio_enabled = false;
+    unsigned int audio_channels = 2;
+    float audio_sensitivty = 0.25f;
 };
 
 
@@ -233,6 +255,7 @@ struct FrameData {
 };
 
 class ACView : public gl::GLObject {
+    bool audio_is_enabled = false;
 public:
     ACView(const Arguments &args)
         : bit_rate{args.Kbps},
@@ -247,10 +270,24 @@ public:
           repeat{args.repeat},
           full{args.full}
     {
+#ifdef AUDIO_ENABLED
+        if(args.audio_enabled) {
+            if(init_audio(args.audio_channels, args.audio_sensitivty) != 0) {
+                mx::system_err << "acmx2: Error could not initalize audio\n";
+            } else {
+                audio_is_enabled = true;
+            }
+        }
+#endif
         running = true; 
     }
 
     ~ACView() override {
+#ifdef AUDIO_ENABLED
+        if(audio_is_enabled) {
+            close_audio();
+        }
+#endif
         if (captureFBO) {
             glDeleteFramebuffers(1, &captureFBO);
             captureFBO = 0;
@@ -747,7 +784,13 @@ int main(int argc, char **argv) {
           .addOptionSingle('a', "Repeat")
           .addOptionDouble('A', "repeat", "Video repeat")
           .addOptionSingle('n', "fullscreen")
-          .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
+          .addOptionSingle('w', "Enable Audio Reactivity")
+          .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
+          .addOptionSingleValue('l', "Audio channels")
+          .addOptionDoubleValue('L', "channels", "Audio channels")
+          .addOptionSingleValue('q', "Audio Sensitivty")
+          .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
+          .addOptionDouble('N', "fullscr,een", "Fullscreen Window (Escape to quit)");
 
     if(argc == 1) {
         printAbout(parser);
@@ -843,6 +886,18 @@ int main(int argc, char **argv) {
                 case 'n':
                 case 'N':
                     args.full = true;
+                    break;
+                case 'W':
+                case 'w':
+                    args.audio_enabled = true;
+                    break;
+                case 'l':
+                case 'L':
+                    args.audio_channels = atoi(arg.arg_value.c_str());
+                    break;
+                case 'Q':
+                case 'q':
+                    args.audio_sensitivty = atof(arg.arg_value.c_str());
                     break;
             }
         }
