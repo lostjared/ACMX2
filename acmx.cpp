@@ -793,10 +793,12 @@ int main(int argc, char **argv) {
           .addOptionSingle('n', "fullscreen")
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
+#ifdef AUDIO_ENABLED
           .addOptionSingleValue('l', "Audio channels")
           .addOptionDoubleValue('L', "channels", "Audio channels")
           .addOptionSingleValue('q', "Audio Sensitivty")
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
+#endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
     if(argc == 1) {
@@ -894,6 +896,7 @@ int main(int argc, char **argv) {
                 case 'N':
                     args.full = true;
                     break;
+#ifdef AUDIO_ENABLED
                 case 'W':
                 case 'w':
                     args.audio_enabled = true;
@@ -906,6 +909,7 @@ int main(int argc, char **argv) {
                 case 'q':
                     args.audio_sensitivty = atof(arg.arg_value.c_str());
                     break;
+#endif
             }
         }
     } catch (const ArgException<std::string>& e) {
