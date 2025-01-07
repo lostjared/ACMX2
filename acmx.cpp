@@ -262,7 +262,9 @@ struct FrameData {
 };
 
 class ACView : public gl::GLObject {
+#ifdef AUDIO_ENABLED
     bool audio_is_enabled = false;
+#endif
 public:
     ACView(const Arguments &args)
         : bit_rate{args.Kbps},
