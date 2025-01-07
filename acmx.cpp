@@ -25,7 +25,7 @@
 
 class ShaderLibrary {
     float alpha = 1.0;
-    float time_f = 1.0f;
+    float time_f = 1.0;
     bool time_active = true;
 public:
     ShaderLibrary() = default;
@@ -75,8 +75,19 @@ public:
             std::getline(file, line_data);
             if(file && !line_data.empty() && line_data.find("material") == std::string::npos) {
                 programs.push_back(std::make_unique<gl::ShaderProgram>());
-                if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
-                    throw mx::Exception("acmx2: Error could not load shader: " + line_data);
+            
+                mx::system_out << "acmx2: Compiling Shader: " << index++  << ": [" << line_data << "]\n";
+                fflush(stdout);
+                fflush(stderr);
+                try {
+                    if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
+                        throw mx::Exception("acmx2: Error could not load shader: " + line_data);
+                    }
+                } catch(mx::Exception &e) {
+                    mx::system_err << "\n";
+                    fflush(stdout);
+                    fflush(stderr);
+                    throw;
                 }
                 error = glGetError();
                 if(error != GL_NO_ERROR) {
@@ -91,7 +102,7 @@ public:
                 if(error != GL_NO_ERROR) {
                     throw mx::Exception("setUniform");
                 }
-                mx::system_out << "acmx2: Compiled Shader " << index++ << ": " << line_data << "\n";
+            
                 fflush(stdout);
                 fflush(stderr);
                 std::filesystem::path file_path(line_data);
@@ -128,15 +139,19 @@ public:
     void useProgram() { programs[index()]->useProgram(); }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
     void update(gl::GLWindow *win) {
-        if(time_active) 
-            time_f = static_cast<float>(SDL_GetTicks())/1000.0f;
+        static Uint64 start_time = SDL_GetPerformanceCounter();
+        Uint64 now_time = SDL_GetPerformanceCounter();
+        double elapsed_time = (double)(now_time - start_time) / SDL_GetPerformanceFrequency();
+
+        if(time_active)
+            time_f = static_cast<float>(elapsed_time);
 
         GLuint time_f_loc = program_names[index()].time_f;
         glUniform1f(time_f_loc, time_f);
         GLint loc = program_names[index()].loc;
         glUniform1f(loc, alpha);
         GLuint iTimeLoc = program_names[index()].iTime;
-        float currentTime = SDL_GetTicks() / 1000.0f; 
+        double currentTime = (float)SDL_GetTicks() / 1000.0f; 
         glUniform1f(iTimeLoc, currentTime);
         GLuint iMouseLoc = program_names[index()].iMouse;
         int mouseX, mouseY;
@@ -458,10 +473,10 @@ public:
             case SDL_KEYDOWN:
                 switch(e.key.keysym.sym) {
                     case SDLK_i:
-                        library.incTime(0.1f);
+                        library.incTime(0.05f);
                         break;
                     case SDLK_o:
-                        library.decTime(0.1f);
+                        library.decTime(0.05f);
                         break;
                 }
                 break;
