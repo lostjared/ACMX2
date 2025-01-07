@@ -63,10 +63,8 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-#ifdef AUDIO_ENABLED
             program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
-#endif
-
+            program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
         }
     }
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -122,9 +120,8 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-#ifdef AUDIO_ENABLED
                     program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
-#endif
+                    program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
                 }
            }
         }
@@ -174,8 +171,12 @@ public:
         glUniform2f(iResolution, win->w, win->h);
 #ifdef AUDIO_ENABLED
         GLuint amp_i = program_names[index()].amp;
-        float amplitude = get_amp() * get_sense();
+        static float amplitude = 1.0;
+        amplitude += (get_amp() * get_sense());
         glUniform1f(amp_i, amplitude);
+        GLuint amp_u = program_names[index()].amp_untouched;
+        glUniform1f(amp_u, get_amp());
+        fflush(stdout);
 #endif
 
     }
@@ -218,7 +219,7 @@ private:
         std::string name;
         GLuint loc, iTime, iMouse, time_f, iResolution;
 #ifdef AUDIO_ENABLED
-        GLuint amp;
+        GLuint amp, amp_untouched;
 #endif
     };
 
@@ -790,7 +791,7 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('L', "channels", "Audio channels")
           .addOptionSingleValue('q', "Audio Sensitivty")
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
-          .addOptionDouble('N', "fullscr,een", "Fullscreen Window (Escape to quit)");
+          .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
     if(argc == 1) {
         printAbout(parser);
