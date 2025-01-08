@@ -318,6 +318,7 @@ void MainWindow::menuAudioSettings() {
         audio_enabled = audio_set.isAudioReactivityEnabled();
         audio_channels = audio_set.getNumberOfChannels();
         audio_sense = audio_set.getSensitivity();
+        audio_passthrough = audio_set.isAudioPassThroughEnabled();
         Log("Audio Settings Saved");
     }
 }
@@ -370,6 +371,8 @@ void MainWindow::runSelected() {
         arguments << "--enable-audio";
         arguments << "--channels" << QString::number(audio_channels);
         arguments << "--sense" << QString::number(audio_sense);
+        if(audio_passthrough)
+            arguments << "--pass-through";
     }
 
 
@@ -432,6 +435,8 @@ void MainWindow::runAll() {
         arguments << "--enable-audio";
         arguments << "--channels" << QString::number(audio_channels);
         arguments << "--sense" << QString::number(audio_sense);
+        if(audio_passthrough)
+            arguments << "--pass-through";
     }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);

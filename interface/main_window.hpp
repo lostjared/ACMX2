@@ -94,6 +94,7 @@ private:
     bool audio_enabled = false;
     unsigned int audio_channels = 2;
     float audio_sense = 0.25f;
+    bool audio_passthrough = false;
 };
 
 

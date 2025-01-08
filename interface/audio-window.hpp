@@ -17,11 +17,13 @@ public:
     explicit AudioSettings(QWidget *parent = nullptr);
 
     bool isAudioReactivityEnabled() const;
+    bool isAudioPassThroughEnabled() const; 
     int getNumberOfChannels() const;
     double getSensitivity() const;
 
 private:
     QCheckBox *audioReactivityCheckBox;
+    QCheckBox *audioPassThroughCheckBox; 
     QSpinBox *channelSpinBox;
     QSlider *sensitivitySlider;
     QPushButton *okButton;

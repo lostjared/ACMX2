@@ -5,6 +5,7 @@ AudioSettings::AudioSettings(QWidget *parent)
     setWindowTitle("Audio Settings");
 
     audioReactivityCheckBox = new QCheckBox("Enable Audio Reactivity", this);
+    audioPassThroughCheckBox = new QCheckBox("Enable Audio Pass Through", this); 
 
     QLabel *channelLabel = new QLabel("Number of Channels:", this);
     channelSpinBox = new QSpinBox(this);
@@ -13,12 +14,12 @@ AudioSettings::AudioSettings(QWidget *parent)
 
     QLabel *sensitivityLabel = new QLabel("Sensitivity:", this);
     sensitivitySlider = new QSlider(Qt::Horizontal, this);
-    sensitivitySlider->setRange(1, 100); // Map floating-point range [0.1, 2.0] to integers [1, 20]
-    sensitivitySlider->setValue(5);    // Default value for sensitivity (e.g., 0.5)
+    sensitivitySlider->setRange(1, 200);
+    sensitivitySlider->setValue(5);    
 
-    QLabel *sensitivityValueLabel = new QLabel("0.5", this); // Label to show floating-point value
-    connect(sensitivitySlider, &QSlider::valueChanged, this, [sensitivityValueLabel](int value) {
-        double floatValue = value / 10.0; // Convert integer value to float
+    QLabel *sensitivityValueLabel = new QLabel("0.5", this); 
+    connect(sensitivitySlider, &QSlider::valueChanged, this, [this, sensitivityValueLabel](int value) {
+        double floatValue = value / 10.0; 
         sensitivityValueLabel->setText(QString::number(floatValue, 'f', 1));
     });
 
@@ -30,6 +31,7 @@ AudioSettings::AudioSettings(QWidget *parent)
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addWidget(audioReactivityCheckBox);
+    mainLayout->addWidget(audioPassThroughCheckBox); 
 
     QHBoxLayout *channelLayout = new QHBoxLayout();
     channelLayout->addWidget(channelLabel);
@@ -39,7 +41,7 @@ AudioSettings::AudioSettings(QWidget *parent)
     QHBoxLayout *sensitivityLayout = new QHBoxLayout();
     sensitivityLayout->addWidget(sensitivityLabel);
     sensitivityLayout->addWidget(sensitivitySlider);
-    sensitivityLayout->addWidget(sensitivityValueLabel); // Show the floating-point value
+    sensitivityLayout->addWidget(sensitivityValueLabel); 
     mainLayout->addLayout(sensitivityLayout);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
@@ -54,10 +56,14 @@ bool AudioSettings::isAudioReactivityEnabled() const {
     return audioReactivityCheckBox->isChecked();
 }
 
+bool AudioSettings::isAudioPassThroughEnabled() const { 
+    return audioPassThroughCheckBox->isChecked();
+}
+
 int AudioSettings::getNumberOfChannels() const {
     return channelSpinBox->value();
 }
 
 double AudioSettings::getSensitivity() const {
-    return sensitivitySlider->value() / 10.0; // Convert integer value to float
+    return sensitivitySlider->value() / 10.0; 
 }
