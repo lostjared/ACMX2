@@ -800,8 +800,8 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('L', "channels", "Audio channels")
           .addOptionSingleValue('q', "Audio Sensitivty")
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
-          .addOptionSingleValue('y', "Enable Audio Pass-through")
-          .addOptionDoubleValue('Y', "pass-through", "Enable audio pass thorugh")
+          .addOptionSingle('y', "Enable Audio Pass-through")
+          .addOptionDouble('Y', "pass-through", "Enable audio pass thorugh")
 #endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
