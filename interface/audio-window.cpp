@@ -17,7 +17,7 @@ AudioSettings::AudioSettings(QWidget *parent)
     sensitivitySlider->setValue(5);    // Default value for sensitivity (e.g., 0.5)
 
     QLabel *sensitivityValueLabel = new QLabel("0.5", this); // Label to show floating-point value
-    connect(sensitivitySlider, &QSlider::valueChanged, this, [this, sensitivityValueLabel](int value) {
+    connect(sensitivitySlider, &QSlider::valueChanged, this, [sensitivityValueLabel](int value) {
         double floatValue = value / 10.0; // Convert integer value to float
         sensitivityValueLabel->setText(QString::number(floatValue, 'f', 1));
     });
