@@ -314,9 +314,10 @@ public:
     }
 
     virtual void load(gl::GLWindow *win) override {
+        frame_counter = 0;
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
-        else
+        else                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
 
@@ -415,6 +416,7 @@ public:
     }
 
     virtual void draw(gl::GLWindow *win) override {
+        frame_counter ++;
         std::chrono::time_point<std::chrono::steady_clock> now =  std::chrono::steady_clock::now();  
         if (cap.isOpened() && cap.read(frame)) {
             cv::flip(frame, frame, 0);
@@ -493,14 +495,32 @@ public:
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
                 double currentFrame = cap.get(cv::CAP_PROP_POS_FRAMES);
                 double percentage = 0.0;
+                double seconds = 0.0;
                 if (totalFrames > 0.0) {
                     percentage = (currentFrame / totalFrames) * 100.0;
                 }
+                if(fps > 0) {
+                    seconds = currentFrame / fps;
+                }
                 std::ostringstream stream;
                 stream << "ACMX2 - " << static_cast<int>(percentage) << "% ["
-                << static_cast<int>(currentFrame) << "/" << static_cast<int>(totalFrames) << "] - Video Mode";
+                << static_cast<int>(currentFrame) << "/" << static_cast<int>(totalFrames) << "] - " << static_cast<int>(seconds) << " seconds - " << "Video Mode";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
+            }
+        } else if(cap.isOpened() && filename.empty()) {
+            static auto lastUpdate = std::chrono::steady_clock::now();
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
+                double currentFrame = static_cast<double>(frame_counter);
+                if(fps > 0) {
+                    double seconds = currentFrame / fps;
+                    std::ostringstream stream;
+                    stream << "ACMX2 - " << static_cast<int>(seconds) << " seconds - ["
+                    << static_cast<int>(currentFrame) << "] - Capture Mode";
+                    win->setWindowTitle(stream.str());
+                    lastUpdate = now;
+                }
             }
         }
 
@@ -552,6 +572,7 @@ public:
     }
 
 private:
+    unsigned int frame_counter = 0;
     int bit_rate = 25000;
     std::string prefix_path;
     std::string filename, ofilename;
