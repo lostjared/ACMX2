@@ -395,6 +395,7 @@ public:
                     throw mx::Exception("Could not open output video file: " + ofilename);
                 }
             }
+            totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
             fflush(stderr);
             fflush(stdout);
         }
@@ -483,6 +484,26 @@ public:
         library.useProgram();
         library.update(win);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
+
+
+
+        if(cap.isOpened() && !filename.empty()) {
+            static auto lastUpdate = std::chrono::steady_clock::now();
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
+                double currentFrame = cap.get(cv::CAP_PROP_POS_FRAMES);
+                double percentage = 0.0;
+                if (totalFrames > 0.0) {
+                    percentage = (currentFrame / totalFrames) * 100.0;
+                }
+                std::ostringstream stream;
+                stream << "ACMX2 - " << static_cast<int>(percentage) << "% ["
+                << static_cast<int>(currentFrame) << "/" << static_cast<int>(totalFrames) << "] - Video Mode";
+                win->setWindowTitle(stream.str());
+                lastUpdate = now;
+            }
+        }
+
         std::chrono::time_point<std::chrono::steady_clock> nowx =  std::chrono::steady_clock::now();
         auto m = std::chrono::duration_cast<std::chrono::milliseconds>(nowx - now).count();
         if (fps > 0) {
@@ -544,7 +565,7 @@ private:
     bool repeat = false;
     bool full = false;
     bool snapshot = false;
-
+    double totalFrames = 0; 
     cv::VideoCapture cap;
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
