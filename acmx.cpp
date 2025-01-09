@@ -406,6 +406,11 @@ public:
         camera_texture = loadTexture(frame);
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
         setupCaptureFBO(win->w, win->h);
+        
+        if(filename.empty())
+            win->setWindowTitle("ACMX2 - Camera 0 seconds, frame 0");
+        else
+            win->setWindowTitle("ACMX2 - [" + filename + "] 0 seconds, frame 0");
 
         if(full) {
             win->setFullScreen(true);
