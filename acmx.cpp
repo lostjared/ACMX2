@@ -1,4 +1,4 @@
-#define AC_VERSION "0.4.0"
+#define AC_VERSION "0.5.0"
 #include<mx.hpp>
 #include<argz.hpp>
 #include<gl.hpp>
