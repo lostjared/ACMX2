@@ -1,4 +1,5 @@
 #include"main_window.hpp"
+#include<QIcon>
 #include<QLayout>
 #include<QApplication>
 #include<QMessageBox>
@@ -18,7 +19,7 @@ void MainWindow::initControls() {
     connect(process, &QProcess::readyReadStandardError, this, [=]() {
         QString errorOutput = process->readAllStandardError();
         if(!errorOutput.contains("GStreamer")) {
-            errorOutput.replace("\n", "<br>");
+            errorOutput.replace("\n", "<br>"); 
             this->Write("<b style='color:red;'>Error:</b> " + errorOutput);
         }
     });
@@ -93,13 +94,25 @@ void MainWindow::initControls() {
     listMenu->addAction(listMenu_down);
     helpMenu_about = new QAction("About", this);
     connect(helpMenu_about, &QAction::triggered, this, [=](){
-        QMessageBox::information(this, "About", "ACMX2 - (C) 2025 LostSideDead Software\n");
+        QMessageBox box(this);
+        box.setWindowTitle("About ACMX2");
+        box.setWindowIcon(QIcon(":/win-icon.png"));
+        QString info;
+        QTextStream stream(&info);
+        stream << "ACMX2 " << VERSION_INFO << " (C) 2025 " << VERSION_AUTHOR << " Software\nThis is software is dedicated to all that have experienced mental illness.\n";
+        box.setText(info);
+        QPixmap bigIcon(":/win-icon.png"); 
+        if (!bigIcon.isNull()) {
+            QPixmap resizedIcon = bigIcon.scaled(64, 64, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            box.setIconPixmap(resizedIcon);
+        }
+        box.exec();
     });
     helpMenu->addAction(helpMenu_about);
     model = new ReadOnlyStringListModel(this);
     model->setStringList(items);
     list_view = new QListView(this);
-    list_view->setStyleSheet("QListView { background-color: black; color: lime; font-size: 24px; font-family: 'Courier New', Courier, monospace; }");
+    list_view->setStyleSheet("QListView { background-color: black; color: white; font-size: 24px; font-family: 'Courier New', Courier, monospace; }");
     list_view->setModel(model);
     bottomTextBox = new QTextEdit(this);
     bottomTextBox->setHtml("<b style='color:red;'>ACMX2</b> - Interface: Loaded.");

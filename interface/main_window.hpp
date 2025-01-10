@@ -3,7 +3,7 @@
 
 #ifndef __APP_WINDOW_H_
 #define __APP_WINDOW_H_
-
+#include "version_info.hpp"//defines VERSION_INFO
 #include<QMainWindow>
 #include<QListView>
 #include<QStringListModel>
