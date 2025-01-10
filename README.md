@@ -99,24 +99,28 @@ without having to restort to the command line or buliding the same basic boilerp
 
 ## Command-Line Arguments
 
-Below is a summary of the available command-line arguments:
+| Short Form         | Long Form                       | Description                             |
+|--------------------|---------------------------------|-----------------------------------------|
+| `-v`               |                                 | Display help message                    |
+| `-p <value>`       | `--path <value>`                | Assets path                             |
+| `-r <WidthxHeight>`| `--resolution <WidthxHeight>`   | Resolution WidthxHeight                 |
+| `-d <value>`       | `--device <value>`              | Device Index                            |
+| `-c <value>`       | `--camera-res <value>`          | Camera Resolution                       |
+| `-i <file>`        | `--input <file>`                | Input file                              |
+| `-s <file>`        | `--shaders <file>`              | Shader Library Index File               |
+| `-f <shader>`      | `--fragment <shader>`           | Fragment Shader                         |
+| `-h <index>`       | `--shader <index>`              | Shader Index                            |
+| `-e <prefix>`      | `--prefix <prefix>`             | Save Prefix                             |
+| `-o <file>`        | `--output <file>`               | Output file                             |
+| `-b <kbps>`        | `--bitrate <kbps>`              | Bitrate in Kbps                         |
+| `-u <fps>`         | `--fps <fps>`                   | Frames per second                       |
+| `-a`               | `--repeat`                      | Video repeat                            |
+| `-n`               | `--fullscreen`                  | Fullscreen Window (Escape to quit)      |
+| `-w`               | `--enable-audio`                | Enable Audio Reactivity                 |
+| `-l <channels>`    | `--channels <channels>`         | Audio channels                          |
+| `-q <sensitivity>` | `--sense <sensitivity>`         | Audio Sensitivity                       |
+| `-y`               | `--pass-through`                | Enable Audio Pass-through               |
 
-| Short | Long                 | Description                                       | Example                       |
-|-------|----------------------|---------------------------------------------------|-------------------------------|
-| `-p`  | `--path`             | Specify assets path (shaders, icons, etc.).       | `--path ./assets`             |
-| `-r`  | `--resolution`       | Output/Processing resolution (Width x Height).    | `--resolution 1280x720`       |
-| `-c`  | `--camera-resolution`| Camera capture resolution (Width x Height).       | `--camera-resolution 640x480` |
-| `-d`  | `--device`           | Specify camera device index.                      | `--device 1`                  |
-| `-i`  | `--input`            | Input video file. If omitted, uses camera input.  | `--input input.mp4`           |
-| `-s`  | `--shaders`          | Path to a shader library (uses `index.txt`).      | `--shaders ./filters`         |
-| `-f`  | `--fragment`         | Single fragment shader file to load.              | `--fragment ./frag. glsl`     |
-| `-h`  | `--shader`     | Shader index within the shader library.                 | `--shader 2`                  |
-| `-e`  | `--prefix`           | Snapshot save prefix path.                        | `--prefix ./snapshots`        |
-| `-o`  | `--output`           | Output video file name to record.                 | `--output output.mp4`         |
-| `-b`  | `--bitrate`          | Bitrate in Kbps for output video.                 | `--bitrate 5000`              |
-| `-u`  | `--fps`              | Frames per second for recording.                  | `--fps 30`                    |
-| `-a`  | `--repeat`           | Repeat the input video (loop).                    | `--repeat`                    |
-| `-n`  | `--fullscreen`       | Start in fullscreen mode.                         | `--fullscreen`                |
 
 ### Notes:
 - **Resolution Arguments**:
