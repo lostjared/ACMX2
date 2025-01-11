@@ -820,6 +820,7 @@ const char *message = R"(
     O - step backward in disabled time
     Z - take snapshot
     F - Toggle fullscreen
+    Q - Toggle Reactive Time (When Audio is Enabled)
 }
 )";
 
