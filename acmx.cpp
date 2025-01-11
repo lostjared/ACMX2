@@ -154,8 +154,20 @@ public:
         Uint64 now_time = SDL_GetPerformanceCounter();
         double elapsed_time = (double)(now_time - start_time) / SDL_GetPerformanceFrequency();
 
-        if(time_active)
+        if(time_audio == false && time_active) {
             time_f = static_cast<float>(elapsed_time);
+        } else {
+#ifdef AUDIO_ENABLED
+            if(time_audio) {
+                time_f += (get_amp() * get_sense());
+                std::cout << "acmx2: time + amp: " << time_f << "\n";
+                fflush(stdout);
+            }
+#endif
+        }
+
+        if(std::isnan(time_f) || std::isinf(time_f))
+            time_f = 1.0;
 
         GLuint time_f_loc = program_names[index()].time_f;
         glUniform1f(time_f_loc, time_f);
@@ -210,11 +222,19 @@ public:
         time_active = t;
     }
 
+    void audioTime(bool t) {
+        time_audio = t;
+    }
+
+#ifdef AUDIO_ENABLED
     bool timeActive() const { return time_active; }
-    
+    bool timeAudio() const { return time_audio; }
+#endif
+
     void event(SDL_Event &e) {
 
     }
+
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
@@ -226,7 +246,7 @@ private:
         GLuint amp, amp_untouched;
 #endif
     };
-
+    bool time_audio = false;
     std::unordered_map<int, ProgramData> program_names;
 };
 
@@ -560,6 +580,11 @@ public:
                         full = !full;
                         win->setFullScreen(full);
                         break;
+#ifdef AUDIO_ENABLED
+                    case SDLK_q:
+                        library.audioTime(!library.timeAudio());
+                        break;
+#endif
                 }
                 break;
             case SDL_KEYDOWN:
