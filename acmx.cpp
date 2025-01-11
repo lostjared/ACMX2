@@ -1,4 +1,4 @@
-#define AC_VERSION "0.6.0"
+#include"version_info.hpp"
 #include<mx.hpp>
 #include<argz.hpp>
 #include<gl.hpp>
@@ -800,8 +800,8 @@ const char *message = R"(
 
 template<typename T>
 void printAbout(Argz<T> &parser) { 
-    std::cout << "acmx2: v" << AC_VERSION << "\n";
-    std::cout << "(C) 2025 LostSideDead.\n";
+    std::cout << PROGRAM_NAME << ": " << VERSION_INFO << "\n";
+    std::cout << "(C) 2025 " << VERSION_AUTHOR << "\n";
     std::cout << "https://lostsidedead.biz\n";
     std::cout << "Command Line Arguments:\n";
     parser.help(std::cout);
