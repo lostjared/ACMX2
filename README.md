@@ -184,6 +184,7 @@ During runtime, the following keyboard controls are supported:
 - **I**: Step forward in time (when time-based animation is disabled).
 - **O**: Step backward in time (when time-based animation is disabled).
 - **F**: Toggle fullscreen.
+- **Q**: Toggle Reactive Time (If Audio Enabled)
 
 Press **ESC** or close the window to quit.
 
