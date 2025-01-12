@@ -177,16 +177,19 @@ without having to restort to the command line or buliding the same basic boilerp
 
 During runtime, the following keyboard controls are supported:
 
-- **Up Arrow**: Switch to previous shader in the library.  
-- **Down Arrow**: Switch to next shader in the library.
-- **Z**: Save a snapshot (PNG) of the current frame.
-- **T**: Toggle time-based animation (enables/disables time uniform).
-- **I**: Step forward in time (when time-based animation is disabled).
-- **O**: Step backward in time (when time-based animation is disabled).
-- **F**: Toggle fullscreen.
-- **Q**: Toggle Reactive Time (If Audio Enabled)
+| **Key**        | **Action**                                           |
+|----------------|------------------------------------------------------|
+| **Up Arrow**   | Switch to the previous shader in the library.        |
+| **Down Arrow** | Switch to the next shader in the library.            |
+| **Z**          | Save a snapshot (PNG) of the current frame.          |
+| **T**          | Toggle time-based animation (enables/disables time uniform). |
+| **I**          | Step forward in time (when time-based animation is disabled). |
+| **O**          | Step backward in time (when time-based animation is disabled). |
+| **F**          | Toggle fullscreen mode.                              |
+| **Q**          | Toggle Reactive Time (if audio is enabled).          |
+| **ESC**        | Quit the application or close the window.             |
 
-Press **ESC** or close the window to quit.
+**Note:** Press **ESC** or close the window to quit the application.
 
 ## Credits
 - Special thanks to all libraries used:
