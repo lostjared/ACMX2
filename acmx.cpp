@@ -463,26 +463,46 @@ public:
             startWriterThread();
         }
 
-        if(cap.isOpened()) {
+        if(filename.empty() && cap.isOpened()) {
             startCaptureThread();
         }
     }
 
     virtual void draw(gl::GLWindow *win) override {
         
+        if(!running) {
+            win->quit();
+            return;
+        }
+
+
+
         cv::Mat newFrame;
-        {
+        if(filename.empty()) {
             std::unique_lock<std::mutex> lock(captureQueueMutex);
             if (!captureQueue.empty()) {
                 newFrame = std::move(captureQueue.front());
                 captureQueue.pop();
             }
+        } else {
+            if(!cap.read(newFrame)) {
+                if(!filename.empty() && repeat) {
+                    mx::system_out << "acmx2: video loop...\n";
+                    cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                    if(!cap.read(newFrame)) {
+                        mx::system_out << "acmx2: cannot grab after looping.\n";
+                    }
+                } else {
+                    running = false;
+                    win->quit();
+                }
+            }
+            cv::flip(newFrame, newFrame, 0);
         }
 
         if(!newFrame.empty()) {
             updateTexture(camera_texture, newFrame);
-        }
-
+        } 
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -531,8 +551,9 @@ public:
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(cap.isOpened() && !filename.empty()) {
+            frame_counter++;
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
-                double currentFrame = cap.get(cv::CAP_PROP_POS_FRAMES);
+                double currentFrame = static_cast<double>(frame_counter);
                 double percentage = 0.0;
                 double seconds = 0.0;
                 if (totalFrames > 0.0) {
@@ -728,17 +749,8 @@ private:
         captureThread = std::thread([this]() {
             while(running) {
                 if(!cap.grab()) {
-                    if(!filename.empty() && repeat) {
-                        mx::system_out << "acmx2: video loop...\n";
-                        cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-                        if(!cap.grab()) {
-                            mx::system_out << "acmx2: cannot grab after looping.\n";
-                            break;
-                        }
-                    } else {
-                        mx::system_out << "acmx2: capture ended or failed.\n";
-                        break;
-                    }
+                    running = false;
+                    return;
                 }
                 cv::Mat localFrame;
                 if(!cap.retrieve(localFrame)) {
