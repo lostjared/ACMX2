@@ -332,15 +332,7 @@ public:
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
         }
-        if(writer.is_open()) {
-            double currentFrame = static_cast<double>(frame_counter);
-            if(fps > 0) {
-                double seconds = currentFrame / fps;
-                std::cout << "acmx2: " << " wrote " << seconds << " to file: " << ofilename << "\n";
-            }
-        }
         stopWriterThread();
-
     }
 
     virtual void load(gl::GLWindow *win) override {
@@ -475,8 +467,6 @@ public:
             return;
         }
 
-
-
         cv::Mat newFrame;
         if(filename.empty()) {
             std::unique_lock<std::mutex> lock(captureQueueMutex);
@@ -573,24 +563,27 @@ public:
         } 
         else if(cap.isOpened() && filename.empty()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
-                double currentFrame = static_cast<double>(frame_counter);
+                auto now = std::chrono::steady_clock::now();
+                double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
                 if(fps > 0) {
-                    double seconds = currentFrame / fps;
                     std::ostringstream stream;
-                    stream << "ACMX2 - " << seconds 
-                           << " seconds - [" << static_cast<int>(currentFrame) 
+                    stream << "ACMX2 - " << elapsedSeconds 
+                           << " seconds - [" << frame_counter 
                            << "] - Capture Mode";
                     win->setWindowTitle(stream.str());
                     lastUpdate = now;
                 }
             }
         }
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
-        lastFrameTime = now;
-        if (fps > 0) {
-            int fps_mil = static_cast<int>(1000 / fps);
-            if (m < fps_mil) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(fps_mil - m - 1));
+
+        if(!filename.empty()) {
+            auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
+            lastFrameTime = now;
+            if (fps > 0) {
+                int fps_mil = static_cast<int>(1000 / fps);
+                if (m < fps_mil) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(fps_mil - m - 1));
+                }
             }
         }
     }
@@ -669,6 +662,8 @@ private:
     std::mutex captureQueueMutex;
     std::condition_variable captureQueueCondVar;
     std::chrono::steady_clock::time_point lastFrameTime = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point captureStartTime;
+
 private:
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
@@ -746,6 +741,7 @@ private:
             return; 
         }
         running = true;
+        captureStartTime = std::chrono::steady_clock::now();
         captureThread = std::thread([this]() {
             while(running) {
                 if(!cap.grab()) {
@@ -757,7 +753,6 @@ private:
                     mx::system_err << "acmx2: retrieve failed.\n";
                     break;
                 }
-                frame_counter ++;
                 cv::flip(localFrame, localFrame, 0);
                 {
                     std::lock_guard<std::mutex> lock(captureQueueMutex);
@@ -782,12 +777,6 @@ private:
         running = true;
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
-            using clock = std::chrono::steady_clock;
-            double frameDurationMs = 1000.0 / fps;
-            auto lastTime = clock::now();
-            double accumulatorMs = 0.0;
-            FrameData lastFrame;
-
             while (running) {
                 FrameData fd;
                 {
@@ -802,25 +791,10 @@ private:
 
                     fd = std::move(frameQueue.front());
                     frameQueue.pop();
-                    lastFrame = fd;
                 }
 
                 if (writer.is_open()) {
-                    if (filename.empty()) {
-                        auto now = clock::now();
-                        double dt = std::chrono::duration<double, std::milli>(now - lastTime).count();
-                        lastTime = now;
-                        accumulatorMs += dt;
-                        int framesToWrite = static_cast<int>(accumulatorMs / frameDurationMs);
-                        const int maxDuplicates = 2; 
-                        framesToWrite = std::min(framesToWrite, maxDuplicates);
-                        for (int i = 0; i < framesToWrite; ++i) {
-                            writer.write(lastFrame.pixels.data());
-                            accumulatorMs -= frameDurationMs;
-                        }
-                    } else {
-                        writer.write(fd.pixels.data());
-                    }
+                    writer.write(fd.pixels.data());
                 }
                 if(fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
@@ -849,10 +823,16 @@ private:
     }
 
     void stopWriterThread() {
+        bool recording = writer.is_open();
         running = false;
         queueCondVar.notify_all();
         if (writerThread.joinable()) {
             writerThread.join();
+        }
+        if(recording) {
+            auto now = std::chrono::steady_clock::now();
+            double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
+            std::cout << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
         }
     }
 };
