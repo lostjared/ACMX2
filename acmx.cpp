@@ -832,6 +832,10 @@ private:
         if(recording) {
             auto now = std::chrono::steady_clock::now();
             double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
+
+            if(!filename.empty() && fps > 0)
+                elapsedSeconds = static_cast<double>(frame_counter) / fps;
+
             std::cout << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
         }
     }
