@@ -1,29 +1,29 @@
-#include"version_info.hpp"
-#include<mx.hpp>
-#include<argz.hpp>
-#include<gl.hpp>
-#include<vector>
-#include<fstream>
-#include<string>
-#include<algorithm>
-#include<tuple>
-#include<unordered_map>
-#include<opencv2/opencv.hpp>
-#include<filesystem>
-#include<chrono>
-#include<thread>
-#include<ctime>
-#include<optional>
-#include<mutex>
-#include<condition_variable>
-#include<queue>
-#include<atomic>
-#include<iomanip>
-#include<ctime>
-#include<sstream>
+#include "version_info.hpp"
+#include <mx.hpp>
+#include <argz.hpp>
+#include <gl.hpp>
+#include <vector>
+#include <fstream>
+#include <string>
+#include <algorithm>
+#include <tuple>
+#include <unordered_map>
+#include <opencv2/opencv.hpp>
+#include <filesystem>
+#include <chrono>
+#include <thread>
+#include <ctime>
+#include <optional>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
+#include <iomanip>
+#include <ctime>
+#include <sstream>
 #include "ffwrite.hpp"
 #ifdef AUDIO_ENABLED
-#include"audio.hpp"
+#include "audio.hpp"
 #endif
 
 class ShaderLibrary {
@@ -33,6 +33,7 @@ class ShaderLibrary {
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
+
     void loadProgram(gl::GLWindow *win, const std::string text) {
         programs.push_back(std::make_unique<gl::ShaderProgram>());
         if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text)) {
@@ -69,6 +70,7 @@ public:
 #endif
         }
     }
+
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
         std::fstream file;
         file.open(text + "/index.txt", std::ios::in);
@@ -131,6 +133,7 @@ public:
         }
         file.close();
     }
+
     void setIndex(size_t i) {
         if(i < programs.size())
             library_index = i;   
@@ -147,8 +150,11 @@ public:
     }
     size_t index() { return library_index; }
 
-    void useProgram() { programs[index()]->useProgram(); }
+    void useProgram() { 
+        programs[index()]->useProgram(); 
+    }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
+
     void update(gl::GLWindow *win) {
         static Uint64 start_time = SDL_GetPerformanceCounter();
         Uint64 now_time = SDL_GetPerformanceCounter();
@@ -158,10 +164,9 @@ public:
             time_f = static_cast<float>(elapsed_time);
         } else {
 #ifdef AUDIO_ENABLED
+            // If audio is enabled, could do reactive time
             if(time_audio) {
                 time_f += (get_amp() * get_sense());
-                std::cout << "acmx2: time + amp: " << time_f << "\n";
-                fflush(stdout);
             }
 #endif
         }
@@ -194,7 +199,6 @@ public:
         glUniform1f(amp_u, get_amp());
         fflush(stdout);
 #endif
-
     }
 
     void incTime(float value) {
@@ -207,7 +211,7 @@ public:
 
     void decTime(float value) {
         if(!time_active) {
-            if(time_f-value > 1.0) {
+            if(time_f - value > 1.0) {
                 time_f -= value;
                 mx::system_out << "acmx2: Time step back: " << time_f << "\n";
             } else {
@@ -231,9 +235,7 @@ public:
     bool timeAudio() const { return time_audio; }
 #endif
 
-    void event(SDL_Event &e) {
-
-    }
+    void event(SDL_Event &e) {  }
 
 private:
     size_t library_index = 0;
@@ -273,7 +275,6 @@ struct Arguments {
 #endif
 };
 
-
 struct FrameData {
     std::vector<unsigned char> pixels;
     int width = 0;
@@ -308,7 +309,7 @@ public:
             }
         }
 #endif
-        running = true; 
+        running = true;
     }
 
     ~ACView() override {
@@ -317,7 +318,10 @@ public:
             close_audio();
         }
 #endif
-        if (captureFBO) {
+
+        stopCaptureThread(); 
+        
+       if (captureFBO) {
             glDeleteFramebuffers(1, &captureFBO);
             captureFBO = 0;
         }
@@ -328,16 +332,22 @@ public:
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
         }
-
-
+        if(writer.is_open()) {
+            double currentFrame = static_cast<double>(frame_counter);
+            if(fps > 0) {
+                double seconds = currentFrame / fps;
+                std::cout << "acmx2: " << " wrote " << seconds << " to file: " << ofilename << "\n";
+            }
+        }
         stopWriterThread();
+
     }
 
     virtual void load(gl::GLWindow *win) override {
         frame_counter = 0;
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
-        else                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
+        else
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
 
@@ -345,6 +355,7 @@ public:
         if (error != GL_NO_ERROR) {
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
         }
+
         int w = 1280, h = 720;
         int frame_w = w, frame_h = h;
         if(filename.empty()) {
@@ -372,22 +383,28 @@ public:
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
             fflush(stderr);
             fflush(stdout);
+
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
             }
+
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps FPS: " << fps <<"\n";
+                    mx::system_out << "acmx2: Opened: " << ofilename 
+                                   << " for writing at: " << bit_rate 
+                                   << " Kbps FPS: " << fps <<"\n";
                 } else {
                     throw mx::Exception("Could not open output video file: " +  ofilename);
                 }
             }
-        } else {
+        } 
+        else {
             cap.open(filename);
             if(!cap.isOpened()) {
                 throw mx::Exception("Could not open video file: " + filename);
@@ -399,19 +416,24 @@ public:
             frame_w = w;
             frame_h = h;
 
-            mx::system_out << "acmx2: Video opened: " << w << "x" << h << " at FPS: " << fps << "\n";
+            mx::system_out << "acmx2: Video opened: " << w << "x" << h 
+                           << " at FPS: " << fps << "\n";
+
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
-                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
-                
+                mx::system_out << "acmx2: Resolution stretched to: " 
+                               << w << "x" << h << "\n";
             }
+
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename << " for writing at: " << bit_rate << " Kbps\n";
+                    mx::system_out << "acmx2: Opened: " << ofilename 
+                                   << " for writing at: " << bit_rate << " Kbps\n";
                 } else {
                     throw mx::Exception("Could not open output video file: " + ofilename);
                 }
@@ -420,13 +442,14 @@ public:
             fflush(stderr);
             fflush(stdout);
         }
+
         sprite.initSize(win->w, win->h);
         sprite.setName("samp");
-        frame = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
-        camera_texture = loadTexture(frame);
-        sprite.initWithTexture(library.shader(), camera_texture, 0, 0, frame.cols, frame.rows);
+        cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
+        camera_texture = loadTexture(blankMat);
+        sprite.initWithTexture(library.shader(), camera_texture, 0, 0, blankMat.cols, blankMat.rows);
         setupCaptureFBO(win->w, win->h);
-        
+
         if(filename.empty())
             win->setWindowTitle("ACMX2 - Camera 0 seconds, frame 0");
         else
@@ -435,40 +458,31 @@ public:
         if(full) {
             win->setFullScreen(true);
         }
+
         if(writer.is_open() || true /* snapshots possible */) {
             startWriterThread();
+        }
+
+        if(cap.isOpened()) {
+            startCaptureThread();
         }
     }
 
     virtual void draw(gl::GLWindow *win) override {
-        frame_counter ++;
-        std::chrono::time_point<std::chrono::steady_clock> now =  std::chrono::steady_clock::now();  
-        if (cap.isOpened() && cap.read(frame)) {
-            cv::flip(frame, frame, 0);
-            updateTexture(camera_texture, frame);
-        } else {
-            if(cap.isOpened() && !filename.empty() && repeat == true) {
-                mx::system_out << "acmx2: video loop...\n";
-                cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-                if(!cap.read(frame)) {
-                    mx::system_out << "acmx2: capture device closed.\n";
-                    fflush(stderr);
-                    fflush(stdout);
-                    win->quit();
-                    return;
-                }
-                cv::flip(frame, frame, 0);
-                updateTexture(camera_texture, frame);
-                fflush(stdout);
-                fflush(stderr);
-            } else {
-                mx::system_out << "acmx2: capture device closed.\n";
-                fflush(stderr);
-                fflush(stdout);
-                win->quit();
-                return;
+        
+        cv::Mat newFrame;
+        {
+            std::unique_lock<std::mutex> lock(captureQueueMutex);
+            if (!captureQueue.empty()) {
+                newFrame = std::move(captureQueue.front());
+                captureQueue.pop();
             }
         }
+
+        if(!newFrame.empty()) {
+            updateTexture(camera_texture, newFrame);
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -476,13 +490,14 @@ public:
         library.useProgram();
         library.update(win);
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
-        bool needWriter = (writer.is_open() || snapshot);
 
+        bool needWriter = (writer.is_open() || snapshot);
         if (needWriter) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
             glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
             glBindTexture(GL_TEXTURE_2D, 0);
+
             std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
             for (int y = 0; y < win->h; ++y) {
                 int src_row_start = y * win->w * 4;
@@ -491,17 +506,19 @@ public:
                           pixels.begin() + src_row_start + (win->w * 4),
                           flipped_pixels.begin() + dest_row_start);
             }
+
             FrameData fd;
             fd.pixels = std::move(flipped_pixels);
             fd.width  = win->w;
             fd.height = win->h;
-            fd.isSnapshot = snapshot; 
-            snapshot = false;         
+            fd.isSnapshot = snapshot;
+            snapshot = false;
+
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
                 frameQueue.push(std::move(fd));
             }
-            queueCondVar.notify_one(); 
+            queueCondVar.notify_one();
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -511,12 +528,9 @@ public:
         library.useProgram();
         library.update(win);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
-
-
-
+        static auto lastUpdate = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
         if(cap.isOpened() && !filename.empty()) {
-            static auto lastUpdate = std::chrono::steady_clock::now();
-            auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
                 double currentFrame = cap.get(cv::CAP_PROP_POS_FRAMES);
                 double percentage = 0.0;
@@ -529,32 +543,34 @@ public:
                 }
                 std::ostringstream stream;
                 stream << "ACMX2 - " << static_cast<int>(percentage) << "% ["
-                << static_cast<int>(currentFrame) << "/" << static_cast<int>(totalFrames) << "] - " << static_cast<int>(seconds) << " seconds - " << "Video Mode";
+                       << static_cast<int>(currentFrame) << "/"
+                       << static_cast<int>(totalFrames) << "] - "
+                       << static_cast<int>(seconds) << " seconds - Video Mode";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
             }
-        } else if(cap.isOpened() && filename.empty()) {
-            static auto lastUpdate = std::chrono::steady_clock::now();
-            auto now = std::chrono::steady_clock::now();
+        } 
+        else if(cap.isOpened() && filename.empty()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
                 double currentFrame = static_cast<double>(frame_counter);
                 if(fps > 0) {
                     double seconds = currentFrame / fps;
                     std::ostringstream stream;
-                    stream << "ACMX2 - " << static_cast<int>(seconds) << " seconds - ["
-                    << static_cast<int>(currentFrame) << "] - Capture Mode";
+                    stream << "ACMX2 - " << seconds 
+                           << " seconds - [" << static_cast<int>(currentFrame) 
+                           << "] - Capture Mode";
                     win->setWindowTitle(stream.str());
                     lastUpdate = now;
                 }
             }
         }
-
-        std::chrono::time_point<std::chrono::steady_clock> nowx =  std::chrono::steady_clock::now();
-        auto m = std::chrono::duration_cast<std::chrono::milliseconds>(nowx - now).count();
+        auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
+        lastFrameTime = now;
         if (fps > 0) {
-            int fps_mil = 1000 / fps;
-            if (m < fps_mil)
+            int fps_mil = static_cast<int>(1000 / fps);
+            if (m < fps_mil) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(fps_mil - m - 1));
+            }
         }
     }
 
@@ -609,14 +625,13 @@ private:
     int camera_index = 0;
     std::tuple<int, std::string, int> flib;
     std::optional<cv::Size> sizev, sizec;
-    cv::Mat frame;
     ShaderLibrary library;
     Writer writer;
     double fps = 30;
     bool repeat = false;
     bool full = false;
     bool snapshot = false;
-    double totalFrames = 0; 
+    double totalFrames = 0;
     cv::VideoCapture cap;
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
@@ -625,13 +640,15 @@ private:
     GLuint fboTexture = 0;
     std::thread writerThread;
     std::atomic<bool> running{false};
-
     std::queue<FrameData> frameQueue;
     std::mutex queueMutex;
     std::condition_variable queueCondVar;
-
+    std::thread captureThread;
+    std::queue<cv::Mat> captureQueue;
+    std::mutex captureQueueMutex;
+    std::condition_variable captureQueueCondVar;
     std::chrono::steady_clock::time_point lastFrameTime = std::chrono::steady_clock::now();
-
+private:
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
@@ -663,7 +680,6 @@ private:
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
-
     GLuint loadTexture(cv::Mat &frame) {
         GLuint texture = 0;
         glGenTextures(1, &texture);
@@ -678,9 +694,10 @@ private:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, frame.cols, frame.rows,
-                     0, GL_RGBA, GL_UNSIGNED_BYTE, frame.ptr());
+        cv::Mat temp;
+        cv::cvtColor(frame, temp, cv::COLOR_BGR2RGBA);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, temp.cols, temp.rows,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, temp.ptr());
 
         error = glGetError();
         if (error != GL_NO_ERROR) {
@@ -694,7 +711,8 @@ private:
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
         cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+        glTexSubImage2D(GL_TEXTURE_2D, 
+                        0, 0, 0,
                         frame.cols, frame.rows,
                         GL_RGBA,
                         GL_UNSIGNED_BYTE,
@@ -702,8 +720,53 @@ private:
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
+    void startCaptureThread() {
+        if(captureThread.joinable()) {
+            return; 
+        }
+        running = true;
+        captureThread = std::thread([this]() {
+            while(running) {
+                if(!cap.grab()) {
+                    if(!filename.empty() && repeat) {
+                        mx::system_out << "acmx2: video loop...\n";
+                        cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                        if(!cap.grab()) {
+                            mx::system_out << "acmx2: cannot grab after looping.\n";
+                            break;
+                        }
+                    } else {
+                        mx::system_out << "acmx2: capture ended or failed.\n";
+                        break;
+                    }
+                }
+                cv::Mat localFrame;
+                if(!cap.retrieve(localFrame)) {
+                    mx::system_err << "acmx2: retrieve failed.\n";
+                    break;
+                }
+                frame_counter ++;
+                cv::flip(localFrame, localFrame, 0);
+                {
+                    std::lock_guard<std::mutex> lock(captureQueueMutex);
+                    captureQueue.push(std::move(localFrame));
+                }
+                captureQueueCondVar.notify_one();
+            }
+        });
+    }
+
+    void stopCaptureThread() {
+        running = false;
+        captureQueueCondVar.notify_all();
+        if (captureThread.joinable()) {
+            captureThread.join();
+        }
+    }
+
     void startWriterThread() {
-        if (writerThread.joinable()) return; 
+        if (writerThread.joinable()) 
+            return;
         running = true;
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
@@ -727,7 +790,7 @@ private:
 
                     fd = std::move(frameQueue.front());
                     frameQueue.pop();
-                    lastFrame = fd; 
+                    lastFrame = fd;
                 }
 
                 if (writer.is_open()) {
@@ -743,40 +806,39 @@ private:
                             writer.write(lastFrame.pixels.data());
                             accumulatorMs -= frameDurationMs;
                         }
-                    } 
-                    else {
+                    } else {
                         writer.write(fd.pixels.data());
                     }
                 }
-              
-                if (fd.isSnapshot) {
+                if(fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
                     std::time_t now_c = std::chrono::system_clock::to_time_t(now);
                     std::tm localTime = *std::localtime(&now_c);
 
                     std::ostringstream oss;
                     oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-                    std::string name = prefix_path + "/ACMX2.Snapshot-" +
-                                       oss.str() + "-" +
-                                       std::to_string(fd.width) + "x" +
-                                       std::to_string(fd.height) + "-" +
-                                       std::to_string(snapshotOffset++) + ".png";
+                    std::string name = prefix_path + "/ACMX2.Snapshot-"
+                                     + oss.str() + "-"
+                                     + std::to_string(fd.width) + "x"
+                                     + std::to_string(fd.height) + "-"
+                                     + std::to_string(snapshotOffset++) 
+                                     + ".png";
 
-                    png::SavePNG_RGBA(name.c_str(),
-                                      fd.pixels.data(),
+                    png::SavePNG_RGBA(name.c_str(), 
+                                      fd.pixels.data(), 
                                       fd.width, fd.height);
 
                     mx::system_out << "acmx2: Took snapshot: " << name << "\n";
                     fflush(stdout);
                     fflush(stderr);
                 }
-            } 
+            }
         });
     }
 
     void stopWriterThread() {
         running = false;
-        queueCondVar.notify_all();  // Wake it up
+        queueCondVar.notify_all();
         if (writerThread.joinable()) {
             writerThread.join();
         }
@@ -793,11 +855,13 @@ public:
         }
         setWindowIcon(ico);
         SDL_FreeSurface(ico);
+
         setObject(new ACView(args));
         object->load(this);
         fflush(stdout);
         fflush(stderr);
     }
+
     ~MainWindow() override {}
 
     void draw() override {
@@ -808,19 +872,21 @@ public:
         swap();
         delay();
     }
-    void event(SDL_Event &e) override {}
+
+    void event(SDL_Event &e) override {
+        
+    }
 };
 
 const char *message = R"(
 -[ Keyboard controls ]- {
-    Up arrow - Shift Up
-    Down arrow - Shift Down
+    Up arrow - Previous shader
+    Down arrow - Next shader
     T - enable/disable time
-    I - step forward in disabled time
-    O - step backward in disabled time
+    I/O - step time if disabled
     Z - take snapshot
-    F - Toggle fullscreen
-    Q - Toggle Reactive Time (When Audio is Enabled)
+    F - toggle fullscreen
+    Q - toggle reactive time (if AUDIO_ENABLED)
 }
 )";
 
@@ -833,7 +899,6 @@ void printAbout(Argz<T> &parser) {
     parser.help(std::cout);
     std::cout << message;
 }
-
 
 int main(int argc, char **argv) {
     fflush(stdout);
@@ -894,7 +959,7 @@ int main(int argc, char **argv) {
                 case 'p':
                 case 'P':
                     args.path = arg.arg_value;
-                break;
+                    break;
                 case 'r':
                 case 'R': {
                     auto pos = arg.arg_value.find("x");
@@ -930,7 +995,7 @@ int main(int argc, char **argv) {
                 case 'd':
                 case 'D':
                     args.camera_device = atoi(arg.arg_value.c_str());
-                break;
+                    break;
                 case 's':
                 case 'S':
                     args.mode = 1;
@@ -990,7 +1055,6 @@ int main(int argc, char **argv) {
                 case 'y':
                     set_output(true);
                     break;
-
 #endif
             }
         }
@@ -999,24 +1063,32 @@ int main(int argc, char **argv) {
         mx::system_err.flush();
         return EXIT_FAILURE;
     }    
+
     if(args.path.empty()) {
         args.path = ".";
-        mx::system_out << "acmx2: Path name not provided using default current path...\n";
+        mx::system_out << "acmx2: Path name not provided, using current path...\n";
     }
+
     try {
-        args.slib = std::make_tuple(args.mode, (args.mode == 0) ? args.fragment : args.library, (args.mode == 0) ? 0 : args.shader_index);
+        args.slib = std::make_tuple(args.mode, 
+                                    (args.mode == 0) ? args.fragment : args.library, 
+                                    (args.mode == 0) ? 0 : args.shader_index);
+
         MainWindow main_window(args);
         main_window.loop();
-    } catch(const mx::Exception &e) {
+    } 
+    catch(const mx::Exception &e) {
         mx::system_err << "acmx2: Exception: " << e.text() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
-    } catch(std::exception &e) {
+    } 
+    catch(std::exception &e) {
         mx::system_err << "acmx2: Exception: " << e.what() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
-    } catch(...) {
-        mx::system_err << "acmx2: Exception Occoured.\n";
+    } 
+    catch(...) {
+        mx::system_err << "acmx2: Unknown exception occurred.\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
     }
