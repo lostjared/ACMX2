@@ -551,7 +551,7 @@ public:
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(cap.isOpened() && !filename.empty()) {
-            frame_counter++;
+            frame_counter = static_cast<int>(cap.get(cv::CAP_PROP_POS_FRAMES));
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
                 double currentFrame = static_cast<double>(frame_counter);
                 double percentage = 0.0;
