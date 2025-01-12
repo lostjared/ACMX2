@@ -193,6 +193,6 @@ During runtime, the following keyboard controls are supported:
 
 ## Credits
 - Special thanks to all libraries used:
-  - **SDL2**, **OpenGL**, **OpenCV**, **FFmpeg**, and standard C++.
+  - **SDL2**, **OpenGL**, **OpenCV**, **FFmpeg**, **RtAudio** and standard C++.
 
 Feel free to report issues or contribute via pull requests on GitHub. Thank you for using **ACMX2**!
