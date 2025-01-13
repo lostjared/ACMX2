@@ -601,9 +601,11 @@ public:
                     case SDLK_z:
                         snapshot = true;
                         break;
+#ifdef AUDIO_ENABLED
                     case SDLK_t:
                         library.activeTime(!library.timeActive());
                         break;
+#endif
                     case SDLK_f:
                         full = !full;
                         win->setFullScreen(full);
