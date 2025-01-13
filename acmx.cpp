@@ -443,7 +443,7 @@ public:
         setupCaptureFBO(win->w, win->h);
 
         if(filename.empty())
-            win->setWindowTitle("ACMX2 - Camera 0 seconds, frame 0");
+            win->setWindowTitle("ACMX2 - Capture Input");
         else
             win->setWindowTitle("ACMX2 - [" + filename + "] 0 seconds, frame 0");
 
@@ -560,7 +560,7 @@ public:
                 lastUpdate = now;
             }
         } 
-        else if(cap.isOpened() && filename.empty()) {
+        else if(cap.isOpened() && filename.empty() && writer.is_open()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
                 auto now = std::chrono::steady_clock::now();
                 double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
