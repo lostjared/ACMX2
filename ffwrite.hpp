@@ -9,12 +9,14 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
-#include <string>
+#include<string>
+#include<chrono>
 
 class Writer {
 public:
     bool open(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
     void write(void* rgba_buffer);
+    void write_ts(void *rba_buffer);
     void close();
     bool is_open() const { return opened; }
     ~Writer() {
@@ -37,6 +39,10 @@ private:
     SwsContext* sws_ctx = nullptr;
     AVRational time_base;
     void calculateFPSFraction(float fps, int &fps_num, int &fps_den);
+    std::chrono::steady_clock::time_point recordingStart;
+    int fps_num = 0; 
+    int fps_den = 0; 
+
 };
 
 #endif

@@ -480,7 +480,7 @@ public:
                     mx::system_out << "acmx2: video loop...\n";
                     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
                     if(!cap.read(newFrame)) {
-                        mx::system_out << "acmx2: cannot grab after looping.\n";
+                        mx::system_out << "acmx2: cannot read after looping.\n";
                     }
                 } else {
                     running = false;
@@ -489,10 +489,9 @@ public:
             }
             cv::flip(newFrame, newFrame, 0);
         }
-
         if(!newFrame.empty()) {
             updateTexture(camera_texture, newFrame);
-        } 
+        }          
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -575,7 +574,6 @@ public:
                 }
             }
         }
-
         if(!filename.empty()) {
             auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
@@ -741,7 +739,6 @@ private:
             return; 
         }
         running = true;
-        captureStartTime = std::chrono::steady_clock::now();
         captureThread = std::thread([this]() {
             while(running) {
                 if(!cap.grab()) {
@@ -777,6 +774,8 @@ private:
         running = true;
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
+            captureStartTime = std::chrono::steady_clock::now();
+        
             while (running) {
                 FrameData fd;
                 {
@@ -794,7 +793,10 @@ private:
                 }
 
                 if (writer.is_open()) {
-                    writer.write(fd.pixels.data());
+                    if(!filename.empty()) 
+                        writer.write(fd.pixels.data());
+                    else
+                        writer.write_ts(fd.pixels.data());
                 }
                 if(fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
@@ -832,10 +834,9 @@ private:
         if(recording) {
             auto now = std::chrono::steady_clock::now();
             double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
-
             if(!filename.empty() && fps > 0)
                 elapsedSeconds = static_cast<double>(frame_counter) / fps;
-
+            
             std::cout << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
         }
     }

@@ -40,20 +40,8 @@ bool Writer::open(const std::string& filename,int w, int h, float fps, int bitra
         std::cerr << "Could not create new stream.\n";
         return false;
     }
-
     width  = w;
     height = h;
-    int fps_num = 0;
-    int fps_den = 0;
-    /*
-    if (std::fabs(fps - 29.97f) < 0.001f) {
-        fps_num = 30000;
-        fps_den = 1001;
-    } else {
-
-        fps_num = static_cast<int>(std::round(fps * 1000.0));
-        fps_den = 1000;
-    }*/
    calculateFPSFraction(fps, fps_num, fps_den);
     time_base = AVRational{fps_den, fps_num};
     stream->time_base = time_base;
@@ -96,7 +84,6 @@ bool Writer::open(const std::string& filename,int w, int h, float fps, int bitra
     frameYUV->width  = width;
     frameYUV->height = height;
     av_frame_get_buffer(frameYUV, 32);
-
     sws_ctx = sws_getContext(
         width, height, AV_PIX_FMT_RGBA,
         width, height, AV_PIX_FMT_YUV420P,
@@ -110,7 +97,65 @@ bool Writer::open(const std::string& filename,int w, int h, float fps, int bitra
 
     opened = true;
     frame_count = 0;
+    recordingStart = std::chrono::steady_clock::now();
     return true;
+}
+
+
+
+void Writer::write_ts(void* rgba_buffer) {
+    if (!opened || !rgba_buffer) {
+        return; 
+    }
+    int in_linesize = width * 4; 
+    uint8_t* src_ptr = static_cast<uint8_t*>(rgba_buffer);
+    for (int y = 0; y < height; y++) {
+        uint8_t* dst = frameRGBA->data[0] + y * frameRGBA->linesize[0];
+        uint8_t* src = src_ptr + y * in_linesize;
+        memcpy(dst, src, in_linesize);
+    }
+
+    sws_scale(
+        sws_ctx,
+        frameRGBA->data,     
+        frameRGBA->linesize, 
+        0,
+        height,
+        frameYUV->data,      
+        frameYUV->linesize   
+    );
+    
+    frameYUV->pts = frame_count++; 
+
+    
+    int ret = avcodec_send_frame(codec_ctx, frameYUV);
+    if (ret < 0) {
+        std::cerr << "Error sending frame to encoder: " << av_err2str(ret) << std::endl;
+        return;
+    }
+
+    
+    AVPacket* pkt = av_packet_alloc(); 
+    while (true) {
+        ret = avcodec_receive_packet(codec_ctx, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            break; 
+        } else if (ret < 0) {
+            std::cerr << "Error receiving packet: " << av_err2str(ret) << std::endl;
+            av_packet_free(&pkt);
+            return;
+        }
+        av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
+        pkt->stream_index = stream->index;
+
+        if (av_interleaved_write_frame(format_ctx, pkt) < 0) {
+            std::cerr << "Error writing frame.\n";
+            av_packet_free(&pkt);
+            return;
+        }
+        av_packet_unref(pkt);
+    }
+    av_packet_free(&pkt); 
 }
 
 void Writer::write(void* rgba_buffer)
