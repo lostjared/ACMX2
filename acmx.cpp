@@ -387,7 +387,7 @@ public:
             win->h = h;
 
             if(!ofilename.empty()) {
-                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                if(writer.open_ts(ofilename, w, h, fps, bit_rate)) {
                     mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate 
                                    << " Kbps FPS: " << fps <<"\n";

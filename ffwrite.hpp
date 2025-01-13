@@ -15,6 +15,7 @@ extern "C" {
 class Writer {
 public:
     bool open(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
+    bool open_ts(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
     void write(void* rgba_buffer);
     void write_ts(void *rba_buffer);
     void close();
