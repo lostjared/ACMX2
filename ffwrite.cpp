@@ -209,7 +209,7 @@ void Writer::write_ts(void* rgba_buffer) {
     frameYUV->pts = pts_val;
     int ret = avcodec_send_frame(codec_ctx, frameYUV);
     if (ret < 0) {
-        std::cerr << "Error sending frame to encoder: " << av_err2str(ret) << std::endl;
+        std::cerr << "Error sending frame to encoder\n";
         return;
     }
     AVPacket* pkt = av_packet_alloc();
@@ -218,11 +218,11 @@ void Writer::write_ts(void* rgba_buffer) {
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
         } else if (ret < 0) {
-            std::cerr << "Error receiving packet: " << av_err2str(ret) << std::endl;
+            std::cerr << "Error receiving packet\n";
             av_packet_free(&pkt);
             return;
         }
-                av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
+        av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
         pkt->stream_index = stream->index;
         if (av_interleaved_write_frame(format_ctx, pkt) < 0) {
             std::cerr << "Error writing frame.\n";
