@@ -107,6 +107,13 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+
+            if(name.find("cache") != std::string::npos) {
+                for(int i = 0; i < 4; ++i) {
+                    program_names[pos].texture_cache_loc[i] = glGetUniformLocation(programs.back()->id(), std::string("samp" + std::to_string(i+1)).c_str());
+                }
+            }
+
 #ifdef AUDIO_ENABLED
             program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
             program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
@@ -115,7 +122,7 @@ public:
     }
 
     void setUniform(const std::string &name, int value) {
-         programs[index()]->setUniform(name, value);
+         glUniform1i(program_names[index()].texture_cache_loc[value], value+1);
     }
 
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -171,6 +178,13 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+
+                    if(name.find("cache") != std::string::npos) {
+                        for(int i = 0; i < 4; ++i) {
+                            program_names[pos].texture_cache_loc[i] = glGetUniformLocation(programs.back()->id(), std::string("samp" + std::to_string(i+1)).c_str());
+                        }
+                    }
+
 #ifdef AUDIO_ENABLED
                     program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
                     program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
@@ -300,6 +314,7 @@ private:
 #ifdef AUDIO_ENABLED
         GLuint amp, amp_untouched;
 #endif
+        GLuint texture_cache_loc[4];
     };
     bool time_audio = false;
     std::unordered_map<int, ProgramData> program_names;
