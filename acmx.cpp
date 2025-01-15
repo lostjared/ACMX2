@@ -21,10 +21,53 @@
 #include <iomanip>
 #include <ctime>
 #include <sstream>
+#include <deque>
 #include "ffwrite.hpp"
 #ifdef AUDIO_ENABLED
 #include "audio.hpp"
 #endif
+
+#include <deque>
+#include <opencv2/opencv.hpp>
+
+class FrameCache {
+public:
+    explicit FrameCache(std::size_t num)
+        : num_frames(num)  {
+    }
+    void push(cv::Mat&& frame) {
+        if (frames.size() < num_frames) {
+            frames.emplace_back(std::move(frame));
+        } else {
+            frames.pop_front();
+            frames.emplace_back(std::move(frame));
+        }
+    }
+    cv::Mat& at(std::size_t index) {
+        return frames.at(index);
+    }
+    cv::Mat& operator[](std::size_t index) { return frames[index]; }
+    std::size_t size() const {
+        return frames.size();
+    }
+
+    bool isFull() {
+        if(size() == num_frames) 
+            return true;
+        return false;
+    }
+
+    void fill(cv::Mat &frame) {
+        for(size_t i = 0; i < num_frames; ++i) {
+            if(frames.size() < num_frames)
+                frames.push_back(frame);
+        }
+    }
+
+private:
+    std::size_t num_frames;       
+    std::deque<cv::Mat> frames;   
+};
 
 class ShaderLibrary {
     float alpha = 1.0;
@@ -69,6 +112,10 @@ public:
             program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
 #endif
         }
+    }
+
+    void setUniform(const std::string &name, int value) {
+         programs[index()]->setUniform(name, value);
     }
 
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
@@ -132,6 +179,12 @@ public:
            }
         }
         file.close();
+    }
+
+    bool isCache() {
+        if(library_index < program_names.size() && program_names[library_index].name.find("cache") != std::string::npos)
+            return true;
+        return false;
     }
 
     void setIndex(size_t i) {
@@ -268,6 +321,8 @@ struct Arguments {
     bool repeat = false;
     std::tuple<int, std::string, int> slib;
     bool full = false;
+    bool cache = false;
+    int cache_delay = 1;
 #ifdef AUDIO_ENABLED
     bool audio_enabled = false;
     unsigned int audio_channels = 2;
@@ -298,8 +353,10 @@ public:
           sizec{args.csize},
           fps{args.fps_value},
           repeat{args.repeat},
-          full{args.full}
-    {
+          full{args.full},
+          frame_cache{4},
+          texture_cache{args.cache},
+          cache_delay{args.cache_delay} {
 #ifdef AUDIO_ENABLED
         if(args.audio_enabled) {
             if(init_audio(args.audio_channels, args.audio_sensitivty) != 0) {
@@ -332,6 +389,11 @@ public:
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
         }
+
+        if(texture_cache) {
+            glDeleteTextures(4, cache_textures);
+        }
+
         stopWriterThread();
     }
 
@@ -439,6 +501,17 @@ public:
         sprite.setName("samp");
         cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
         camera_texture = loadTexture(blankMat);
+
+        if(texture_cache) {
+            library.useProgram();
+            for(int i = 0; i < 4; ++i) {
+                cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
+                cache_textures[i] = loadTexture(blankMat);
+                library.setUniform("samp" + std::to_string(i+1), i+1);
+            }
+            frame_cache.fill(blankMat);
+        }
+
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, blankMat.cols, blankMat.rows);
         setupCaptureFBO(win->w, win->h);
 
@@ -489,14 +562,31 @@ public:
             }
             cv::flip(newFrame, newFrame, 0);
         }
+
+        library.useProgram();
+
         if(!newFrame.empty()) {
+            glActiveTexture(GL_TEXTURE0);
             updateTexture(camera_texture, newFrame);
+            if(texture_cache) {
+                static int counter = 0;
+                if(++counter > cache_delay) {
+                    frame_cache.push(std::move(newFrame));
+                    counter = 0;
+                }
+                if(frame_cache.isFull()) {
+                    for(int i = 0; i < 4; i++) {
+                        library.setUniform("samp" + std::to_string(i+1), (i+1));
+                        glActiveTexture(GL_TEXTURE1 + i);
+                        updateTexture(cache_textures[i], frame_cache.at(i));
+                        glBindTexture(GL_TEXTURE_2D, cache_textures[i]);
+                    }
+                } 
+            }
         }          
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        library.useProgram();
         library.update(win);
         sprite.draw(camera_texture, 0, 0, win->w, win->h);
 
@@ -663,6 +753,10 @@ private:
     std::condition_variable captureQueueCondVar;
     std::chrono::steady_clock::time_point lastFrameTime = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point captureStartTime;
+    FrameCache frame_cache;
+    bool texture_cache = false;
+    GLuint cache_textures[4];
+    int cache_delay = 1;
 
 private:
     void setupCaptureFBO(int width, int height) {
@@ -724,7 +818,6 @@ private:
     }
 
     void updateTexture(GLuint texture, cv::Mat &frame) {
-        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
         cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
         glTexSubImage2D(GL_TEXTURE_2D, 
@@ -930,6 +1023,8 @@ int main(int argc, char **argv) {
           .addOptionSingle('a', "Repeat")
           .addOptionDouble('A', "repeat", "Video repeat")
           .addOptionSingle('n', "fullscreen")
+          .addOptionDouble(256, "texture-cache", "Enable texture cache")
+          .addOptionDoubleValue(257, "cache-delay", "Cache delay in frames")
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -1036,6 +1131,14 @@ int main(int argc, char **argv) {
                 case 'n':
                 case 'N':
                     args.full = true;
+                    break;
+                case 256:
+                    args.cache = true;
+                    mx::system_out << "acmx2: Texture cache enabled.\n";
+                    break;
+                case 257:
+                    args.cache_delay = atoi(arg.arg_value.c_str());
+                    mx::system_out << "acmx2: Cache delay set to: " << args.cache_delay << "\n";
                     break;
 #ifdef AUDIO_ENABLED
                 case 'W':
