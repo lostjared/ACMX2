@@ -66,11 +66,37 @@ void SettingsWindow::init() {
     QLabel *screenResolutionLabel = new QLabel("Select Screen Resolution:", this);
     screenResolutionComboBox = new QComboBox(this);
     QStringList screenResolutions = {
-        "Default", "640x360", "640x480","720x480", "480x720", "960x720", "1280x720", "720x1280", "1440x1080", 
-        "1920x1080", "1080x1920,","2560x1440", "1440x2560", "3840x2160", "2160x3840"
+        "Default", "640x360", "640x480", "720x480", "480x720", "960x720", "1280x720", "720x1280", "1440x1080", 
+        "1920x1080", "1080x1920", "2560x1440", "1440x2560", "3840x2160", "2160x3840"
     };
     screenResolutionComboBox->addItems(screenResolutions);
     screenResolutionComboBox->setCurrentIndex(0);
+
+    textureCacheCheckBox = new QCheckBox("Enable Texture Cache", this);
+    cacheDelaySpinBox = new QSpinBox(this);
+    cacheDelaySpinBox->setRange(1, 8); 
+    cacheDelaySpinBox->setValue(1);
+    cacheDelaySpinBox->setEnabled(false);
+    textureCacheCheckBox->setEnabled(false);
+
+    connect(textureCacheCheckBox, &QCheckBox::toggled, cacheDelaySpinBox, &QSpinBox::setEnabled);
+
+    connect(inputVideoOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
+        cameraIndexComboBox->setEnabled(!checked);
+        cameraResolutionComboBox->setEnabled(!checked);
+        cameraFPSSpinBox->setEnabled(!checked);
+
+        inputVideoFileLineEdit->setEnabled(checked);
+        browseInputVideoButton->setEnabled(checked);
+
+        textureCacheCheckBox->setEnabled(checked);
+        cacheDelaySpinBox->setEnabled(checked && textureCacheCheckBox->isChecked());
+    });
+
+
+    QHBoxLayout *textureCacheLayout = new QHBoxLayout;
+    textureCacheLayout->addWidget(textureCacheCheckBox);
+    textureCacheLayout->addWidget(cacheDelaySpinBox);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     okButton = new QPushButton("OK", this);
@@ -91,24 +117,11 @@ void SettingsWindow::init() {
     mainLayout->addWidget(saveFileKbpsSpinBox);
     mainLayout->addWidget(screenResolutionLabel);
     mainLayout->addWidget(screenResolutionComboBox);
+    mainLayout->addLayout(textureCacheLayout);
     mainLayout->addLayout(buttonLayout);
 
     setLayout(mainLayout);
     setWindowTitle("Settings");
-
-    connect(cameraOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
-        cameraIndexComboBox->setEnabled(checked);
-        cameraResolutionComboBox->setEnabled(checked);
-        cameraFPSSpinBox->setEnabled(checked);
-        inputVideoFileLineEdit->setEnabled(!checked);
-        browseInputVideoButton->setEnabled(!checked);
-    });
-
-    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
-        outputVideoFileLineEdit->setEnabled(checked);
-        browseOutputVideoButton->setEnabled(checked);
-        saveFileKbpsSpinBox->setEnabled(checked);
-    });
 
     connect(okButton, &QPushButton::clicked, this, &SettingsWindow::acceptSettings);
     connect(cancelButton, &QPushButton::clicked, this, &SettingsWindow::rejectSettings);
@@ -121,6 +134,7 @@ void SettingsWindow::init() {
     browseOutputVideoButton->setEnabled(false);
     saveFileKbpsSpinBox->setEnabled(false);
 }
+
 
 int SettingsWindow::getSelectedCameraIndex() const {
     return selectedCameraIndex;
@@ -158,12 +172,27 @@ bool SettingsWindow::isSavingToOutputVideoFile() const {
     return saveOutputVideoFile;
 }
 
+bool SettingsWindow::isTextureCacheEnabled() const {
+    return textureCacheCheckBox->isChecked();
+}
+
+int SettingsWindow::getCacheDelay() const {
+    return cacheDelaySpinBox->value();
+}
+
 void SettingsWindow::acceptSettings() {
     useInputVideoFile = inputVideoOptionRadioButton->isChecked();
     saveOutputVideoFile = saveOutputVideoCheckBox->isChecked();
 
     if (useInputVideoFile) {
+        
+        if(inputVideoFileLineEdit->text().isEmpty()) {
+            QMessageBox::information(this, "Video file required", "When using video file mode, a selected video file is required");
+            return;
+        }
+
         inputVideoFile = inputVideoFileLineEdit->text();
+
     } else {
         selectedCameraIndex = cameraIndexComboBox->currentText().toInt();
         QStringList cameraResParts = cameraResolutionComboBox->currentText().split('x');

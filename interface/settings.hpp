@@ -29,6 +29,8 @@ public:
     QString getOutputVideoFile() const;
     bool isUsingInputVideoFile() const;
     bool isSavingToOutputVideoFile() const;
+    bool isTextureCacheEnabled() const;
+    int getCacheDelay() const;
 
 private slots:
     void acceptSettings();
@@ -56,6 +58,10 @@ private:
 
     QPushButton *okButton;
     QPushButton *cancelButton;
+
+    QCheckBox *textureCacheCheckBox;
+    QSpinBox *cacheDelaySpinBox;
+
 
     int selectedCameraIndex;
     QSize selectedCameraResolution;

@@ -373,6 +373,10 @@ void MainWindow::runSelected() {
             arguments << "--resolution" << scr_res;
         if(play_repeat->isChecked())
             arguments << "--repeat";
+        if(cache_enabled) {
+            arguments << "--texture-cache";
+            arguments << "--cache-delay" << QString::number(cache_delay);
+        }
     }
     arguments << "--prefix" << prefix_path;
 
@@ -437,6 +441,10 @@ void MainWindow::runAll() {
         arguments << "--resolution" << scr_res;
         if(play_repeat->isChecked())
             arguments << "--repeat";
+        if(cache_enabled) {
+            arguments << "--texture-cache";
+            arguments << "--cache-delay" << QString::number(cache_delay);
+        }
     }
     arguments << "--prefix" << prefix_path;
     if(!output_file.isEmpty()) {
@@ -444,6 +452,7 @@ void MainWindow::runAll() {
         arguments << "--bitrate" << QString::number(output_kbps);
     }
     arguments << "--shader" << QString::number(index);
+
     if(audio_enabled) {
         arguments << "--enable-audio";
         arguments << "--channels" << QString::number(audio_channels);
@@ -469,6 +478,8 @@ void MainWindow::cameraSettings() {
             QSize screenResolution = settingsWindow.getSelectedScreenResolution();
             screen_res = screenResolution;
             video_file = videoFile;
+            cache_enabled = settingsWindow.isTextureCacheEnabled();
+            cache_delay = settingsWindow.getCacheDelay();
         } else {
             int cameraIndex = settingsWindow.getSelectedCameraIndex();
             QSize cameraResolution = settingsWindow.getSelectedCameraResolution();
@@ -478,6 +489,8 @@ void MainWindow::cameraSettings() {
             video_file = "";
             camera_res = cameraResolution;
             output_fps = settingsWindow.getCameraFPS();
+            cache_enabled = false;
+            cache_delay = 1;
         }
         if(settingsWindow.isSavingToOutputVideoFile()) {
             output_file = settingsWindow.getOutputVideoFile();
