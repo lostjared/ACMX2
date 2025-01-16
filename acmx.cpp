@@ -509,22 +509,20 @@ public:
             fflush(stderr);
             fflush(stdout);
         }
-
-        sprite.initSize(win->w, win->h);
-        sprite.setName("samp");
-        cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
         library.useProgram();
-        camera_texture = loadTexture(blankMat);
-
-        if(texture_cache && library.isCache()) {
+        if(texture_cache) {
+            cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
             for(int i = 0; i < 4; ++i) {
-                cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
                 cache_textures[i] = loadTexture(blankMat);
-                library.setUniform("samp" + std::to_string(i+1), i+1);
             }
             frame_cache.fill(blankMat);
+            mx::system_out << "acmx2: Texture cache initalized.\n";
+            fflush(stdout);
         }
-
+        sprite.initSize(win->w, win->h);
+        cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
+        camera_texture = loadTexture(blankMat);
+        sprite.setName("samp");
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, blankMat.cols, blankMat.rows);
         setupCaptureFBO(win->w, win->h);
 
