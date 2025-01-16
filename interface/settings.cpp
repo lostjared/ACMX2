@@ -85,14 +85,18 @@ void SettingsWindow::init() {
         cameraIndexComboBox->setEnabled(!checked);
         cameraResolutionComboBox->setEnabled(!checked);
         cameraFPSSpinBox->setEnabled(!checked);
-
         inputVideoFileLineEdit->setEnabled(checked);
         browseInputVideoButton->setEnabled(checked);
-
+        browseOutputVideoButton->setEnabled(checked);
         textureCacheCheckBox->setEnabled(checked);
         cacheDelaySpinBox->setEnabled(checked && textureCacheCheckBox->isChecked());
     });
 
+    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        outputVideoFileLineEdit->setEnabled(checked);
+        browseOutputVideoButton->setEnabled(checked);
+        saveFileKbpsSpinBox->setEnabled(checked);
+    });
 
     QHBoxLayout *textureCacheLayout = new QHBoxLayout;
     textureCacheLayout->addWidget(textureCacheCheckBox);
