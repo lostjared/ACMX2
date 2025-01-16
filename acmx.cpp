@@ -513,10 +513,10 @@ public:
         sprite.initSize(win->w, win->h);
         sprite.setName("samp");
         cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
+        library.useProgram();
         camera_texture = loadTexture(blankMat);
 
-        if(texture_cache) {
-            library.useProgram();
+        if(texture_cache && library.isCache()) {
             for(int i = 0; i < 4; ++i) {
                 cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
                 cache_textures[i] = loadTexture(blankMat);
