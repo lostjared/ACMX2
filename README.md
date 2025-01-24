@@ -1,5 +1,7 @@
 
 # ACMX2
+I am thinking about turning this into a video editor.
+
 Live Webcam Effects Powered by OpenGL Shaders and Real-time Audio
 
 ![image](https://github.com/user-attachments/assets/7cdf6c57-0938-49ea-906d-594b48149acb)
