@@ -11,6 +11,13 @@ extern "C" {
 #include <string>
 #include <chrono>
 #include <thread>
+#include <mutex>
+#include <queue>
+
+struct Frame_Data {
+    void* data;
+    std::chrono::steady_clock::time_point capture_time;
+};
 
 class Writer {
 public:
@@ -43,6 +50,9 @@ private:
     std::chrono::steady_clock::time_point recordingStart;
     int fps_num = 0; 
     int fps_den = 0; 
+    std::queue<Frame_Data> frame_queue;
+    const size_t MAX_QUEUE_SIZE = 30; // Adjust based on memory/latency needs
+    std::mutex queue_mutex;
 };
 
 #endif // FFWRITE_HPP

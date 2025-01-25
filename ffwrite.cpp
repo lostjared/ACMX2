@@ -72,11 +72,12 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
     codec_ctx->bit_rate  = bitrate_kbps * 1000LL; 
     codec_ctx->gop_size  = 12; 
 
-    // Enable multi-threading
     codec_ctx->thread_count = std::thread::hardware_concurrency();
     codec_ctx->thread_type = FF_THREAD_FRAME;
-
-    // Enable hardware acceleration if available
+    codec_ctx->max_b_frames = 0;
+    codec_ctx->delay = 0;
+    codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
@@ -167,7 +168,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
         return false;
     }
 
-    opened = true; // Set opened to true if everything is successful
+    opened = true; 
     recordingStart = std::chrono::steady_clock::now();
     return true;
 }
@@ -227,7 +228,6 @@ void Writer::write(void* rgba_buffer)
     av_packet_free(&pkt);
 }
 
-
 bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int bitrate_kbps) {
     avformat_network_init();
     av_log_set_level(AV_LOG_INFO);
@@ -258,6 +258,10 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
     codec_ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
     codec_ctx->bit_rate    = bitrate_kbps * 1000LL;
     codec_ctx->gop_size    = 12; 
+    codec_ctx->max_b_frames = 0;
+    codec_ctx->delay = 0;
+    codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
@@ -312,54 +316,84 @@ void Writer::write_ts(void* rgba_buffer) {
         return;
     }
     auto current_time = std::chrono::steady_clock::now();
-    int64_t elapsed_us =
-        std::chrono::duration_cast<std::chrono::microseconds>(current_time - recordingStart).count();
 
-    int64_t pts_val = av_rescale_q(elapsed_us, AVRational{1, 1000000}, stream->time_base);
-    int in_linesize = width * 4;
-    uint8_t* src_ptr = static_cast<uint8_t*>(rgba_buffer);
-    for (int y = 0; y < height; y++) {
-        uint8_t* dst = frameRGBA->data[0] + y * frameRGBA->linesize[0];
-        uint8_t* src = src_ptr + y * in_linesize;
-        memcpy(dst, src, in_linesize);
-    }
-    sws_scale(
-        sws_ctx,
-        frameRGBA->data,
-        frameRGBA->linesize,
-        0,
-        height,
-        frameYUV->data,
-        frameYUV->linesize
-    );
-    frameYUV->pts = pts_val;
-    int ret = avcodec_send_frame(codec_ctx, frameYUV);
-    if (ret < 0) {
-        std::cerr << "Error sending frame to encoder\n";
-        return;
-    }
-    AVPacket* pkt = av_packet_alloc();
-    while (true) {
-        ret = avcodec_receive_packet(codec_ctx, pkt);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            break;
-        } else if (ret < 0) {
-            std::cerr << "Error receiving packet\n";
-            av_packet_free(&pkt);
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        if (frame_queue.size() >= MAX_QUEUE_SIZE) {
+            std::cerr << "Warning: Dropping frame due to full queue\n";
             return;
         }
-        av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
-        pkt->stream_index = stream->index;
-        if (av_interleaved_write_frame(format_ctx, pkt) < 0) {
-            std::cerr << "Error writing frame.\n";
-            av_packet_free(&pkt);
+        
+        size_t frame_size = width * height * 4;
+        void* frame_copy = malloc(frame_size);
+        memcpy(frame_copy, rgba_buffer, frame_size);
+        frame_queue.push({frame_copy, current_time});
+    }
+
+    while (!frame_queue.empty()) {
+        Frame_Data frame;
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            frame = frame_queue.front();
+            frame_queue.pop();
+        }
+
+        int64_t elapsed_us = 
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                frame.capture_time - recordingStart).count();
+        int64_t pts_val = av_rescale_q(elapsed_us, AVRational{1, 1000000}, stream->time_base);
+
+        int in_linesize = width * 4;
+        uint8_t* src_ptr = static_cast<uint8_t*>(frame.data);
+        for (int y = 0; y < height; y++) {
+            uint8_t* dst = frameRGBA->data[0] + y * frameRGBA->linesize[0];
+            uint8_t* src = src_ptr + y * in_linesize;
+            memcpy(dst, src, in_linesize);
+        }
+
+        sws_scale(
+            sws_ctx,
+            frameRGBA->data,
+            frameRGBA->linesize,
+            0,
+            height,
+            frameYUV->data,
+            frameYUV->linesize
+        );
+
+        frameYUV->pts = pts_val;
+        int ret = avcodec_send_frame(codec_ctx, frameYUV);
+        if (ret < 0) {
+            std::cerr << "Error sending frame to encoder\n";
+            free(frame.data);
             return;
         }
-        av_packet_unref(pkt);
+
+        AVPacket* pkt = av_packet_alloc();
+        while (true) {
+            ret = avcodec_receive_packet(codec_ctx, pkt);
+            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                break;
+            } else if (ret < 0) {
+                std::cerr << "Error receiving packet\n";
+                av_packet_free(&pkt);
+                free(frame.data);
+                return;
+            }
+            av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
+            pkt->stream_index = stream->index;
+            if (av_interleaved_write_frame(format_ctx, pkt) < 0) {
+                std::cerr << "Error writing frame.\n";
+                av_packet_free(&pkt);
+                free(frame.data);
+                return;
+            }
+            av_packet_unref(pkt);
+        }
+        av_packet_free(&pkt);
+        free(frame.data);
     }
-    av_packet_free(&pkt);
 }
-
 
 void Writer::close()
 {
