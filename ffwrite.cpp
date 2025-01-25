@@ -258,9 +258,18 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
     codec_ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
     codec_ctx->bit_rate    = bitrate_kbps * 1000LL;
     codec_ctx->gop_size    = 12; 
+    codec_ctx->thread_count = std::thread::hardware_concurrency();
+    codec_ctx->thread_type = FF_THREAD_FRAME;
     codec_ctx->max_b_frames = 0;
     codec_ctx->delay = 0;
     codec_ctx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+
+    AVBufferRef *hw_device_ctx = nullptr;
+    if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
+        codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+    } else {
+        std::cerr << "Could not initialize hardware acceleration.\n";
+    }
     
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
