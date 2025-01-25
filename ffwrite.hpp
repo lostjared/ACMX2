@@ -1,23 +1,23 @@
-#ifndef WRITER_HPP
-#define WRITER_HPP
-
+#ifndef FFWRITE_HPP
+#define FFWRITE_HPP
 extern "C" {
-#include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
-#include<string>
-#include<chrono>
+#include <string>
+#include <chrono>
+#include <thread>
 
 class Writer {
 public:
     bool open(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
-    bool open_ts(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
     void write(void* rgba_buffer);
-    void write_ts(void *rba_buffer);
+    bool open_ts(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
+    void write_ts(void* rgba_buffer);
     void close();
     bool is_open() const { return opened; }
     ~Writer() {
@@ -43,7 +43,6 @@ private:
     std::chrono::steady_clock::time_point recordingStart;
     int fps_num = 0; 
     int fps_den = 0; 
-
 };
 
-#endif
+#endif // FFWRITE_HPP
