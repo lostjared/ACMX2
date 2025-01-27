@@ -12,7 +12,7 @@ Live Webcam Effects Powered by OpenGL Shaders and Real-time Audio
 ## Basic Information
 
 A C++ application that applies real-time shaders to video from either a camera device or a video file. It can also optionally record the processed video frames to an output file and save snapshots on demand.
-The code is based on the libmx2 (MX Engine) available on GitHub here: https://github.com/lostjared/libmx2
+The code is based on the libmx2 (MX2 Engine) available on GitHub here: https://github.com/lostjared/libmx2
 
 ## Motives
 I wanted a simple and easy way to apply new shaders to camera and video files. To be able to edit them and build libraries of shaders
