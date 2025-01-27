@@ -8,6 +8,11 @@ make -j$(sysctl -n  hw.ncpu) && sudo make install
 cd ../../../
 git clone https://github.com/lostjared/ACMX2.git
 cd ACMX2
+cd MXWrite
+mkdir build && cd build
+cmake ..
+make -j$(sysctl -n hw.ncpu) && sudo make install
+cd ..
 mkdir build && cd build
 cmake .. -DCMAKE_INSTALL_RPATH="/usr/local/lib"
 make -j$(sysctl -n hw.ncpu) && sudo make install
