@@ -81,7 +81,7 @@ without having to restort to the command line or buliding the same basic boilerp
 - **OpenGL** for GPU-accelerated rendering.
 - **SDL2** for creating the window, handling events, and managing the OpenGL context.
 - **OpenCV** for camera/video capture (and some basic image manipulation).
-- **FFmpeg (through a custom `MXWrite` wrapper)** for encoding/writing output video files.
+- **FFmpeg (through a custom `MXWrite` wrapper (included))** for encoding/writing output video files.
 - **Argz** library for command-line argument parsing.
 - **C++ STL** for concurrency, file system operations, etc.
 - **Qt6** for the GUI.
