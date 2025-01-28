@@ -32,10 +32,11 @@ void SettingsWindow::init() {
     QLabel *cameraResolutionLabel = new QLabel("Select Camera Resolution:", this);
     cameraResolutionComboBox = new QComboBox(this);
     QStringList cameraResolutions = {
-        "640x360", "640x480", "960x720", "1280x720", "1920x1080", "2560x1440", "3840x2160"
+        "Default", "640x360", "640x480", "720x480", "480x720", "960x720", "1280x720", "720x1280", "1440x1080", 
+        "1920x1080", "1080x1920", "2560x1440", "1440x2560", "3840x2160", "2160x3840"
     };
     cameraResolutionComboBox->addItems(cameraResolutions);
-    cameraResolutionComboBox->setCurrentIndex(3);
+    cameraResolutionComboBox->setCurrentIndex(6);
 
     QLabel *cameraFPSLabel = new QLabel("Set Camera FPS:", this);
     cameraFPSSpinBox = new QSpinBox(this);
