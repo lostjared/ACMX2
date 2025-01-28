@@ -35,6 +35,7 @@ public:
     explicit FrameCache(std::size_t num)
         : num_frames(num)  {
     }
+    ~FrameCache() = default;
     void push(cv::Mat&& frame) {
         if (frames.size() < num_frames) {
             frames.emplace_back(std::move(frame));
