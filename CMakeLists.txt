@@ -7,6 +7,14 @@ find_package(SDL2_ttf REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 find_package(libmx2 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+    libavcodec
+    libavformat
+    libavutil
+    libswscale
+)
+find_package(MXWrite REQUIRED)
 find_library(AVFORMAT_LIB NAMES avformat REQUIRED)
 find_library(AVCODEC_LIB NAMES avcodec REQUIRED)
 find_library(AVUTIL_LIB NAMES avutil REQUIRED)
@@ -30,15 +38,16 @@ message(STATUS "AVFORMAT_LIB: ${AVFORMAT_LIB}")
 message(STATUS "AVCODEC_LIB: ${AVCODEC_LIB}")
 message(STATUS "AVUTIL_LIB: ${AVUTIL_LIB}")
 message(STATUS "SWSCALE_LIB: ${SWSCALE_LIB}")
+message(STATUS "MXWrite: ${MXWrite_LIBRARIES}")
 set(FF_LIBS ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
-add_library(ffwrite STATIC ffwrite.cpp)
-target_include_directories(ffwrite PRIVATE /usr/include /usr/local/include ${CMAKE_PREFIX_PATH}/include ${CMAKE_INSTALL_PREFIX}/include /opt/homebrew/include)
-target_link_libraries(ffwrite PRIVATE ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
+#add_library(ffwrite STATIC ffwrite.cpp)
+#target_include_directories(ffwrite PRIVATE /usr/include /usr/local/include ${CMAKE_PREFIX_PATH}/include ${CMAKE_INSTALL_PREFIX}/include /opt/homebrew/include)
+#target_link_libraries(ffwrite PRIVATE ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
 add_executable(acmx2 acmx.cpp ${AUDIO_SRC})
 if(AUDIO)
 target_compile_definitions(acmx2 PRIVATE AUDIO_ENABLED)
 endif()
-target_compile_options(ffwrite PRIVATE -O2 -Wall -pedantic)
+#target_compile_options(ffwrite PRIVATE -O2 -Wall -pedantic)
 target_compile_options(acmx2 PRIVATE -O2 -Wall -pedantic)
 target_include_directories(acmx2 PRIVATE 
     ${libmx2_INCLUDE_DIRS}
@@ -47,6 +56,8 @@ target_include_directories(acmx2 PRIVATE
     ${OpenCV_INCLUDE_DIRS}
     ${AUDIO_INCLUDE}/rtaudio
     ${CMAKE_INSTALL_PREFIX}/include
+    ${CMAKE_PREFIX_PATH}/include
+    ${MXWrite_INCLUDE_DIRS}
 )
 target_link_libraries(acmx2 PRIVATE 
     libmx2::mx 
@@ -54,6 +65,6 @@ target_link_libraries(acmx2 PRIVATE
     ${SDL2_TTF_LIBRARIES} 
     ${OpenCV_LIBRARIES} 
     ${AUDIO_LIBS}
-    ffwrite
+    MXWrite::mxwrite
 )
 install(TARGETS acmx2 DESTINATION bin)
