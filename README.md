@@ -95,6 +95,7 @@ without having to restort to the command line or buliding the same basic boilerp
    - OpenGL & GLAD 
    - OpenCV
    - FFmpeg development libraries
+   - MXWrite - Wrapper around FFmpeg
    - C++20 or later compiler
    - Argz library for command-line parsing (if not bundled with the code)
    - libmx2 - MX2 Engine
