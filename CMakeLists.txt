@@ -78,3 +78,4 @@ target_link_libraries(acmx2 PRIVATE
     MXWrite::mxwrite
 )
 install(TARGETS acmx2 DESTINATION bin)
+install(TARGETS audio_transfer DESTINATION bin)
