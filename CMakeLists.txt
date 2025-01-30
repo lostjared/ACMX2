@@ -40,6 +40,20 @@ message(STATUS "AVUTIL_LIB: ${AVUTIL_LIB}")
 message(STATUS "SWSCALE_LIB: ${SWSCALE_LIB}")
 message(STATUS "MXWrite: ${MXWrite_LIBRARIES}")
 set(FF_LIBS ${AVFORMAT_LIB} ${AVCODEC_LIB} ${AVUTIL_LIB} ${SWSCALE_LIB})
+add_executable(audio_transfer audio_transfer.cpp)
+target_compile_options(audio_transfer PRIVATE -O2 -Wall  -pedantic)
+target_include_directories(audio_transfer PRIVATE 
+    ${libmx2_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS} 
+    ${SDL2_TTF_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    ${CMAKE_INSTALL_PREFIX}/include
+    ${CMAKE_PREFIX_PATH}/include
+    ${MXWrite_INCLUDE_DIRS}
+)
+target_link_libraries(audio_transfer PRIVATE 
+    PkgConfig::FFMPEG
+)
 add_executable(acmx2 acmx.cpp ${AUDIO_SRC})
 if(AUDIO)
 target_compile_definitions(acmx2 PRIVATE AUDIO_ENABLED)
