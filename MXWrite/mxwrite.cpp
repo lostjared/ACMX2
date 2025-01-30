@@ -13,6 +13,16 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+
+bool is_format_supported(const char* filename) {
+    const char* ext = strrchr(filename, '.');
+    if (!ext) return false;
+    return (strcmp(ext, ".mp4") == 0 || 
+            strcmp(ext, ".mkv") == 0 ||
+            strcmp(ext, ".avi") == 0 ||
+            strcmp(ext, ".mov") == 0);
+}
+
 void cleanup_contexts(AVFormatContext* source_ctx, 
                      AVFormatContext* dest_ctx,
                      AVFormatContext* output_ctx) {
@@ -26,6 +36,11 @@ void cleanup_contexts(AVFormatContext* source_ctx,
 }
 
 void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideoFile) {
+    if (!is_format_supported(destVideoFile.data())) {
+        std::cerr << "Unsupported output format. Supported formats: .mp4, .mkv, .avi, .mov\n";
+        return;
+    }
+
     AVFormatContext *source_ctx = nullptr, *dest_ctx = nullptr, *output_ctx = nullptr;
     int source_audio_idx = -1, dest_video_idx = -1, dest_audio_idx = -1;
     std::string temp_output = std::string(destVideoFile) + ".tmp";
@@ -67,9 +82,12 @@ void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideo
 
     const AVOutputFormat *output_fmt = av_guess_format(nullptr, destVideoFile.data(), nullptr);
     if (!output_fmt) {
-        std::cerr << "Failed to determine output format\n";
-        cleanup_contexts(source_ctx, dest_ctx, output_ctx);
-        return;
+        output_fmt = av_guess_format("mp4", nullptr, nullptr);
+        if (!output_fmt) {
+            std::cerr << "Failed to determine output format\n";
+            cleanup_contexts(source_ctx, dest_ctx, output_ctx);
+            return;
+        }
     }
 
     if (avformat_alloc_output_context2(&output_ctx, output_fmt, nullptr, temp_output.c_str()) < 0) {
