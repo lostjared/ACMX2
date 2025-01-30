@@ -13,6 +13,7 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
+std::mutex transfer_audio_mutex;
 
 bool is_format_supported(const char* filename) {
     const char* ext = strrchr(filename, '.');
@@ -36,6 +37,7 @@ void cleanup_contexts(AVFormatContext* source_ctx,
 }
 
 void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideoFile) {
+    std::lock_guard<std::mutex> lock(transfer_audio_mutex);
     if (!is_format_supported(destVideoFile.data())) {
         std::cerr << "Unsupported output format. Supported formats: .mp4, .mkv, .avi, .mov\n";
         return;
