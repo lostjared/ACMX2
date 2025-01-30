@@ -14,7 +14,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
 add_library(mxwrite STATIC mxwrite.cpp)
 target_include_directories(mxwrite PUBLIC ${FFMPEG_INCLUDE_DIRS})
 target_link_libraries(mxwrite PUBLIC PkgConfig::FFMPEG)
-
+target_compile_options(mxwrite PRIVATE -O2 -Wall  -pedantic)
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(
