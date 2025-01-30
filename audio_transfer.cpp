@@ -2,14 +2,7 @@
 #include <string>
 #include <cstdlib>
 #include <vector>
-
-extern "C" {
-    #include <libavcodec/avcodec.h>
-    #include <libavformat/avformat.h>
-    #include <libavutil/opt.h>
-    #include <libavutil/mathematics.h>
-    #include <libavutil/timestamp.h>
-}
+#include <mxwrite.hpp>
 
 void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideoFile);
 
@@ -21,7 +14,7 @@ int main(int argc, char **argv) {
     transfer_audio(argv[1], argv[2]);
     return 0;
 }
-
+/*
 void cleanup_contexts(AVFormatContext* source_ctx, 
                      AVFormatContext* dest_ctx,
                      AVFormatContext* output_ctx) {
@@ -170,4 +163,4 @@ void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideo
     cleanup_contexts(source_ctx, dest_ctx, output_ctx);
     std::remove(destVideoFile.data());
     std::rename(temp_output.c_str(), destVideoFile.data());
-}
+}*/

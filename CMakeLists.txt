@@ -52,7 +52,7 @@ target_include_directories(audio_transfer PRIVATE
     ${MXWrite_INCLUDE_DIRS}
 )
 target_link_libraries(audio_transfer PRIVATE 
-    PkgConfig::FFMPEG
+    MXWrite::mxwrite
 )
 add_executable(acmx2 acmx.cpp ${AUDIO_SRC})
 if(AUDIO)
