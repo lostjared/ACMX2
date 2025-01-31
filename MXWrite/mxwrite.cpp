@@ -97,7 +97,21 @@ void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideo
         cleanup_contexts(source_ctx, dest_ctx, output_ctx);
         return;
     }
+
+ 
+    const AVCodec* audio_codec = avcodec_find_decoder(source_ctx->streams[source_audio_idx]->codecpar->codec_id);
+    if (!audio_codec) {
+        std::cerr << "Failed to find audio decoder\n";
+        cleanup_contexts(source_ctx, dest_ctx, output_ctx);
+        return;
+    }
+
+    
     for (unsigned i = 0; i < dest_ctx->nb_streams; ++i) {
+        if (dest_ctx->streams[i]->codecpar->codec_type != AVMEDIA_TYPE_VIDEO) {
+            continue;  
+        }
+        
         AVStream *dest_stream = dest_ctx->streams[i];
         AVStream *out_stream = avformat_new_stream(output_ctx, nullptr);
         if (!out_stream) {
@@ -106,28 +120,41 @@ void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideo
             return;
         }
 
-        if (i == static_cast<unsigned>(dest_audio_idx)) {
-     
-            avcodec_parameters_copy(out_stream->codecpar, source_ctx->streams[source_audio_idx]->codecpar);
-        } else {
-            avcodec_parameters_copy(out_stream->codecpar, dest_stream->codecpar);
-        }
-        out_stream->codecpar->codec_tag = 0; 
-        out_stream->time_base = dest_stream->time_base;
-    }
-
-    if (dest_audio_idx == -1) {
-        AVStream *out_stream = avformat_new_stream(output_ctx, nullptr);
-        if (!out_stream) {
-            std::cerr << "Failed to create new audio stream\n";
+        if (avcodec_parameters_copy(out_stream->codecpar, dest_stream->codecpar) < 0) {
+            std::cerr << "Failed to copy video parameters\n";
             cleanup_contexts(source_ctx, dest_ctx, output_ctx);
             return;
         }
-        avcodec_parameters_copy(out_stream->codecpar, source_ctx->streams[source_audio_idx]->codecpar);
+        
+        out_stream->time_base = dest_stream->time_base;
         out_stream->codecpar->codec_tag = 0;
-        out_stream->time_base = source_ctx->streams[source_audio_idx]->time_base;
-        dest_audio_idx = out_stream->index;
     }
+
+    
+    AVStream *out_stream = avformat_new_stream(output_ctx, audio_codec);
+    if (!out_stream) {
+        std::cerr << "Failed to create audio stream\n";
+        cleanup_contexts(source_ctx, dest_ctx, output_ctx);
+        return;
+    }
+
+    AVCodecParameters* source_params = source_ctx->streams[source_audio_idx]->codecpar;
+    if (avcodec_parameters_copy(out_stream->codecpar, source_params) < 0) {
+        std::cerr << "Failed to copy audio parameters\n";
+        cleanup_contexts(source_ctx, dest_ctx, output_ctx);
+        return;
+    }
+
+    if (source_params->frame_size == 0) {
+        out_stream->codecpar->frame_size = 1024;
+    } else {
+        out_stream->codecpar->frame_size = source_params->frame_size;
+    }
+    
+    out_stream->time_base = source_ctx->streams[source_audio_idx]->time_base;
+    out_stream->codecpar->codec_tag = 0;
+    dest_audio_idx = out_stream->index;
+
     if (!(output_ctx->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&output_ctx->pb, temp_output.c_str(), AVIO_FLAG_WRITE) < 0) {
             std::cerr << "Failed to open output file\n";
@@ -472,7 +499,7 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
     sws_ctx = sws_getContext(
         width, height, AV_PIX_FMT_RGBA,
         width, height, AV_PIX_FMT_YUV420P,
-        SWS_BICUBIC,  // Use a better scaling algorithm for 4K
+        SWS_BICUBIC,  
         nullptr, nullptr, nullptr
     );
     if (!sws_ctx) {
