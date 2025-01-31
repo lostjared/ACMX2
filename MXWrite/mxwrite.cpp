@@ -261,7 +261,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
 
     codec_ctx->rc_max_rate = bitrate_kbps * 1000LL;
     codec_ctx->rc_min_rate = bitrate_kbps * 1000LL;
-    codec_ctx->rc_buffer_size = bitrate_kbps * 4000LL;  // Increase buffer size for 4K
+    codec_ctx->rc_buffer_size = bitrate_kbps * 1000LL;  
     codec_ctx->rc_initial_buffer_occupancy = codec_ctx->rc_buffer_size * 3/4;
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
