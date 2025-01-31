@@ -261,7 +261,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
 
     codec_ctx->rc_max_rate = bitrate_kbps * 1000LL;
     codec_ctx->rc_min_rate = bitrate_kbps * 1000LL;
-    codec_ctx->rc_buffer_size = bitrate_kbps * 2000LL;
+    codec_ctx->rc_buffer_size = bitrate_kbps * 4000LL;  // Increase buffer size for 4K
     codec_ctx->rc_initial_buffer_occupancy = codec_ctx->rc_buffer_size * 3/4;
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
@@ -336,7 +336,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
         return false;
     }
 
-    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr);  // Use a better scaling algorithm for 4K
     if (!sws_ctx) {
         std::cerr << "Could not initialize the conversion context.\n";
         av_frame_free(&frameRGBA);
@@ -472,7 +472,7 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
     sws_ctx = sws_getContext(
         width, height, AV_PIX_FMT_RGBA,
         width, height, AV_PIX_FMT_YUV420P,
-        SWS_FAST_BILINEAR,
+        SWS_BICUBIC,  // Use a better scaling algorithm for 4K
         nullptr, nullptr, nullptr
     );
     if (!sws_ctx) {
