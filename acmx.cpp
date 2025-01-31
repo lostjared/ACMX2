@@ -340,6 +340,7 @@ struct Arguments {
     bool full = false;
     bool cache = false;
     int cache_delay = 1;
+    bool copy_audio = false;
 #ifdef AUDIO_ENABLED
     bool audio_enabled = false;
     unsigned int audio_channels = 2;
@@ -373,7 +374,8 @@ public:
           full{args.full},
           frame_cache{4},
           texture_cache{args.cache},
-          cache_delay{args.cache_delay} {
+          cache_delay{args.cache_delay},
+          copy_audio{args.copy_audio} {
 #ifdef AUDIO_ENABLED
         if(args.audio_enabled) {
             if(init_audio(args.audio_channels, args.audio_sensitivty) != 0) {
@@ -572,6 +574,7 @@ public:
                     }
                 } else {
                     running = false;
+                    finished = true;
                     win->quit();
                 }
             }
@@ -772,7 +775,9 @@ private:
     bool texture_cache = false;
     GLuint cache_textures[4];
     int cache_delay = 1;
-
+    std::atomic<bool> finished{false};
+    std::atomic<bool> copy_audio{false};
+    
 private:
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
@@ -942,12 +947,17 @@ private:
             writerThread.join();
         }
         if(recording) {
+            writer.close();
             auto now = std::chrono::steady_clock::now();
             double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
             if(!filename.empty() && fps > 0)
                 elapsedSeconds = static_cast<double>(frame_counter) / fps;
             
-            std::cout << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
+            mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
+            if(!filename.empty() && repeat == false && copy_audio && finished) {
+                transfer_audio(filename, ofilename);
+                mx::system_out << "acmx2: copied audio track from: " << filename << " to " << ofilename << "\n";
+            }
         }
     }
 };
@@ -1040,6 +1050,8 @@ int main(int argc, char **argv) {
           .addOptionSingle('n', "fullscreen")
           .addOptionDouble(256, "texture-cache", "Enable texture cache")
           .addOptionDoubleValue(257, "cache-delay", "Cache delay in frames")
+          .addOptionDouble(258, "copy-audio", "Copy audio track")
+
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -1154,6 +1166,9 @@ int main(int argc, char **argv) {
                 case 257:
                     args.cache_delay = atoi(arg.arg_value.c_str());
                     mx::system_out << "acmx2: Cache delay set to: " << args.cache_delay << "\n";
+                    break;
+                case 258:
+                    args.copy_audio = true;
                     break;
 #ifdef AUDIO_ENABLED
                 case 'W':
