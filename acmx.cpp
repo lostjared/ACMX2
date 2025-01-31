@@ -954,7 +954,7 @@ private:
                 elapsedSeconds = static_cast<double>(frame_counter) / fps;
             
             mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
-            if(!filename.empty() && repeat == false && copy_audio) {
+            if(!filename.empty() && repeat == false && copy_audio && finished) {
                 transfer_audio(filename, ofilename);
                 mx::system_out << "acmx2: copied audio track from: " << filename << " to " << ofilename << "\n";
             }
