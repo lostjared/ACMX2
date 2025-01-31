@@ -363,7 +363,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
         return false;
     }
 
-    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr);  // Use a better scaling algorithm for 4K
+    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr); 
     if (!sws_ctx) {
         std::cerr << "Could not initialize the conversion context.\n";
         av_frame_free(&frameRGBA);
@@ -379,20 +379,22 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
     return true;
 }
 
-void Writer::write(void* rgba_buffer)
-{
+void Writer::write(void* rgba_buffer) {
     std::lock_guard<std::mutex> lock(writer_mutex);
-    if (!opened) {
+    if (!opened || !rgba_buffer) {
         return;
     }
-    if (!rgba_buffer) {
-        return;
+
+    
+    while (frame_queue.size() >= MAX_QUEUE_SIZE) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+
     std::lock_guard<std::mutex> frame_lock(frame_mutex);
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
     frameYUV->pts = frame_count++;
-    
+
     int ret = avcodec_send_frame(codec_ctx, frameYUV);
     if (ret < 0) {
         std::cerr << "Error sending frame to encoder: " << ret << std::endl;
@@ -515,14 +517,15 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
 
 void Writer::write_ts(void* rgba_buffer) {
     if (!opened || !rgba_buffer) {
-        return; 
+        return;
     }
+    
     auto current_time = std::chrono::steady_clock::now();
     {
-        std::lock_guard<std::mutex> lock(queue_mutex); 
+        std::lock_guard<std::mutex> lock(queue_mutex);
         if (frame_queue.size() >= MAX_QUEUE_SIZE) {
             std::cerr << "Warning: Dropping frame due to full queue\n";
-            return; 
+            return;
         }
         size_t frame_size = width * height * 4;
         auto frame_copy = std::make_unique<uint8_t[]>(frame_size);
