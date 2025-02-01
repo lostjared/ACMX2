@@ -97,6 +97,8 @@ private:
     bool audio_passthrough = false;
     bool cache_enabled = false;
     int cache_delay = 1;
+    bool full_screen_value = false;
+    bool copy_audio = false;
 };
 
 

@@ -102,7 +102,9 @@ void SettingsWindow::init() {
     QHBoxLayout *textureCacheLayout = new QHBoxLayout;
     textureCacheLayout->addWidget(textureCacheCheckBox);
     textureCacheLayout->addWidget(cacheDelaySpinBox);
-
+    QHBoxLayout *fullScreenLayout = new QHBoxLayout;
+    fullscreenCheckBox = new QCheckBox("Fullscreen", this);
+    fullScreenLayout->addWidget(fullscreenCheckBox);
     QHBoxLayout *buttonLayout = new QHBoxLayout;
     okButton = new QPushButton("OK", this);
     cancelButton = new QPushButton("Cancel", this);
@@ -117,14 +119,36 @@ void SettingsWindow::init() {
     mainLayout->addWidget(cameraFPSSpinBox);
     mainLayout->addLayout(inputVideoFileLayout);
     mainLayout->addWidget(saveOutputVideoCheckBox);
+    copyAudioCheckBox = new QCheckBox("Copy Audio Track", this);
+    mainLayout->addWidget(copyAudioCheckBox);
+    copyAudioCheckBox->setChecked(false);
+    connect(inputVideoOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
+        bool enableAudio = checked && saveOutputVideoCheckBox->isChecked();
+        copyAudioCheckBox->setEnabled(enableAudio);
+        if (!enableAudio) {
+            copyAudioCheckBox->setChecked(false);
+        }
+    });
+    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        bool enableAudio = checked && inputVideoOptionRadioButton->isChecked();
+        copyAudioCheckBox->setEnabled(enableAudio);
+        if (!enableAudio) {
+            copyAudioCheckBox->setChecked(false);
+        }
+    });
+
     mainLayout->addLayout(outputVideoFileLayout);
     mainLayout->addWidget(saveFileKbpsLabel);
     mainLayout->addWidget(saveFileKbpsSpinBox);
     mainLayout->addWidget(screenResolutionLabel);
     mainLayout->addWidget(screenResolutionComboBox);
+    copyAudioCheckBox->setEnabled(false);
+    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, copyAudioCheckBox, &QCheckBox::setEnabled);
     mainLayout->addLayout(textureCacheLayout);
+    mainLayout->addLayout(fullScreenLayout);
     mainLayout->addLayout(buttonLayout);
-
+ 
+  
     setLayout(mainLayout);
     setWindowTitle("Settings");
 
@@ -185,6 +209,14 @@ int SettingsWindow::getCacheDelay() const {
     return cacheDelaySpinBox->value();
 }
 
+bool SettingsWindow::isFullscreen() const {
+    return fullscreenCheckBox->isChecked();
+}
+
+bool SettingsWindow::isCopyAudioEnabled() const {
+    return copyAudioCheckBox->isChecked();
+}
+
 void SettingsWindow::acceptSettings() {
     useInputVideoFile = inputVideoOptionRadioButton->isChecked();
     saveOutputVideoFile = saveOutputVideoCheckBox->isChecked();
@@ -223,7 +255,6 @@ void SettingsWindow::acceptSettings() {
         }
         saveFileKbps = saveFileKbpsSpinBox->value();
     }
-
     accept();
 }
 

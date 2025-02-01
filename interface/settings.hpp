@@ -31,6 +31,8 @@ public:
     bool isSavingToOutputVideoFile() const;
     bool isTextureCacheEnabled() const;
     int getCacheDelay() const;
+    bool isFullscreen() const;
+    bool isCopyAudioEnabled() const;
 
 private slots:
     void acceptSettings();
@@ -62,6 +64,8 @@ private:
     QCheckBox *textureCacheCheckBox;
     QSpinBox *cacheDelaySpinBox;
 
+    QCheckBox *fullscreenCheckBox;
+    QCheckBox *copyAudioCheckBox;
 
     int selectedCameraIndex;
     QSize selectedCameraResolution;

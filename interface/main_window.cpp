@@ -358,9 +358,14 @@ void MainWindow::runSelected() {
     QString res;
     QTextStream stream(&res);
     stream << camera_res.width() << "x" << camera_res.height();
+    
     QString scr_res;
     QTextStream stream_r(&scr_res);
     stream_r << screen_res.width() << "x" << screen_res.height();
+       
+    if(full_screen_value)
+        arguments << "--fullscreen";
+
     if(video_file.isEmpty()) {
         arguments << "--camera-res" << res;
         if(screen_res.width() != 0)
@@ -377,6 +382,8 @@ void MainWindow::runSelected() {
             arguments << "--texture-cache";
             arguments << "--cache-delay" << QString::number(cache_delay);
         }
+        if(copy_audio)
+            arguments << "--copy-audio";
     }
     arguments << "--prefix" << prefix_path;
 
@@ -391,8 +398,7 @@ void MainWindow::runSelected() {
         if(audio_passthrough)
             arguments << "--pass-through";
     }
-
-
+ 
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -429,6 +435,11 @@ void MainWindow::runAll() {
     QString scr_res;
     QTextStream stream_r(&scr_res);
     stream_r << screen_res.width() << "x" << screen_res.height();
+ 
+   if(full_screen_value)
+        arguments << "--fullscreen";
+
+  
     if(video_file.isEmpty()) {
         arguments << "--camera-res" << res;
         if(screen_res.width() != 0)
@@ -445,6 +456,8 @@ void MainWindow::runAll() {
             arguments << "--texture-cache";
             arguments << "--cache-delay" << QString::number(cache_delay);
         }
+        if(copy_audio)
+            arguments << "--copy-audio";
     }
     arguments << "--prefix" << prefix_path;
     if(!output_file.isEmpty()) {
@@ -460,6 +473,7 @@ void MainWindow::runAll() {
         if(audio_passthrough)
             arguments << "--pass-through";
     }
+
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -473,6 +487,7 @@ void MainWindow::runAll() {
 void MainWindow::cameraSettings() {
     SettingsWindow settingsWindow(this);
     if(settingsWindow.exec() == QDialog::Accepted) {
+        full_screen_value = settingsWindow.isFullscreen();
         if (settingsWindow.isUsingInputVideoFile()) {
             QString videoFile = settingsWindow.getInputVideoFile();
             QSize screenResolution = settingsWindow.getSelectedScreenResolution();
@@ -480,6 +495,7 @@ void MainWindow::cameraSettings() {
             video_file = videoFile;
             cache_enabled = settingsWindow.isTextureCacheEnabled();
             cache_delay = settingsWindow.getCacheDelay();
+            copy_audio = settingsWindow.isCopyAudioEnabled();
         } else {
             int cameraIndex = settingsWindow.getSelectedCameraIndex();
             QSize cameraResolution = settingsWindow.getSelectedCameraResolution();
