@@ -249,14 +249,29 @@ public:
         glUniform1f(loc, alpha);
         GLuint iTimeLoc = program_names[index()].iTime;
         double currentTime = (float)SDL_GetTicks() / 1000.0f; 
-        glUniform1f(iTimeLoc, currentTime);
+        glUniform1f(iTimeLoc, currentTime);    
+        static bool isDragging = false;
+        static float clickStartX = 0.0f;
+        static float clickStartY = 0.0f;
         GLuint iMouseLoc = program_names[index()].iMouse;
-        int mouseX, mouseY;
-        Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
-        float normalizedMouseX = static_cast<float>(mouseX);
-        float normalizedMouseY = static_cast<float>(win->h - mouseY); 
-        float mouseZ = (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) ? 1.0f : 0.0f;
-        glUniform4f(iMouseLoc, normalizedMouseX, normalizedMouseY, mouseZ, 0.0f);
+        int mouseX = 0, mouseY = 0;
+        Uint32 mouseState = SDL_GetMouseState(&mouseY, &mouseY);
+        float currentY = static_cast<float>(win->h - mouseY);
+        float currentX = static_cast<float>(mouseX);
+        if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+            if (!isDragging) {
+                clickStartX = currentX;
+                clickStartY = currentY;
+                isDragging = true;
+            }
+        } else {
+            isDragging = false;
+        }
+        if (isDragging) {
+            glUniform4f(iMouseLoc, currentX, currentY, clickStartX, clickStartY);
+        } else {
+            glUniform4f(iMouseLoc, currentX, currentY, 0.0f, 0.0f);
+        }
         GLuint iResolution = program_names[index()].iResolution;
         glUniform2f(iResolution, win->w, win->h);
 #ifdef AUDIO_ENABLED
@@ -322,7 +337,7 @@ private:
     std::unordered_map<int, ProgramData> program_names;
 };
 
-struct Arguments {
+struct MXArguments {
     std::string path, filename, ofilename;
     int tw = 1280, th = 720;
     int Kbps = 10000;
@@ -360,7 +375,7 @@ class ACView : public gl::GLObject {
     bool audio_is_enabled = false;
 #endif
 public:
-    ACView(const Arguments &args)
+    ACView(const MXArguments &args)
         : bit_rate{args.Kbps},
           prefix_path{args.prefix_path},
           filename{args.filename},
@@ -964,7 +979,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(const Arguments &args) : gl::GLWindow("ACMX2", args.tw, args.th) {
+    MainWindow(const MXArguments &args) : gl::GLWindow("ACMX2", args.tw, args.th) {
         util.path = args.path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
@@ -1068,7 +1083,7 @@ int main(int argc, char **argv) {
         printAbout(parser);
     }
     Argument<std::string> arg;
-    Arguments args;
+    MXArguments args;
     int value = 0;
     try {
         while((value = parser.proc(arg)) != -1) {
