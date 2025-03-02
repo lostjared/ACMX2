@@ -255,7 +255,7 @@ public:
         static float clickStartY = 0.0f;
         GLuint iMouseLoc = program_names[index()].iMouse;
         int mouseX = 0, mouseY = 0;
-        Uint32 mouseState = SDL_GetMouseState(&mouseY, &mouseY);
+        Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
         float currentY = static_cast<float>(win->h - mouseY);
         float currentX = static_cast<float>(mouseX);
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
@@ -979,7 +979,7 @@ private:
 
 class MainWindow : public gl::GLWindow {
 public:
-    MainWindow(const MXArguments &args) : gl::GLWindow("ACMX2", args.tw, args.th) {
+    MainWindow(const MXArguments &args) : gl::GLWindow("ACMX2", args.tw, args.th, false) {
         util.path = args.path;
         SDL_Surface *ico = png::LoadPNG(util.getFilePath("data/win-icon.png").c_str());
         if(!ico) {
