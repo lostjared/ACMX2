@@ -29,7 +29,7 @@
 #include<string_view>
 #include <deque>
 #include <opencv2/opencv.hpp>
-
+#include <model.hpp>
 
 void transfer_audio(std::string_view, std::string_view);
 
@@ -77,14 +77,21 @@ class ShaderLibrary {
     float alpha = 1.0;
     float time_f = 1.0;
     bool time_active = true;
+    bool is3d = false;
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
 
     void loadProgram(gl::GLWindow *win, const std::string text) {
         programs.push_back(std::make_unique<gl::ShaderProgram>());
-        if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text)) {
-            throw mx::Exception("Error loading shader program: " + text);
+        if(is3d == true) {
+            if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text)) {
+                throw mx::Exception("Error loading shader program: " + text);
+            }
+        } else {
+            if(!programs.back()->loadProgram(win->util.getFilePath("data/vert.glsl"), text)) {
+                throw mx::Exception("Error loading shader program: " + text);
+            }
         }
         GLenum error;
         error = glGetError();
@@ -92,8 +99,7 @@ public:
             throw mx::Exception("OpenGL Error: on ShaderLibary::loadProgram: " + std::to_string(error));
         }
         programs.back()->useProgram();
-        programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
-        programs.back()->setUniform("mv_matrix", glm::mat4(1.0f));
+        
         GLint loc = glGetUniformLocation(programs.back()->id(), "iResolution");
         glUniform2f(loc, win->w, win->h);
         error = glGetError();
@@ -129,6 +135,10 @@ public:
          glUniform1i(program_names[index()].texture_cache_loc[value], value+1);
     }
 
+    void is3D(bool is3d) {
+        this->is3d = is3d;
+    }
+
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
         std::fstream file;
         file.open(text + "/index.txt", std::ios::in);
@@ -147,8 +157,14 @@ public:
                 fflush(stdout);
                 fflush(stderr);
                 try {
-                    if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
-                        throw mx::Exception("acmx2: Error could not load shader: " + line_data);
+                    if(is3d == true) {
+                        if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
+                            throw mx::Exception("acmx2: Error could not load shader: " + line_data);
+                        }
+                    } else {
+                        if(!programs.back()->loadProgram(win->util.getFilePath("data/vert.glsl"), text + "/" + line_data)) {
+                            throw mx::Exception("acmx2: Error could not load shader: " + line_data);
+                        }
                     }
                 } catch(mx::Exception &e) {
                     mx::system_err << "\n";
@@ -161,8 +177,8 @@ public:
                     throw mx::Exception("OpenGL Error loading shader program");
                 }
                 programs.back()->useProgram();
-                programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
-                programs.back()->setUniform("mv_matrix", glm::mat4(1.0f));
+                //programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
+                //programs.back()->setUniform("mv_matrix", glm::mat4(1.0f));
                 GLint loc = glGetUniformLocation(programs.back()->id(), "iResolution");
                 glUniform2f(loc, win->w, win->h);
                 error = glGetError();
@@ -356,6 +372,7 @@ struct MXArguments {
     bool cache = false;
     int cache_delay = 1;
     bool copy_audio = false;
+    bool is3d = false;
 #ifdef AUDIO_ENABLED
     bool audio_enabled = false;
     unsigned int audio_channels = 2;
@@ -370,10 +387,12 @@ struct FrameData {
     bool isSnapshot = false; 
 };
 
+
 class ACView : public gl::GLObject {
 #ifdef AUDIO_ENABLED
     bool audio_is_enabled = false;
 #endif
+ 
 public:
     ACView(const MXArguments &args)
         : bit_rate{args.Kbps},
@@ -399,10 +418,16 @@ public:
                 audio_is_enabled = true;
             }
         }
+
 #endif
         running = true;
+        library.is3D(args.is3d);
+        is3d_enabled = args.is3d;
     }
 
+    bool is3d_enabled = false;
+
+    
     ~ACView() override {
 #ifdef AUDIO_ENABLED
         if(audio_is_enabled) {
@@ -430,14 +455,28 @@ public:
 
         stopWriterThread();
     }
-
+    
+    mx::Model cube;
+    gl::ShaderProgram fshader;
+    
     virtual void load(gl::GLWindow *win) override {
         frame_counter = 0;
+        library.is3D(is3d_enabled);
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
         else
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
+
+        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/cube.mxmod"))) {
+            throw mx::Exception("Could not open model: cube.mxmod.z");
+        }
+
+        cube.setShaderProgram(library.shader(), "samp");
+    
+        if(!fshader.loadProgram(win->util.getFilePath("data/vert.glsl"), win->util.getFilePath("data/framebuffer.glsl"))) {
+            throw mx::Exception("Error loading shader");
+        }
 
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
@@ -617,12 +656,121 @@ public:
                 } 
             }
         }          
+        // STEP 1: Draw either cube or flat sprite to framebuffer
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        library.update(win);
-        sprite.draw(camera_texture, 0, 0, win->w, win->h);
 
+        library.useProgram();
+        library.update(win);
+
+        if (is3d_enabled) {
+            // 3D cube rendering
+            // Enable depth test for 3D cube
+            glEnable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);  // Add this line to show all faces
+            
+            // Set up matrices for 3D cube
+            static float rotation = 0.0f;
+            rotation += 0.5f; // Rotate cube slowly
+            if (rotation > 360.0f) rotation -= 360.0f;
+            
+            glm::mat4 modelMatrix = glm::mat4(1.0f);
+            
+            // Position camera inside the cube and look toward a face
+            glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); // Center of the cube
+            glm::vec3 lookDirection;
+
+            // Get current keyboard state for WASD movement
+            const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+            // Only use keyboard controls when not in automatic rotation mode
+            if (!viewRotationActive) {
+                // Handle WASD movement with scancodes
+                if (keystate[SDL_SCANCODE_W]) {
+                    // Look up
+                    cameraPitch += cameraRotationSpeed * 0.1f;
+                    if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+                }
+                if (keystate[SDL_SCANCODE_S]) {
+                    // Look down
+                    cameraPitch -= cameraRotationSpeed * 0.1f;
+                    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+                }
+                if (keystate[SDL_SCANCODE_A]) {
+                    // Look left
+                    cameraYaw -= cameraRotationSpeed * 0.1f;
+                    if (cameraYaw < 0.0f) cameraYaw += 360.0f;
+                }
+                if (keystate[SDL_SCANCODE_D]) {
+                    // Look right
+                    cameraYaw += cameraRotationSpeed * 0.1f;
+                    if (cameraYaw >= 360.0f) cameraYaw -= 360.0f;
+                }
+            }
+
+            // Calculate lookDirection
+            if (viewRotationActive) {
+                static float viewRotation = 0.0f;
+                viewRotation += 0.3f;
+                if (viewRotation > 360.0f) viewRotation -= 360.0f;
+                
+                float lookX = 0.48f * sin(glm::radians(viewRotation));
+                float lookY = 0.48f * sin(glm::radians(viewRotation * 0.7f));
+                float lookZ = 0.48f * cos(glm::radians(viewRotation));
+                lookDirection = glm::vec3(lookX, lookY, lookZ);
+            } else {
+                lookDirection.x = cos(glm::radians(cameraPitch)) * cos(glm::radians(cameraYaw));
+                lookDirection.y = sin(glm::radians(cameraPitch));
+                lookDirection.z = cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
+                lookDirection = glm::normalize(lookDirection) * 0.48f;
+            }
+
+            glm::vec3 cameraTarget = cameraPos + lookDirection;
+            glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+            glm::mat4 viewMatrix = glm::lookAt(cameraPos, cameraTarget, cameraUp);
+            glm::mat4 projectionMatrix = glm::perspective(
+                glm::radians(120.0f),
+                static_cast<float>(win->w) / static_cast<float>(win->h),
+                0.01f,
+                10.0f
+            );
+
+            // Invert normals to see inside faces
+            glFrontFace(GL_CW);
+            
+            // Set matrices in shader
+            glm::mat4 mvMatrix = viewMatrix * modelMatrix;
+            library.shader()->setUniform("mv_matrix", mvMatrix);
+            library.shader()->setUniform("proj_matrix", projectionMatrix);
+            
+            // Bind camera texture to texture unit 0
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, camera_texture);
+            glUniform1i(glGetUniformLocation(library.shader()->id(), "samp"), 0);
+            glEnableVertexAttribArray(2);
+            for(auto &m : cube.meshes) {
+                m.draw();
+            }
+            
+            // After drawing the cube but before binding to framebuffer 0:
+            glFrontFace(GL_CCW); // Restore default winding order
+        } else {
+            // 2D sprite rendering (just draw the camera texture directly)
+            glDisable(GL_DEPTH_TEST);
+            
+            // Reset to 2D rendering
+            library.shader()->setUniform("mv_matrix", glm::mat4(1.0f));
+            library.shader()->setUniform("proj_matrix", glm::mat4(1.0f));
+            
+            // Draw the camera texture directly to framebuffer
+            sprite.setShader(library.shader());
+            sprite.setName("samp");
+            sprite.draw(camera_texture, 0, 0, win->w, win->h);
+        }
+
+        // Process framebuffer for video writing (existing code)
         bool needWriter = (writer.is_open() || snapshot);
         if (needWriter) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
@@ -653,13 +801,22 @@ public:
             queueCondVar.notify_one();
         }
 
+        // STEP 2: Draw framebuffer result to screen as flat image
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        library.useProgram();
-        library.update(win);
+        
+        // Disable depth testing for 2D sprite
+        glDisable(GL_DEPTH_TEST);
+        
+        fshader.useProgram();
+        // Reset to 2D rendering
+        fshader.setUniform("mv_matrix", glm::mat4(1.0f));
+        fshader.setUniform("proj_matrix", glm::mat4(1.0f));
+        sprite.setShader(&fshader);
+        // Draw the framebuffer texture to the screen using sprite
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
+        
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(cap.isOpened() && !filename.empty()) {
@@ -715,11 +872,18 @@ public:
                 switch(e.key.keysym.sym) {
                     case SDLK_UP:
                         library.dec();
-                        sprite.setShader(library.shader());
+                        if(is3d_enabled)
+                            cube.setShaderProgram(library.shader());
+                        else
+                            sprite.setShader(library.shader());
                         break;
                     case SDLK_DOWN:
                         library.inc();
-                        sprite.setShader(library.shader());
+                        if(is3d_enabled)
+                            cube.setShaderProgram(library.shader());
+                        else
+                            sprite.setShader(library.shader());
+                        
                         break;
                     case SDLK_z:
                         snapshot = true;
@@ -738,6 +902,10 @@ public:
                         library.audioTime(!library.timeAudio());
                         break;
 #endif
+                    case SDLK_v:
+                        // Toggle between automatic and manual rotation
+                        viewRotationActive = !viewRotationActive;
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -748,6 +916,30 @@ public:
                     case SDLK_o:
                         library.decTime(0.05f);
                         break;
+                    /*case SDLK_w:
+                        // Look up
+                        cameraPitch += cameraRotationSpeed;
+                        if (cameraPitch > 89.0f) cameraPitch = 89.0f; // Limit to avoid gimbal lock
+                        viewRotationActive = false;
+                        break;
+                    case SDLK_s:
+                        // Look down
+                        cameraPitch -= cameraRotationSpeed;
+                        if (cameraPitch < -89.0f) cameraPitch = -89.0f; // Limit to avoid gimbal lock
+                        viewRotationActive = false;
+                        break;
+                    case SDLK_a:
+                        // Look left
+                        cameraYaw -= cameraRotationSpeed;
+                        if (cameraYaw < 0.0f) cameraYaw += 360.0f;
+                        viewRotationActive = false;
+                        break;
+                    case SDLK_d:
+                        // Look right
+                        cameraYaw += cameraRotationSpeed;
+                        if (cameraYaw >= 360.0f) cameraYaw -= 360.0f;
+                        viewRotationActive = false;
+                        break;*/
                 }
                 break;
         }
@@ -792,6 +984,11 @@ private:
     int cache_delay = 1;
     std::atomic<bool> finished{false};
     std::atomic<bool> copy_audio{false};
+    // Camera control variables
+    float cameraYaw = 0.0f;   // Horizontal rotation
+    float cameraPitch = 0.0f; // Vertical rotation
+    const float cameraRotationSpeed = 5.0f; // Degrees per key press
+    bool viewRotationActive = false; // Set to false to disable automatic rotation
     
 private:
     void setupCaptureFBO(int width, int height) {
@@ -1005,6 +1202,7 @@ public:
         delay();
     }
 
+    // object->event is called in gl::GLWindow
     void event(SDL_Event &e) override {
         
     }
@@ -1066,6 +1264,7 @@ int main(int argc, char **argv) {
           .addOptionDouble(256, "texture-cache", "Enable texture cache")
           .addOptionDoubleValue(257, "cache-delay", "Cache delay in frames")
           .addOptionDouble(258, "copy-audio", "Copy audio track")
+          .addOptionDouble(259, "enable-3d", "Enable 3D cube")
 
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
@@ -1184,6 +1383,10 @@ int main(int argc, char **argv) {
                     break;
                 case 258:
                     args.copy_audio = true;
+                    break;
+                case 259:
+                    args.is3d = true;
+                    mx::system_out << "acmx2: 3D cube enabled.\n";
                     break;
 #ifdef AUDIO_ENABLED
                 case 'W':
