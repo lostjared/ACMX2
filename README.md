@@ -203,15 +203,22 @@ Feel free to report issues or contribute via pull requests on GitHub. Thank you 
 
 Screenshots:
 
+Properties
 
 ![image](https://github.com/user-attachments/assets/ddbc690b-82ea-456b-a9c0-5a34c408999a)
 
 
+Session Properties
+
 ![image](https://github.com/user-attachments/assets/50f7b5f4-22a5-4fc9-b355-49f9d2d10cb1)
 
 
+Real-time Audio Settings
+
 ![image](https://github.com/user-attachments/assets/e45c8319-5327-4cb1-a153-6839cc8c35d1)
 
+
+About This Application
 
 ![image](https://github.com/user-attachments/assets/ad493ea8-3e51-4e0f-a05e-6f9df3a27b0d)
 
