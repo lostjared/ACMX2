@@ -677,19 +677,19 @@ public:
 
             if (!viewRotationActive) {
                 if (keystate[SDL_SCANCODE_W]) {
-                    cameraPitch += cameraRotationSpeed * 0.1f;
+                    cameraPitch += cameraRotationSpeed * 0.3f;
                     if (cameraPitch > 89.0f) cameraPitch = 89.0f;
                 }
                 if (keystate[SDL_SCANCODE_S]) {
-                    cameraPitch -= cameraRotationSpeed * 0.1f;
-                    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+                    cameraPitch -= cameraRotationSpeed * 0.33f;
+                    if (cameraPitch < -89.0f) cameraPitch = -89.0;
                 }
                 if (keystate[SDL_SCANCODE_A]) {
-                    cameraYaw -= cameraRotationSpeed * 0.1f;
+                    cameraYaw -= cameraRotationSpeed * 0.3f;
                     if (cameraYaw < 0.0f) cameraYaw += 360.0f;
-                }
+               }
                 if (keystate[SDL_SCANCODE_D]) {
-                    cameraYaw += cameraRotationSpeed * 0.1f;
+                    cameraYaw += cameraRotationSpeed * 0.3f;
                     if (cameraYaw >= 360.0f) cameraYaw -= 360.0f;
                 }
             }
