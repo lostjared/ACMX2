@@ -137,6 +137,12 @@ void SettingsWindow::init() {
         }
     });
 
+    QHBoxLayout *enable3d_layout = new QHBoxLayout;
+    enable3dCheckBox = new QCheckBox("Enable 3D", this);
+    enable3dCheckBox->setChecked(false);
+    enable3d_layout->addWidget(enable3dCheckBox);
+    
+
     mainLayout->addLayout(outputVideoFileLayout);
     mainLayout->addWidget(saveFileKbpsLabel);
     mainLayout->addWidget(saveFileKbpsSpinBox);
@@ -146,6 +152,7 @@ void SettingsWindow::init() {
     connect(saveOutputVideoCheckBox, &QCheckBox::toggled, copyAudioCheckBox, &QCheckBox::setEnabled);
     mainLayout->addLayout(textureCacheLayout);
     mainLayout->addLayout(fullScreenLayout);
+    mainLayout->addLayout(enable3d_layout);        
     mainLayout->addLayout(buttonLayout);
  
   
@@ -164,6 +171,9 @@ void SettingsWindow::init() {
     saveFileKbpsSpinBox->setEnabled(false);
 }
 
+bool SettingsWindow::is3dEnabled() const {
+    return enable3dCheckBox->isChecked();
+}
 
 int SettingsWindow::getSelectedCameraIndex() const {
     return selectedCameraIndex;

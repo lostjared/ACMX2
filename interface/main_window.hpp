@@ -99,6 +99,7 @@ private:
     int cache_delay = 1;
     bool full_screen_value = false;
     bool copy_audio = false;
+    bool enable_3d = false;
 };
 
 

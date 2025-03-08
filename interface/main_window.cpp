@@ -398,6 +398,9 @@ void MainWindow::runSelected() {
         if(audio_passthrough)
             arguments << "--pass-through";
     }
+
+    if(enable_3d)
+        arguments << "--enable-3d";
  
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
@@ -474,6 +477,9 @@ void MainWindow::runAll() {
             arguments << "--pass-through";
     }
 
+    if(enable_3d)
+        arguments << "--enable-3d"; 
+
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -516,6 +522,7 @@ void MainWindow::cameraSettings() {
             output_kbps = 10000;
         }
     }
+    enable_3d = settingsWindow.is3dEnabled();
 }
 
 QString MainWindow::concatList(const QStringList lst) {

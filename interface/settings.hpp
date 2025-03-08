@@ -33,6 +33,7 @@ public:
     int getCacheDelay() const;
     bool isFullscreen() const;
     bool isCopyAudioEnabled() const;
+    bool is3dEnabled() const;
 
 private slots:
     void acceptSettings();
@@ -66,7 +67,7 @@ private:
 
     QCheckBox *fullscreenCheckBox;
     QCheckBox *copyAudioCheckBox;
-
+    QCheckBox *enable3dCheckBox;
     int selectedCameraIndex;
     QSize selectedCameraResolution;
     QSize selectedScreenResolution;
