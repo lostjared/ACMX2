@@ -185,6 +185,7 @@ During runtime, the following keyboard controls are supported:
 |----------------|------------------------------------------------------|
 | **Up Arrow**   | Switch to the previous shader in the library.        |
 | **Down Arrow** | Switch to the next shader in the library.            |
+| W, A, S, D     | Look around in 3D mode                               |
 | **Z**          | Save a snapshot (PNG) of the current frame.          |
 | **T**          | Toggle time-based animation (enables/disables time uniform). |
 | **I**          | Step forward in time (when time-based animation is disabled). |
@@ -192,6 +193,7 @@ During runtime, the following keyboard controls are supported:
 | **F**          | Toggle fullscreen mode.                              |
 | **Q**          | Toggle Reactive Time (if audio is enabled).          |
 | **ESC**        | Quit the application or close the window.             |
+
 
 **Note:** Press **ESC** or close the window to quit the application.
 
