@@ -123,7 +123,7 @@ without having to restort to the command line or buliding the same basic boilerp
 | `-l <channels>`    | `--channels <channels>`         | Audio channels                          |
 | `-q <sensitivity>` | `--sense <sensitivity>`         | Audio Sensitivity                       |
 | `-y`               | `--pass-through`                | Enable Audio Pass-through               |
-|                    | `--enable-3d`                   | Enable 3D moode                         |
+|                    | `--enable-3d`                   | Enable 3D mode                          |
 |                    | `--model model.mxmod`           | MXMOD file for 3D mode                  |
 
 
