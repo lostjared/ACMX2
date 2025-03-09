@@ -467,7 +467,7 @@ public:
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
 
-        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/cube.mxmod"))) {
+        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/cube.mxmod.z"))) {
             throw mx::Exception("Could not open model: cube.mxmod.z");
         }
 
@@ -923,7 +923,7 @@ private:
     int cache_delay = 1;
     std::atomic<bool> finished{false};
     std::atomic<bool> copy_audio{false};
-    float cameraYaw = 0.0f;   
+    float cameraYaw = 270.0f;   
     float cameraPitch = 0.0f; 
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
