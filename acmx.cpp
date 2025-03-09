@@ -1208,6 +1208,7 @@ int main(int argc, char **argv) {
           .addOptionDouble(258, "copy-audio", "Copy audio track")
           .addOptionDouble(259, "enable-3d", "Enable 3D cube")
           .addOptionDoubleValue(260, "model", "Model file")
+          .addOptionDouble(261, "help", "print help info")
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -1230,6 +1231,7 @@ int main(int argc, char **argv) {
         while((value = parser.proc(arg)) != -1) {
             switch(value) {
                 case 'v':
+                case 261:
                     printAbout(parser);
                     exit(EXIT_SUCCESS);
                     break;
