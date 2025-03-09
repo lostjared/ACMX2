@@ -1158,6 +1158,7 @@ const char *message = R"(
     Z - take snapshot
     F - toggle fullscreen
     Q - toggle reactive time (if AUDIO_ENABLED)
+    W,A,S,D - Look around in 3D mode
 }
 )";
 
