@@ -360,6 +360,7 @@ struct MXArguments {
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
     std::string prefix_path = ".";
+    std::string model_file = "cube.mxmod.z";
     int mode = 0;
     int shader_index = 0;
     std::optional<cv::Size> sizev = std::nullopt;
@@ -422,6 +423,7 @@ public:
         running = true;
         library.is3D(args.is3d);
         is3d_enabled = args.is3d;
+        m_file = args.model_file;
     }
 
     bool is3d_enabled = false;
@@ -457,6 +459,7 @@ public:
     
     mx::Model cube;
     gl::ShaderProgram fshader;
+    std::string m_file;
     
     virtual void load(gl::GLWindow *win) override {
         frame_counter = 0;
@@ -467,7 +470,7 @@ public:
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
 
-        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/cube.mxmod.z"))) {
+        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/" + m_file))) {
             throw mx::Exception("Could not open model: cube.mxmod.z");
         }
 
@@ -1203,7 +1206,7 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue(257, "cache-delay", "Cache delay in frames")
           .addOptionDouble(258, "copy-audio", "Copy audio track")
           .addOptionDouble(259, "enable-3d", "Enable 3D cube")
-
+          .addOptionDoubleValue(260, "model", "Model file")
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -1325,6 +1328,9 @@ int main(int argc, char **argv) {
                 case 259:
                     args.is3d = true;
                     mx::system_out << "acmx2: 3D cube enabled.\n";
+                    break;
+                case 260:
+                    args.model_file = arg.arg_value;
                     break;
 #ifdef AUDIO_ENABLED
                 case 'W':
