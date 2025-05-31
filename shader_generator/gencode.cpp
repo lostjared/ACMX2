@@ -6,22 +6,12 @@
 #include <regex>
 #include <fstream>
 
+void generateCode(const std::string &filename, const std::string &host, const std::string &model, const std::string &code);
+std::string unescape(const std::string &input);
 
-std::string convertFormat(const std::string &text) {
-    std::string output;
-    for (size_t i = 0; i < text.length(); ++i) {
-        if (text[i] == '\n')
-            output += ";";
-        else if (text[i] == '\t' || text[i] == '\r' || text[i] == '\'' || text[i] == '\"')
-            continue;
-        else
-            output += text[i];
-    }
-    return output;
-} 
 
 std::string unescape(const std::string &input) {
-    std::string s = input;  // make a copy, so we can modify in place
+    std::string s = input;  
     for (std::size_t pos = s.find(R"(\n)"); pos != std::string::npos; pos = s.find(R"(\n)", pos)) {
         s.replace(pos, 2, "\n");
         pos += 1;
@@ -36,10 +26,18 @@ std::string unescape(const std::string &input) {
         s.replace(pos, 2, "\r");
         pos += 1;
     }
+
+    std::regex unicode_regex(R"(\\u([0-9a-fA-F]{4}))");
+    std::smatch match;
+    while (std::regex_search(s, match, unicode_regex)) {
+        int code = std::stoi(match[1].str(), nullptr, 16);
+        char replacement = static_cast<char>(code);
+        s.replace(match.position(), match.length(), 1, replacement);
+    }
     return s;
 }
 
-void generateCode(std::string host, std::string model, std::string code) {
+void generateCode(const std::string &filename, const std::string &host, const std::string &model, const std::string &code) {
     const char *shader = R"(#version 330 core
     in vec2 tc;
     out vec4 color;
@@ -119,29 +117,31 @@ void generateCode(std::string host, std::string model, std::string code) {
         start_pos += 3;
     }
     if (found_code && !code_text.empty()) {
-        std::ofstream output("shader.glsl");
+        std::ofstream output(filename);
         output << code_text;
         output.close();
-        std::cout << "\nCode outputted to shader.glsl\n";
+        std::cout << "\nCode outputted to: " << filename << "\n";
     } else {
         std::cout << "\nNo GLSL code block found in response\n";
     }
 }
 
 int main(int argc, char **argv) {
-
+    std::string filename = "shader.glsl";
 	std::string host = "localhost";
 	std::string model = "codellama:7b";
 	if(argc >= 2)
 		host = argv[1];
 	if(argc >= 3)
 		model = argv[2];
+    if(argc >= 4)
+        filename = argv[3];
 
 	std::cout << "ACMX2 Ai Shader Generator..\n";
 	std::cout << "(C) 2025 LostSideDead Software\n";
 	std::string line;
 	std::cout << "Enter what you want the ACMX2 shader to do: ";
 	std::getline(std::cin, line);
-	generateCode(host, model, line);
+	generateCode(filename, host, model, line);
 	return 0;
 }
