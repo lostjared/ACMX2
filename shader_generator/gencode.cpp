@@ -83,43 +83,49 @@ void generateCode(std::string host, std::string model, std::string code) {
         std::cerr << "Error..\n";
         return;
     }
-
     char buffer[1024];
-    bool on = false;
     std::ostringstream shader_stream;
-    std::string total = "";
     while (fgets(buffer, sizeof(buffer), fptr)) {
-	std::string r = R"REGEX("response"\s*:\s*"([^"]*)"\s*,\s*"done")REGEX";
+        std::string r = R"REGEX("response"\s*:\s*"([^"]*)")REGEX";
         std::regex re(r);
-	std::smatch m;
-    	std::string line(buffer);
-	if (std::regex_search(line, m, re)) {
-
-		if(line.find("glsl") != std::string::npos)
-			continue;
-
-		if(line.find("```") != std::string::npos) {
-			on = !on;
-			if(on == false)
-				break;
-			continue;
-		}
-
-		if(on) {
-	         	std::cout << unescape(m[1].str());
-			shader_stream << unescape(m[1].str());
-		}
-
-    	} else {
-	       std::cout << line << "\n";
-	}
-	fflush(stdout);
-    }
-
+        std::smatch m;
+        std::string line(buffer);
+        if (std::regex_search(line, m, re)) {		
+            std::cout << unescape(m[1].str());
+            shader_stream << unescape(m[1].str());
+        }
+    }	 
     pclose(fptr);
-    std::ofstream output("shader.glsl");
-    output << shader_stream.str() << "\n";
-    output.close();
+    std::string value = shader_stream.str();
+    size_t start_pos = 0;
+    std::string code_text;
+    bool found_code = false;
+    while ((start_pos = value.find("```", start_pos)) != std::string::npos) {
+        size_t after_backticks = start_pos + 3;
+        size_t line_end = value.find('\n', after_backticks);   
+        if (line_end != std::string::npos) {
+            std::string lang_line = value.substr(after_backticks, line_end - after_backticks);
+            if (lang_line.find("glsl") != std::string::npos || lang_line.empty() || 
+                std::all_of(lang_line.begin(), lang_line.end(), ::isspace)) {
+                size_t code_start = line_end + 1;
+                size_t code_end = value.find("```", code_start);            
+                if (code_end != std::string::npos) {
+                    code_text = value.substr(code_start, code_end - code_start);
+                    found_code = true;
+                    break;
+                }
+            }
+        }
+        start_pos += 3;
+    }
+    if (found_code && !code_text.empty()) {
+        std::ofstream output("shader.glsl");
+        output << code_text;
+        output.close();
+        std::cout << "\nCode outputted to shader.glsl\n";
+    } else {
+        std::cout << "\nNo GLSL code block found in response\n";
+    }
 }
 
 int main(int argc, char **argv) {
