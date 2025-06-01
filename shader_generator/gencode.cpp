@@ -39,15 +39,15 @@ std::string unescape(const std::string &input) {
 
 void generateCode(const std::string &filename, const std::string &host, const std::string &model, const std::string &code) {
     const char *shader = R"(#version 330 core
-    in vec2 tc;
-    out vec4 color;
-    uniform float time_f;
-    uniform sampler2D samp;
-    uniform float alpha;
-    uniform vec2 iResolution;
+    in vec2 tc; 
+    out vec4 color; //output color
+    uniform float time_f; // current time for animation
+    uniform sampler2D samp; // texture
+    uniform float alpha; // usually 1.0
+    uniform vec2 iResolution; // resolution
 
     void main(void) {
-        color = texture(textTexture, tc);
+        color = texture(samp, tc);
     }
     )";
 
