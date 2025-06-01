@@ -96,7 +96,10 @@ void generateCode(const std::string &filename, const std::string &host, const st
 	    fflush(stdout);
         }
     }	 
-    pclose(fptr);
+    int exitCode = pclose(fptr);
+    if(exitCode != 0) {
+	std::cerr << "Error exited with code: " << exitCode << "\n";
+    }
     std::string value = shader_stream.str();
     size_t start_pos = 0;
     std::string code_text;
