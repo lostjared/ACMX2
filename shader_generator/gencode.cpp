@@ -39,10 +39,10 @@ std::string unescape(const std::string &input) {
 
 void generateCode(const std::string &filename, const std::string &host, const std::string &model, const std::string &code) {
     const char *shader = R"(#version 330 core
-    in vec2 TexCoord;
+    in vec2 tc;
     out vec4 color;
     uniform float time_f;
-    uniform sampler2D textTexture;
+    uniform sampler2D samp;
     uniform float alpha;
     uniform vec2 iResolution;
 
@@ -148,4 +148,3 @@ int main(int argc, char **argv) {
 	generateCode(filename, host, model, line);
 	return 0;
 }
-
