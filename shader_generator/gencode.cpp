@@ -61,7 +61,7 @@ void generateCode(const std::string &filename, const std::string &host, const st
            << "' and apply these changes to the texture: " 
            << code 
            << "\n"
-           << "Do not add any other uniform variables. Do not create variables and not define them. Be creative and make it awesome.\n";
+           << "Do not add any other uniform variables. You can create new local varaibles, but do not create variables and then not define them. Be creative and make it awesome.\n";
     payload << stream.str();
     payload << "\"}";
 
