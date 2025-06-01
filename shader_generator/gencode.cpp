@@ -47,7 +47,7 @@ void generateCode(const std::string &filename, const std::string &host, const st
     uniform vec2 iResolution;
 
     void main(void) {
-        color = texture(textTexture, TexCoord);
+        color = texture(textTexture, tc);
     }
     )";
 
