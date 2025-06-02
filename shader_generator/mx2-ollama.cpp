@@ -1,22 +1,23 @@
 #include"mx2-ollama.hpp"
 
-
 namespace mx {
 
-
     std::string ObjectRequest::unescape(const std::string &input) {
-        std::string s = input;  
-        for (std::size_t pos = s.find(R"(\n)"); pos != std::string::npos; pos = s.find(R"(\n)", pos)) {
+        std::string s = input;
+        size_t pos = 0;
+        while ((pos = s.find("\\n", pos)) != std::string::npos) {
             s.replace(pos, 2, "\n");
             pos += 1;
         }
 
-        for (std::size_t pos = s.find(R"(\t)"); pos != std::string::npos; pos = s.find(R"(\t)", pos)) {
+        pos = 0;
+        while ((pos = s.find("\\t", pos)) != std::string::npos) {
             s.replace(pos, 2, "\t");
             pos += 1;
         }
 
-        for (std::size_t pos = s.find(R"(\r)"); pos != std::string::npos; pos = s.find(R"(\r)", pos)) {
+        pos = 0;
+        while ((pos = s.find("\\r", pos)) != std::string::npos) {
             s.replace(pos, 2, "\r");
             pos += 1;
         }
@@ -32,15 +33,17 @@ namespace mx {
     }
 
     size_t ObjectRequest::WriteCallback(void* contents, size_t size, size_t nmemb, ResponseData* data) {
+        if (!data) return 0; 
+        
         size_t total_size = size * nmemb;
         std::string chunk(static_cast<char*>(contents), total_size);
         
         std::istringstream stream(chunk);
         std::string line;
+    
+        static const std::regex re(R"REGEX("response"\s*:\s*"([^"]*)")REGEX");
         
         while (std::getline(stream, line)) {
-            std::string r = R"REGEX("response"\s*:\s*"([^"]*)")REGEX";
-            std::regex re(r);
             std::smatch m;
             
             if (std::regex_search(line, m, re)) {
@@ -60,12 +63,13 @@ namespace mx {
             std::cerr << "Host, model, filename or prompt not set.\n";
             throw ObjectRequestException("Host, model, filename or prompt not set.");
         }
+
         const char *shader = R"(#version 330 core
         in vec2 tc; 
-        out vec4 color;
-        uniform float time_f;
+        out vec4 color; 
+        uniform float time_f; // time for animation
         uniform sampler2D samp;
-        uniform float alpha;
+        uniform float alpha;  // usually 1.0
         uniform vec2 iResolution;
 
         void main(void) {
@@ -86,75 +90,90 @@ namespace mx {
             << "\n"
             << "Do not add any other uniform variables. You can create new local variables, but do not create variables and then not define them. Be creative and make it awesome.\n";
         
-        std::string prompt = stream.str();
+        std::string prompt_text = stream.str();
         std::string escaped_prompt;
-        for (char c : prompt) {
-            if (c == '"') {
-                escaped_prompt += "\\\"";
-            } else if (c == '\\') {
-                escaped_prompt += "\\\\";
-            } else if (c == '\n') {
-                escaped_prompt += "\\n";
-            } else if (c == '\r') {
-                escaped_prompt += "\\r";
-            } else if (c == '\t') {
-                escaped_prompt += "\\t";
-            } else {
-                escaped_prompt += c;
+        escaped_prompt.reserve(prompt_text.length() * 1.2); 
+    
+        for (char c : prompt_text) {
+            switch (c) {
+                case '"':  escaped_prompt += "\\\""; break;
+                case '\\': escaped_prompt += "\\\\"; break;
+                case '\n': escaped_prompt += "\\n"; break;
+                case '\r': escaped_prompt += "\\r"; break;
+                case '\t': escaped_prompt += "\\t"; break;
+                default:   escaped_prompt += c; break;
             }
         }
         
-        payload << escaped_prompt;
-        payload << "\"}";
+        payload << escaped_prompt << "\"}";
 
-        CURL *curl;
-        CURLcode res;
+        struct CurlRAII {
+            CURL* curl;
+            curl_slist* headers;
+            
+            CurlRAII() : curl(nullptr), headers(nullptr) {
+                curl_global_init(CURL_GLOBAL_DEFAULT);
+                curl = curl_easy_init();
+                if (!curl) {
+                    curl_global_cleanup();
+                    throw ObjectRequestException("Failed to initialize curl");
+                }
+            }
+            
+            ~CurlRAII() {
+                if (headers) {
+                    curl_slist_free_all(headers);
+                }
+                if (curl) {
+                    curl_easy_cleanup(curl);
+                }
+                curl_global_cleanup();
+            }
+            
+            CurlRAII(const CurlRAII&) = delete;
+            CurlRAII& operator=(const CurlRAII&) = delete;
+        };
+
+        CurlRAII curl_raii;
         ResponseData response_data;
-        
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-        curl = curl_easy_init();
-        
-        if (!curl) {
-            std::cerr << "Failed to initialize curl\n";
-            curl_global_cleanup();
-            throw ObjectRequestException("Failed to initialize curl");
-        }
 
         std::string url = "http://" + host + ":11434/api/generate";
-        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl_raii.curl, CURLOPT_URL, url.c_str());
         
         std::string json_data = payload.str();
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, json_data.length());
+        curl_easy_setopt(curl_raii.curl, CURLOPT_POSTFIELDS, json_data.c_str());
+        curl_easy_setopt(curl_raii.curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(json_data.length()));
         
-        struct curl_slist *headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_raii.headers = curl_slist_append(curl_raii.headers, "Content-Type: application/json");
+        if (!curl_raii.headers) {
+            throw ObjectRequestException("Failed to create HTTP headers");
+        }
+        curl_easy_setopt(curl_raii.curl, CURLOPT_HTTPHEADER, curl_raii.headers);
         
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
-        curl_easy_setopt(curl, CURLOPT_BUFFERSIZE, 1024L);
-        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-        curl_easy_setopt(curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_WRITEDATA, &response_data);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_BUFFERSIZE, 1024L);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_NOPROGRESS, 1L);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         
-        res = curl_easy_perform(curl);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_CONNECTTIMEOUT, 30L);
+        curl_easy_setopt(curl_raii.curl, CURLOPT_TIMEOUT, 300L); 
+        
+        CURLcode res = curl_easy_perform(curl_raii.curl);
         
         if (res != CURLE_OK) {
             throw ObjectRequestException("curl_easy_perform() failed: " + std::string(curl_easy_strerror(res)));
-        } else {
-            long response_code;
-            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-            
-            if (response_code != 200) {
-                std::cerr << "HTTP error: " << response_code << std::endl;
-                std::cerr << "Response: " << response_data.response << std::endl;
-            }
         }
         
-        curl_slist_free_all(headers);
-        curl_easy_cleanup(curl);
-        curl_global_cleanup();
-
+        
+        long response_code;
+        curl_easy_getinfo(curl_raii.curl, CURLINFO_RESPONSE_CODE, &response_code);
+        
+        if (response_code != 200) {
+            throw ObjectRequestException("HTTP request failed with response code: " + std::to_string(response_code) + 
+                                       "\nResponse: " + response_data.response);
+        }
+        
         std::string value = response_data.shader_stream.str();
         size_t start_pos = 0;
         std::string code_text;
@@ -184,13 +203,16 @@ namespace mx {
         
         if (found_code && !code_text.empty()) {
             std::ofstream output(filename);
+            if (!output) {
+                throw ObjectRequestException("Failed to open output file: " + filename);
+            }
             output << code_text;
             output.close();
             std::cout << "\nCode outputted to: " << filename << "\n";
         } else {
             std::cout << "\nNo GLSL code block found in response\n";
         }
+        
         return code_text;
     }
-
 }
