@@ -7,6 +7,7 @@ Live Webcam Effects Powered by OpenGL Shaders and Real-time Audio
 ![image](https://github.com/user-attachments/assets/ee30f7b4-3255-44a2-b9f7-3efadc0650e8)
 ![image](https://github.com/user-attachments/assets/c5eec97b-4d3b-4da2-bf23-c0689e9bfe7a)
 ![image](https://github.com/user-attachments/assets/4fb33aa5-31a2-4240-ba33-58338c98c0ed)
+<img width="2048" height="1152" alt="image" src="https://github.com/user-attachments/assets/8aaba334-3e80-46e9-951f-4da2d75ec527" />
 
 
 ## Basic Information
