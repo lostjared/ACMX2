@@ -226,6 +226,9 @@ About This Application
 
 ![image](https://github.com/user-attachments/assets/ad493ea8-3e51-4e0f-a05e-6f9df3a27b0d)
 
+Main Window
+
+<img width="2048" height="1152" alt="image" src="https://github.com/user-attachments/assets/1720bf11-9270-431a-8dba-96172482f483" />
 
 
 
