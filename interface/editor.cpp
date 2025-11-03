@@ -44,10 +44,15 @@ void TextEditor::init() {
     });
     connect(exitAction, &QAction::triggered, this, &TextEditor::close);
     layout->setMenuBar(menuBar);
-    connect(this, &QDialog::finished, [&]() {
-        vec->removeAt(index);
-        this->deleteLater();
+
+    connect(this, &QDialog::finished, this, [this]() {
+        if (vec && index >= 0 && index < vec->size()) {
+            vec->removeAt(index);
+        }
     });
+
+    setAttribute(Qt::WA_DeleteOnClose);
+
     m_textEdit->setTabStopDistance(5 * QFontMetrics(m_textEdit->font()).horizontalAdvance(' '));
 }
 
