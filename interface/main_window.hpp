@@ -4,6 +4,7 @@
 #ifndef __APP_WINDOW_H_
 #define __APP_WINDOW_H_
 #include "version_info.hpp"//defines VERSION_INFO
+#include<random>
 #include<QMainWindow>
 #include<QListView>
 #include<QStringListModel>
@@ -50,6 +51,8 @@ public slots:
     void menuDown();
     void menuRemove();
     void menuAudioSettings();
+    void menuSort();
+    void menuShuffle();
 protected:
 
      void closeEvent(QCloseEvent *event) override {
@@ -76,7 +79,7 @@ private:
     QAction *cameraSet, *audioSet;
     QAction *runMenu_select, *runMenu_all;
     QAction *play_repeat, *play_stop;
-    QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down;
+    QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down, *listMenu_shuffle, *listMenu_sort;
     QAction *helpMenu_about;
     QString executable_path;
     QString shader_path;

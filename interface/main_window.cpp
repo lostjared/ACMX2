@@ -92,7 +92,16 @@ void MainWindow::initControls() {
     listMenu_down = new QAction(tr("Shift Shader Down"), this);
     connect(listMenu_down,  &QAction::triggered, this, &MainWindow::menuDown);
     listMenu->addAction(listMenu_down);
+    listMenu_shuffle = new QAction(tr("Shuffle Shaders"), this);
+    connect(listMenu_shuffle, &QAction::triggered, this, &MainWindow::menuShuffle);
+    listMenu->addAction(listMenu_shuffle);
+    
+    listMenu_sort = new QAction(tr("Sort Shaders"), this);
+    connect(listMenu_sort, &QAction::triggered, this, &MainWindow::menuSort);
+    listMenu->addAction(listMenu_sort);
+    
     helpMenu_about = new QAction("About", this);
+
     connect(helpMenu_about, &QAction::triggered, this, [=](){
         QMessageBox box(this);
         box.setWindowTitle("About ACMX2");
@@ -532,4 +541,39 @@ QString MainWindow::concatList(const QStringList lst) {
         stream << i << " ";
      }
      return text;
+}
+
+void MainWindow::menuShuffle() {
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        QMessageBox::warning(this, "Error", "The model is not a QStringListModel.");
+        return;
+    }
+    QStringList items = model->stringList();
+    if (items.isEmpty()) {
+        return;
+    }
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(items.begin(), items.end(), g);
+    
+    model->setStringList(items);
+    updateIndex();
+    Log("Shaders shuffled");
+}
+
+void MainWindow::menuSort() {
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        QMessageBox::warning(this, "Error", "The model is not a QStringListModel.");
+        return;
+    }
+    QStringList items = model->stringList();
+    if (items.isEmpty()) {
+        return;
+    }
+    items.sort(Qt::CaseInsensitive);
+    model->setStringList(items);
+    updateIndex();
+    Log("Shaders sorted alphabetically");
 }
