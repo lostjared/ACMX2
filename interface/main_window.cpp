@@ -325,13 +325,26 @@ void MainWindow::fileOpenProp() {
             QMessageBox::information(this, "Shader Path", "Requires Shader Path");
             return;
         }
+        
+        
+        QSettings appSettings("LostSideDead");
+        appSettings.setValue("exePath", exePath);
+        appSettings.setValue("prefix_path", prefix);
+        appSettings.setValue("shaders", shaderDir);
+        
+        
+        executable_path = exePath;
+        prefix_path = prefix;
+        shader_path = shaderDir;
+        
+        Log("Executable Path: " + exePath);
+        Log("Prefix Path: " + prefix);
+        Log("Shader Directory: " + shaderDir);
+        
         if(loadShaders(shaderDir)) {
-            Log("Executable Path: " + exePath);
-            Log("Prefix Path: " + prefix);
-            Log("Shader Directory: " + shaderDir + "<br>");
-            executable_path = exePath;
-            shader_path = shaderDir;
-            prefix_path = prefix;
+            Log("Successfully loaded shaders from new directory<br>");
+        } else {
+            Log("Warning: Could not load shaders from new directory<br>");
         }
     } else {
         Log("Canceled");
