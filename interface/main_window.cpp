@@ -146,6 +146,7 @@ void MainWindow::initControls() {
     if(!path.isEmpty()) {
         shader_path = path;
         loadShaders(path);
+        menuSort();
     }
 }
 
@@ -155,6 +156,7 @@ void MainWindow::newList() {
     if(library.exec() == QDialog::Accepted) {
         shader_path = library.getShaderPath();
         loadShaders(shader_path);
+        menuSort();
         QSettings appSettings("LostSideDead");
         appSettings.setValue("shaders", shader_path);
     }
@@ -332,7 +334,7 @@ bool MainWindow::loadShaders(const QString &path) {
         list_view->setCurrentIndex(firstIndex);
         list_view->selectionModel()->select(firstIndex, QItemSelectionModel::ClearAndSelect);
     }
-    
+    menuSort();
     return true;
 }
 

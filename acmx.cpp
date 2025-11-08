@@ -220,9 +220,16 @@ public:
     }
 
     void setIndex(size_t i) {
-        if(i < programs.size())
+        if(i < programs.size()) {
             library_index = i;   
-        mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i].name << "]\n";
+            if(program_names.find(i) != program_names.end() && !program_names[i].name.empty()) {
+                mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i].name << "]\n";
+            } else {
+                mx::system_out << "acmx2: Set Shader to Index: " << i << " [program name not found]\n";
+            }
+        } else {
+            mx::system_out << "acmx2: Error: Shader index " << i << " is out of bounds (max: " << (programs.size()-1) << ")\n";
+        }
         fflush(stdout);
     }
     void inc() {
