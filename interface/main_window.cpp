@@ -327,6 +327,12 @@ bool MainWindow::loadShaders(const QString &path) {
     }
     file.close();
     model->setStringList(items);
+    if (!items.isEmpty()) {
+        QModelIndex firstIndex = model->index(0, 0);
+        list_view->setCurrentIndex(firstIndex);
+        list_view->selectionModel()->select(firstIndex, QItemSelectionModel::ClearAndSelect);
+    }
+    
     return true;
 }
 
@@ -428,10 +434,13 @@ void MainWindow::runAll() {
     int index = 0;
     QItemSelectionModel *selectionModel = list_view->selectionModel();
     if (!selectionModel->hasSelection()) {
-        index =  0;
+        index = 0;
+        Log("No selection, defaulting to index 0");
     } else {
         QModelIndex selectedIndex = selectionModel->currentIndex();
         index = selectedIndex.row();
+        QString selectedData = selectedIndex.data(Qt::DisplayRole).toString();
+        Log("Selected shader: " + selectedData + " at index: " + QString::number(index));
     }
     QStringList arguments;
     QString dirPath = QCoreApplication::applicationDirPath();
