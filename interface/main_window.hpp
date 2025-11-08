@@ -54,6 +54,7 @@ public slots:
     void menuSort();
     void menuShuffle();
 protected:
+    bool addShaderToList(const QString &shaderName);
 
      void closeEvent(QCloseEvent *event) override {
         if (process->state() == QProcess::Running) {

@@ -5,8 +5,11 @@
 #include<QMessageBox>
 #include<QFile>
 #include<QTextStream>
+#include<QFileInfo>
 #include"settings.hpp"
 #include"audio-window.hpp"
+#include <random>
+#include <algorithm>
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -146,7 +149,6 @@ void MainWindow::initControls() {
     if(!path.isEmpty()) {
         shader_path = path;
         loadShaders(path);
-        menuSort();
     }
 }
 
@@ -156,7 +158,6 @@ void MainWindow::newList() {
     if(library.exec() == QDialog::Accepted) {
         shader_path = library.getShaderPath();
         loadShaders(shader_path);
-        menuSort();
         QSettings appSettings("LostSideDead");
         appSettings.setValue("shaders", shader_path);
     }
@@ -182,22 +183,44 @@ void MainWindow::menuRemove() {
 }
 
 void MainWindow::updateIndex() {
-     QFile file(shader_path + "/index.txt");
-     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QFile file(shader_path + "/index.txt");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&file);
-        QAbstractItemModel *model = list_view->model();
-        if (!model) {
+        QStringListModel *stringModel = qobject_cast<QStringListModel *>(list_view->model());
+        if (!stringModel) {
             return;
         }
-        int rowCount = model->rowCount();
-        for (int row = 0; row < rowCount; ++row) {
-            QModelIndex index = model->index(row, 0);
-            QVariant data = model->data(index, Qt::DisplayRole);
-            out << data.toString() << "\n"; 
-        }
-        file.close();   
-    } else {
         
+        QStringList writtenItems; 
+        int rowCount = stringModel->rowCount();
+        
+        for (int row = 0; row < rowCount; ++row) {
+            QModelIndex index = stringModel->index(row, 0);
+            QVariant data = stringModel->data(index, Qt::DisplayRole);
+            QString shaderName = data.toString().trimmed();
+            
+            
+            if (shaderName.isEmpty() || writtenItems.contains(shaderName, Qt::CaseInsensitive)) {
+                continue;
+            }
+            
+            
+            QString fullPath = shader_path + "/" + shaderName;
+            QFileInfo fileInfo(fullPath);
+            if (fileInfo.exists() && fileInfo.isFile()) {
+                out << shaderName << "\n";
+                writtenItems.append(shaderName);
+            } else {
+                Log("Warning: File no longer exists, removing from list: " + shaderName);
+            }
+        }
+        file.close();
+        
+        if (writtenItems.size() != rowCount) {
+            items = writtenItems;
+            stringModel->setStringList(items);
+            Log("Updated shader list, removed " + QString::number(rowCount - writtenItems.size()) + " non-existent files");
+        }
     }
 }
 
@@ -322,18 +345,45 @@ bool MainWindow::loadShaders(const QString &path) {
         return false;
     }
     items.clear();
+    QStringList uniqueItems; 
     QTextStream in(&file);
+    
     while (!in.atEnd()) {
-        QString line = in.readLine();
-        items.append(line);
+        QString line = in.readLine().trimmed();
+        
+        if (line.isEmpty()) {
+            continue;
+        }
+        
+        
+        QString fullPath = path + "/" + line;
+        QFileInfo fileInfo(fullPath);
+        if (!fileInfo.exists() || !fileInfo.isFile()) {
+            Log("Skipping non-existent file: " + line);
+            continue;
+        }
+        
+        
+        if (!uniqueItems.contains(line, Qt::CaseInsensitive)) {
+            uniqueItems.append(line);
+            Log("Added shader: " + line);
+        } else {
+            Log("Skipping duplicate shader: " + line);
+        }
     }
     file.close();
+    
+    
+    items = uniqueItems;
     model->setStringList(items);
+    
     if (!items.isEmpty()) {
         QModelIndex firstIndex = model->index(0, 0);
         list_view->setCurrentIndex(firstIndex);
         list_view->selectionModel()->select(firstIndex, QItemSelectionModel::ClearAndSelect);
     }
+    
+    Log("Loaded " + QString::number(items.size()) + " unique shader files");
     menuSort();
     return true;
 }
