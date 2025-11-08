@@ -229,6 +229,8 @@ About This Application
 Main Window
 
 <img width="2048" height="1152" alt="image" src="https://github.com/user-attachments/assets/1720bf11-9270-431a-8dba-96172482f483" />
+<img width="936" height="540" alt="image" src="https://github.com/user-attachments/assets/a3ea7c6c-a761-4aa9-9843-4502e9fcb8da" />
+
 
 
 
