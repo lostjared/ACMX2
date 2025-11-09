@@ -222,15 +222,9 @@ public:
     void setIndex(size_t i) {
         if(i < programs.size()) {
             library_index = i;   
-            if(program_names.find(i) != program_names.end() && !program_names[i].name.empty()) {
-                mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i].name << "]\n";
-            } else {
-                mx::system_out << "acmx2: Set Shader to Index: " << i << " [program name not found]\n";
-            }
-        } else {
-            mx::system_out << "acmx2: Error: Shader index " << i << " is out of bounds (max: " << (programs.size()-1) << ")\n";
+            mx::system_out << "acmx2: Set Shader to Index: " << i << " [" << program_names[i].name << "]\n";
+            fflush(stdout);
         }
-        fflush(stdout);
     }
     void inc() {
         if(library_index+1 < programs.size())
@@ -334,6 +328,9 @@ public:
 
     void audioTime(bool t) {
         time_audio = t;
+        std::string enabled = ((t == true) ? "on" : "off");
+        std::cout << "acmx2: audio time: " << enabled << "\n";
+        fflush(stdout);
     }
 
 #ifdef AUDIO_ENABLED
