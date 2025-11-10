@@ -361,6 +361,7 @@ private:
 
 struct MXArguments {
     std::string path, filename, ofilename;
+    std::string graphic_file;
     int tw = 1280, th = 720;
     int Kbps = 10000;
     int camera_device = 0;
@@ -406,6 +407,7 @@ public:
           prefix_path{args.prefix_path},
           filename{args.filename},
           ofilename{args.ofilename},
+          graphic{args.graphic_file},
           camera_index{args.camera_device},
           flib{args.slib},
           sizev{args.sizev},
@@ -494,7 +496,14 @@ public:
 
         int w = 1280, h = 720;
         int frame_w = w, frame_h = h;
-        if(filename.empty()) {
+
+        
+        if(!graphic.empty()) {
+            graphic_frame = cv::imread(graphic);
+            if(graphic_frame.empty()) {
+                throw mx::Exception("Graphics file not found: " + graphic);
+            }
+        } else if(filename.empty()) {
 #ifdef _WIN32
             cap.open(camera_index, cv::CAP_DSHOW);
 #else
@@ -899,7 +908,7 @@ private:
     unsigned int frame_counter = 0;
     int bit_rate = 25000;
     std::string prefix_path;
-    std::string filename, ofilename;
+    std::string filename, ofilename, graphic;
     int camera_index = 0;
     std::tuple<int, std::string, int> flib;
     std::optional<cv::Size> sizev, sizec;
@@ -911,6 +920,7 @@ private:
     bool snapshot = false;
     double totalFrames = 0;
     cv::VideoCapture cap;
+    cv::Mat graphic_frame;
     gl::GLSprite sprite;
     gl::ShaderProgram shader;
     GLuint camera_texture = 0;
@@ -939,6 +949,7 @@ private:
     bool viewRotationActive = false; 
     
 private:
+
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
@@ -1192,6 +1203,8 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('c', "Camera Resolution")
           .addOptionDoubleValue('C', "camera-res", "Camera Resolution")
           .addOptionSingleValue('i', "Input file")
+          .addOptionSingleValue('g', "Input Image")
+          .addOptionDoubleValue('G', "graphic", "Input graphics file")
           .addOptionDoubleValue('I', "input", "Input file")
           .addOptionSingleValue('s', "Shader Library Index File")
           .addOptionDoubleValue('S', "shaders", "Shader Library Index File")
@@ -1261,6 +1274,10 @@ int main(int argc, char **argv) {
                     args.th = atoi(right.c_str());
                     args.sizev = cv::Size(args.tw, args.th);
                 }
+                break;
+                case 'G':
+                case 'g':
+                    args.graphic_file = arg.arg_value;
                 break;
                 case 'C':
                 case 'c': {
