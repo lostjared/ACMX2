@@ -324,6 +324,9 @@ public:
 
     void activeTime(bool t) {
         time_active = t;
+        std::string enabled = ((t == true) ? "on" : "off");
+        std::cout << "acmx2: active time: " << enabled << "\n";
+        fflush(stdout);
     }
 
     void audioTime(bool t) {
