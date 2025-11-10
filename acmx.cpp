@@ -670,6 +670,7 @@ public:
         if(!graphic.empty()) {
             newFrame = graphic_frame.clone();
             cv::flip(newFrame, newFrame, 0);
+            frame_counter++; 
         } else if(filename.empty()) {
             std::unique_lock<std::mutex> lock(captureQueueMutex);
             if (!captureQueue.empty()) {
@@ -843,7 +844,6 @@ public:
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(!graphic.empty()) {
-            frame_counter++;
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
                 double seconds = static_cast<double>(frame_counter) / fps;
                 std::ostringstream stream;
@@ -1214,7 +1214,7 @@ public:
         delay();
     }
 
-    // object->event is called in gl::GLWindow
+    
     void event(SDL_Event &e) override {
         
     }
