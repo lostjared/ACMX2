@@ -484,7 +484,7 @@ public:
         }
 
         cube.setShaderProgram(library.shader(), "samp");
-    
+
         if(!fshader.loadProgram(win->util.getFilePath("data/vert.glsl"), win->util.getFilePath("data/framebuffer.glsl"))) {
             throw mx::Exception("Error loading shader");
         }
@@ -497,11 +497,38 @@ public:
         int w = 1280, h = 720;
         int frame_w = w, frame_h = h;
 
-        
         if(!graphic.empty()) {
             graphic_frame = cv::imread(graphic);
             if(graphic_frame.empty()) {
                 throw mx::Exception("Graphics file not found: " + graphic);
+            }
+            
+            w = graphic_frame.cols;
+            h = graphic_frame.rows;
+            frame_w = w;
+            frame_h = h;
+            fps = this->fps; 
+            
+            mx::system_out << "acmx2: Graphics file loaded: " << w << "x" << h << " at FPS: " << fps << "\n";
+            
+            if(sizev.has_value()) {
+                w = sizev.value().width;
+                h = sizev.value().height;
+                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+            }
+
+            win->setWindowSize(w, h);
+            win->w = w;
+            win->h = h;
+
+            if(!ofilename.empty()) {
+                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                    mx::system_out << "acmx2: Opened: " << ofilename 
+                                   << " for writing at: " << bit_rate 
+                                   << " Kbps FPS: " << fps <<"\n";
+                } else {
+                    throw mx::Exception("Could not open output video file: " +  ofilename);
+                }
             }
         } else if(filename.empty()) {
 #ifdef _WIN32
@@ -549,7 +576,7 @@ public:
                 }
             }
         } 
-        else {
+        else if(!filename.empty() && graphic.empty()) {
             cap.open(filename);
             if(!cap.isOpened()) {
                 throw mx::Exception("Could not open video file: " + filename);
@@ -586,7 +613,10 @@ public:
             totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
             fflush(stderr);
             fflush(stdout);
+        } else if(graphic.empty()  && filename.empty()) {
+            throw mx::Exception("Requires input from a file, or camera.");
         }
+
         library.useProgram();
         if(texture_cache) {
             cv::Mat blankMat = cv::Mat::zeros(frame_h, frame_w, CV_8UC3);
@@ -604,7 +634,9 @@ public:
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, blankMat.cols, blankMat.rows);
         setupCaptureFBO(win->w, win->h);
 
-        if(filename.empty())
+        if(!graphic.empty())
+            win->setWindowTitle("ACMX2 - Graphics Input");
+        else if(filename.empty())
             win->setWindowTitle("ACMX2 - Capture Input");
         else
             win->setWindowTitle("ACMX2 - [" + filename + "] 0 seconds, frame 0");
@@ -623,14 +655,16 @@ public:
     }
 
     virtual void draw(gl::GLWindow *win) override {
-        
         if(!running) {
             win->quit();
             return;
         }
 
         cv::Mat newFrame;
-        if(filename.empty()) {
+        if(!graphic.empty()) {
+            newFrame = graphic_frame.clone();
+            cv::flip(newFrame, newFrame, 0);
+        } else if(filename.empty()) {
             std::unique_lock<std::mutex> lock(captureQueueMutex);
             if (!captureQueue.empty()) {
                 newFrame = std::move(captureQueue.front());
@@ -802,7 +836,19 @@ public:
         
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
-        if(cap.isOpened() && !filename.empty()) {
+        if(!graphic.empty()) {
+            frame_counter++;
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
+                double seconds = static_cast<double>(frame_counter) / fps;
+                std::ostringstream stream;
+                stream << "ACMX2 - Graphics Mode - Frame: " << frame_counter
+                       << " - " << std::fixed << std::setprecision(1) 
+                       << seconds << " seconds";
+                win->setWindowTitle(stream.str());
+                lastUpdate = now;
+            }
+        } else if(cap.isOpened() && !filename.empty()) {
+            
             frame_counter = static_cast<int>(cap.get(cv::CAP_PROP_POS_FRAMES));
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
                 double currentFrame = static_cast<double>(frame_counter);
@@ -837,7 +883,8 @@ public:
                 }
             }
         }
-        if(!filename.empty()) {
+        
+        if(!graphic.empty() || !filename.empty()) {
             auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
             if (fps > 0) {
