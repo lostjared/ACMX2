@@ -1114,7 +1114,7 @@ private:
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
             captureStartTime = std::chrono::steady_clock::now();
-        
+    
             while (running) {
                 FrameData fd;
                 {
@@ -1132,10 +1132,11 @@ private:
                 }
 
                 if (writer.is_open()) {
-                    if(!filename.empty()) 
+                    if(!filename.empty() || !graphic.empty()) { 
                         writer.write(fd.pixels.data());
-                    else
+                    } else {
                         writer.write_ts(fd.pixels.data());
+                    }
                 }
                 if(fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
