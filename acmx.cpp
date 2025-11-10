@@ -689,6 +689,7 @@ public:
                     running = false;
                     finished = true;
                     win->quit();
+                    return;
                 }
             }
             cv::flip(newFrame, newFrame, 0);
@@ -699,7 +700,7 @@ public:
         if(!newFrame.empty()) {
             glActiveTexture(GL_TEXTURE0);
             updateTexture(camera_texture, newFrame);
-            if(texture_cache && library.isCache() && !filename.empty()) {
+            if(texture_cache && library.isCache() && (!filename.empty() || !graphic.empty())) { 
                 static int counter = 0;
                 if(++counter > cache_delay) {
                     frame_cache.push(std::move(newFrame));
@@ -844,14 +845,17 @@ public:
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(!graphic.empty()) {
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) { 
                 double seconds = static_cast<double>(frame_counter) / fps;
+                double progress = (static_cast<double>(frame_counter) / static_cast<double>(fps * 10.0)) * 100.0; 
                 std::ostringstream stream;
-                stream << "ACMX2 - Graphics Mode - Frame: " << frame_counter
-                       << " - " << std::fixed << std::setprecision(1) 
-                       << seconds << " seconds";
+                stream << "ACMX2 - Graphics Mode - " << std::fixed << std::setprecision(1) 
+                       << progress << "% Frame: " << frame_counter
+                       << " - " << seconds << " seconds";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
+                mx::system_out << "acmx2: Processing frame " << frame_counter << "/" << (static_cast<int>(fps * 10.0)) << "\n";
+                fflush(stdout);
             }
         } else if(cap.isOpened() && !filename.empty()) {
             
