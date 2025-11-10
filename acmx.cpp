@@ -1161,7 +1161,7 @@ const char *message = R"(
     Up arrow - Previous shader
     Down arrow - Next shader
     T - enable/disable time
-    I/O - step time if disabled
+    I/O - step time if not disabled
     Z - take snapshot
     F - toggle fullscreen
     Q - toggle reactive time (if AUDIO_ENABLED)
