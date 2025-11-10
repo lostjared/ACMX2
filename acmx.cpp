@@ -510,11 +510,14 @@ public:
             fps = this->fps; 
             
             mx::system_out << "acmx2: Graphics file loaded: " << w << "x" << h << " at FPS: " << fps << "\n";
-            
+            fflush(stdout);
+            fflush(stderr);
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+                fflush(stdout);
+                fflush(stderr);
             }
 
             win->setWindowSize(w, h);
@@ -526,6 +529,9 @@ public:
                     mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate 
                                    << " Kbps FPS: " << fps <<"\n";
+
+                    fflush(stdout);
+                    fflush(stderr);
                 } else {
                     throw mx::Exception("Could not open output video file: " +  ofilename);
                 }
