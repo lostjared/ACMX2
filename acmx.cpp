@@ -854,7 +854,6 @@ public:
                        << " - " << seconds << " seconds";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
-                mx::system_out << "acmx2: Processing frame " << frame_counter << "/" << (static_cast<int>(fps * 10.0)) << "\n";
                 fflush(stdout);
             }
         } else if(cap.isOpened() && !filename.empty()) {
