@@ -446,7 +446,7 @@ void MainWindow::cameraSettings() {
             screen_res = screenResolution;
             camera_index  = cameraIndex;
             video_file = "";
-            graphics_file = ""; // Clear graphics file
+            graphics_file = ""; 
             camera_res = cameraResolution;
             output_fps = settingsWindow.getCameraFPS();
             cache_enabled = false;

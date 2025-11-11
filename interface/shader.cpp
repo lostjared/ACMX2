@@ -73,6 +73,15 @@ uniform vec2 iResolution;
 uniform vec4 iMouse;
 uniform float amp;
 uniform float uamp;
+uniform float iTime;
+uniform int iFrame; 
+uniform float iTimeDelta;
+uniform vec4 iDate;
+uniform vec2 iMouseClick;
+uniform float iFrameRate;
+uniform vec3 iChannelResolution[4];
+uniform float iChannelTime[4];
+uniform float iSampleRate;
 
 void main(void) {
     color = texture(samp, tc);
