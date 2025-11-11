@@ -111,7 +111,7 @@ void MainWindow::initControls() {
         box.setWindowIcon(QIcon(":/win-icon.png"));
         QString info;
         QTextStream stream(&info);
-        stream << "ACMX2 " << VERSION_INFO << "\n(C) 2025 " << VERSION_AUTHOR << " Software\nhttps://lostsidedead.biz\nThis is software is dedicated to all that have experienced mental illness.\n";
+        stream << "ACMX2 " << VERSION_INFO << "\n(C) 2025 " << VERSION_AUTHOR << " Software\nhttps://lostsidedead.biz\nThis software is dedicated to all that have experienced mental illness.\n";
         box.setText(info);
         QPixmap bigIcon(":/win-icon.png"); 
         if (!bigIcon.isNull()) {
