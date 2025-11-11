@@ -847,10 +847,8 @@ public:
         if(!graphic.empty()) {
             if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) { 
                 double seconds = static_cast<double>(frame_counter) / fps;
-                double progress = (static_cast<double>(frame_counter) / static_cast<double>(fps * 10.0)) * 100.0; 
                 std::ostringstream stream;
-                stream << "ACMX2 - Graphics Mode - " << std::fixed << std::setprecision(1) 
-                       << progress << "% Frame: " << frame_counter
+                stream << "ACMX2 - Graphics Mode - Frame: " << frame_counter
                        << " - " << seconds << " seconds";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
