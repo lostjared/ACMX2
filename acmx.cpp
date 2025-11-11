@@ -524,7 +524,6 @@ public:
             win->w = w;
             win->h = h;
             
-            
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
@@ -593,24 +592,29 @@ public:
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
             fps = cap.get(cv::CAP_PROP_FPS);
+            totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT); 
 
             frame_w = w;
             frame_h = h;
 
             mx::system_out << "acmx2: Video opened: " << w << "x" << h 
-                           << " at FPS: " << fps << "\n";
+                           << " at FPS: " << fps 
+                           << " Total Frames: " << totalFrames << "\n"; 
+            fflush(stdout);
+            fflush(stderr);
 
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
                 mx::system_out << "acmx2: Resolution stretched to: " 
                                << w << "x" << h << "\n";
+                fflush(stdout);
+                fflush(stderr);
             }
 
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
-            
             
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
@@ -618,11 +622,13 @@ public:
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
                     mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate << " Kbps\n";
+                    fflush(stdout);
+                    fflush(stderr);
                 } else {
                     throw mx::Exception("Could not open output video file: " + ofilename);
                 }
             }
-        } else if(graphic.empty()  && filename.empty()) {
+        } else if(graphic.empty() && filename.empty()) {
             throw mx::Exception("Requires input from a file, or camera.");
         }
 
