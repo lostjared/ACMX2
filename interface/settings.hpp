@@ -34,16 +34,21 @@ public:
     bool isFullscreen() const;
     bool isCopyAudioEnabled() const;
     bool is3dEnabled() const;
+    QString getGraphicsFile() const;
+    int getGraphicsDuration() const;
+    bool isUsingGraphicsFile() const;
 
 private slots:
     void acceptSettings();
     void rejectSettings();
     void browseInputVideoFile();
     void browseOutputVideoFile();
+    void browseGraphicsFile();
 
 private:
     QRadioButton *cameraOptionRadioButton;
     QRadioButton *inputVideoOptionRadioButton;
+    QRadioButton *graphicsFileOptionRadioButton;
 
     QComboBox *cameraIndexComboBox;
     QComboBox *cameraResolutionComboBox;
@@ -54,6 +59,8 @@ private:
 
     QLineEdit *inputVideoFileLineEdit;
     QPushButton *browseInputVideoButton;
+    QLineEdit *graphicsFileLineEdit;
+    QPushButton *browseGraphicsButton;
 
     QCheckBox *saveOutputVideoCheckBox;
     QLineEdit *outputVideoFileLineEdit;
@@ -75,8 +82,12 @@ private:
     int saveFileKbps;
     QString inputVideoFile;
     QString outputVideoFile;
+    bool useGraphicsFile;
     bool useInputVideoFile;
     bool saveOutputVideoFile;
+    QString graphicsFile;
+    int graphicsDuration;
+
 };
 
 #endif

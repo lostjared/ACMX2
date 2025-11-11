@@ -8,21 +8,25 @@ SettingsWindow::SettingsWindow(QWidget *parent)
       selectedScreenResolution(1280, 720),
       cameraFPS(30),
       saveFileKbps(2500),
+      inputVideoFile(""),
+      outputVideoFile(""),
+      useGraphicsFile(false),
       useInputVideoFile(false),
-      saveOutputVideoFile(false) {
+      saveOutputVideoFile(false),
+      graphicsFile(""),
+      graphicsDuration(10) {
     init();
 }
 
 void SettingsWindow::init() {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
     cameraOptionRadioButton = new QRadioButton("Use Camera", this);
     inputVideoOptionRadioButton = new QRadioButton("Use Video File as Input", this);
+    graphicsFileOptionRadioButton = new QRadioButton("Use Graphics File as Input", this);
     cameraOptionRadioButton->setChecked(true);
-
     mainLayout->addWidget(cameraOptionRadioButton);
     mainLayout->addWidget(inputVideoOptionRadioButton);
-
+    mainLayout->addWidget(graphicsFileOptionRadioButton);
     QLabel *cameraIndexLabel = new QLabel("Select Camera Index:", this);
     cameraIndexComboBox = new QComboBox(this);
     for (int i = 0; i <= 9; ++i) {
@@ -38,11 +42,12 @@ void SettingsWindow::init() {
     cameraResolutionComboBox->addItems(cameraResolutions);
     cameraResolutionComboBox->setCurrentIndex(6);
 
-    QLabel *cameraFPSLabel = new QLabel("Set Camera FPS:", this);
+    QLabel *cameraFPSLabel = new QLabel("Set FPS:", this);
     cameraFPSSpinBox = new QSpinBox(this);
     cameraFPSSpinBox->setRange(1, 120);
     cameraFPSSpinBox->setValue(24);
 
+    
     QHBoxLayout *inputVideoFileLayout = new QHBoxLayout;
     inputVideoFileLineEdit = new QLineEdit(this);
     inputVideoFileLineEdit->setReadOnly(true);
@@ -50,6 +55,13 @@ void SettingsWindow::init() {
     inputVideoFileLayout->addWidget(inputVideoFileLineEdit);
     inputVideoFileLayout->addWidget(browseInputVideoButton);
 
+    QHBoxLayout *graphicsFileLayout = new QHBoxLayout;
+    graphicsFileLineEdit = new QLineEdit(this);
+    graphicsFileLineEdit->setReadOnly(true);
+    browseGraphicsButton = new QPushButton("Browse", this);
+    graphicsFileLayout->addWidget(graphicsFileLineEdit);
+    graphicsFileLayout->addWidget(browseGraphicsButton);
+    
     saveOutputVideoCheckBox = new QCheckBox("Save Output to Video File", this);
 
     QHBoxLayout *outputVideoFileLayout = new QHBoxLayout;
@@ -82,15 +94,47 @@ void SettingsWindow::init() {
 
     connect(textureCacheCheckBox, &QCheckBox::toggled, cacheDelaySpinBox, &QSpinBox::setEnabled);
 
+    
+    connect(cameraOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked) {
+            cameraIndexComboBox->setEnabled(true);
+            cameraResolutionComboBox->setEnabled(true);
+            cameraFPSSpinBox->setEnabled(true);
+            inputVideoFileLineEdit->setEnabled(false);
+            browseInputVideoButton->setEnabled(false);
+            graphicsFileLineEdit->setEnabled(false);
+            browseGraphicsButton->setEnabled(false);
+            textureCacheCheckBox->setEnabled(false);
+            cacheDelaySpinBox->setEnabled(false);
+        }
+    });
+
     connect(inputVideoOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
-        cameraIndexComboBox->setEnabled(!checked);
-        cameraResolutionComboBox->setEnabled(!checked);
-        cameraFPSSpinBox->setEnabled(!checked);
-        inputVideoFileLineEdit->setEnabled(checked);
-        browseInputVideoButton->setEnabled(checked);
-        browseOutputVideoButton->setEnabled(checked);
-        textureCacheCheckBox->setEnabled(checked);
-        cacheDelaySpinBox->setEnabled(checked && textureCacheCheckBox->isChecked());
+        if (checked) {
+            cameraIndexComboBox->setEnabled(false);
+            cameraResolutionComboBox->setEnabled(false);
+            cameraFPSSpinBox->setEnabled(true);
+            inputVideoFileLineEdit->setEnabled(true);
+            browseInputVideoButton->setEnabled(true);
+            graphicsFileLineEdit->setEnabled(false);
+            browseGraphicsButton->setEnabled(false);
+            textureCacheCheckBox->setEnabled(true);
+            cacheDelaySpinBox->setEnabled(textureCacheCheckBox->isChecked());
+        }
+    });
+
+    connect(graphicsFileOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked) {
+            cameraIndexComboBox->setEnabled(false);
+            cameraResolutionComboBox->setEnabled(false);
+            cameraFPSSpinBox->setEnabled(true);
+            inputVideoFileLineEdit->setEnabled(false);
+            browseInputVideoButton->setEnabled(false);
+            graphicsFileLineEdit->setEnabled(true);
+            browseGraphicsButton->setEnabled(true);
+            textureCacheCheckBox->setEnabled(false);
+            cacheDelaySpinBox->setEnabled(false);
+        }
     });
 
     connect(saveOutputVideoCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
@@ -118,10 +162,13 @@ void SettingsWindow::init() {
     mainLayout->addWidget(cameraFPSLabel);
     mainLayout->addWidget(cameraFPSSpinBox);
     mainLayout->addLayout(inputVideoFileLayout);
+    mainLayout->addLayout(graphicsFileLayout);
     mainLayout->addWidget(saveOutputVideoCheckBox);
     copyAudioCheckBox = new QCheckBox("Copy Audio Track", this);
     mainLayout->addWidget(copyAudioCheckBox);
     copyAudioCheckBox->setChecked(false);
+    
+    
     connect(inputVideoOptionRadioButton, &QRadioButton::toggled, this, [this](bool checked) {
         bool enableAudio = checked && saveOutputVideoCheckBox->isChecked();
         copyAudioCheckBox->setEnabled(enableAudio);
@@ -149,7 +196,6 @@ void SettingsWindow::init() {
     mainLayout->addWidget(screenResolutionLabel);
     mainLayout->addWidget(screenResolutionComboBox);
     copyAudioCheckBox->setEnabled(false);
-    connect(saveOutputVideoCheckBox, &QCheckBox::toggled, copyAudioCheckBox, &QCheckBox::setEnabled);
     mainLayout->addLayout(textureCacheLayout);
     mainLayout->addLayout(fullScreenLayout);
     mainLayout->addLayout(enable3d_layout);        
@@ -163,9 +209,13 @@ void SettingsWindow::init() {
     connect(cancelButton, &QPushButton::clicked, this, &SettingsWindow::rejectSettings);
     connect(browseInputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseInputVideoFile);
     connect(browseOutputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseOutputVideoFile);
+    connect(browseGraphicsButton, &QPushButton::clicked, this, &SettingsWindow::browseGraphicsFile);
 
+    
     inputVideoFileLineEdit->setEnabled(false);
     browseInputVideoButton->setEnabled(false);
+    graphicsFileLineEdit->setEnabled(false);
+    browseGraphicsButton->setEnabled(false);
     outputVideoFileLineEdit->setEnabled(false);
     browseOutputVideoButton->setEnabled(false);
     saveFileKbpsSpinBox->setEnabled(false);
@@ -203,8 +253,16 @@ QString SettingsWindow::getOutputVideoFile() const {
     return outputVideoFile;
 }
 
+QString SettingsWindow::getGraphicsFile() const {
+    return graphicsFile;
+}
+
 bool SettingsWindow::isUsingInputVideoFile() const {
     return useInputVideoFile;
+}
+
+bool SettingsWindow::isUsingGraphicsFile() const {
+    return useGraphicsFile;
 }
 
 bool SettingsWindow::isSavingToOutputVideoFile() const {
@@ -229,25 +287,31 @@ bool SettingsWindow::isCopyAudioEnabled() const {
 
 void SettingsWindow::acceptSettings() {
     useInputVideoFile = inputVideoOptionRadioButton->isChecked();
+    useGraphicsFile = graphicsFileOptionRadioButton->isChecked();
     saveOutputVideoFile = saveOutputVideoCheckBox->isChecked();
 
     if (useInputVideoFile) {
-        
         if(inputVideoFileLineEdit->text().isEmpty()) {
             QMessageBox::information(this, "Video file required", "When using video file mode, a selected video file is required");
             return;
         }
-
         inputVideoFile = inputVideoFileLineEdit->text();
-
+    } else if (useGraphicsFile) {
+        if(graphicsFileLineEdit->text().isEmpty()) {
+            QMessageBox::information(this, "Graphics file required", "When using graphics file mode, a selected graphics file is required");
+            return;
+        }
+        graphicsFile = graphicsFileLineEdit->text();
     } else {
+        
         selectedCameraIndex = cameraIndexComboBox->currentText().toInt();
         QStringList cameraResParts = cameraResolutionComboBox->currentText().split('x');
         if (cameraResParts.size() == 2) {
             selectedCameraResolution = QSize(cameraResParts[0].toInt(), cameraResParts[1].toInt());
         }
-        cameraFPS = cameraFPSSpinBox->value();
     }
+
+    cameraFPS = cameraFPSSpinBox->value();
 
     QStringList screenResParts = screenResolutionComboBox->currentText().split('x');
     if (screenResParts.size() == 2) {
@@ -286,5 +350,12 @@ void SettingsWindow::browseOutputVideoFile() {
             fileName += ".mp4";
         }
         outputVideoFileLineEdit->setText(fileName);
+    }
+}
+
+void SettingsWindow::browseGraphicsFile() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Select Graphics File", "", "Image Files (*.jpg *.jpeg *.png *.bmp *.tiff *.gif)");
+    if (!fileName.isEmpty()) {
+        graphicsFileLineEdit->setText(fileName);
     }
 }

@@ -416,6 +416,53 @@ void MainWindow::menuAudioSettings() {
     }
 }
 
+void MainWindow::cameraSettings() {
+    SettingsWindow settingsWindow(this);
+    if(settingsWindow.exec() == QDialog::Accepted) {
+        full_screen_value = settingsWindow.isFullscreen();
+        if (settingsWindow.isUsingInputVideoFile()) {
+            QString videoFile = settingsWindow.getInputVideoFile();
+            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
+            screen_res = screenResolution;
+            video_file = videoFile;
+            graphics_file = ""; // Clear graphics file
+            cache_enabled = settingsWindow.isTextureCacheEnabled();
+            cache_delay = settingsWindow.getCacheDelay();
+            copy_audio = settingsWindow.isCopyAudioEnabled();
+        } else if (settingsWindow.isUsingGraphicsFile()) {
+            QString graphicsFile = settingsWindow.getGraphicsFile();
+            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
+            screen_res = screenResolution;
+            graphics_file = graphicsFile;
+            video_file = ""; // Clear video file
+            output_fps = settingsWindow.getCameraFPS();
+            cache_enabled = false;
+            cache_delay = 1;
+            copy_audio = false;
+        } else {
+            int cameraIndex = settingsWindow.getSelectedCameraIndex();
+            QSize cameraResolution = settingsWindow.getSelectedCameraResolution();
+            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
+            screen_res = screenResolution;
+            camera_index  = cameraIndex;
+            video_file = "";
+            graphics_file = ""; // Clear graphics file
+            camera_res = cameraResolution;
+            output_fps = settingsWindow.getCameraFPS();
+            cache_enabled = false;
+            cache_delay = 1;
+        }
+        if(settingsWindow.isSavingToOutputVideoFile()) {
+            output_file = settingsWindow.getOutputVideoFile();
+            output_kbps = settingsWindow.getSaveFileKbps();
+        } else {
+            output_file = "";
+            output_kbps = 10000;
+        }
+    }
+    enable_3d = settingsWindow.is3dEnabled();
+}
+
 void MainWindow::runSelected() {
    if(shader_path.length()==0) {
         QMessageBox::information(this, "Select Shaders", "Select Shader Path");
@@ -446,7 +493,12 @@ void MainWindow::runSelected() {
     if(full_screen_value)
         arguments << "--fullscreen";
 
-    if(video_file.isEmpty()) {
+    if(!graphics_file.isEmpty()) {
+        arguments << "--graphic" << graphics_file;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
+        arguments << "--fps" << QString::number(output_fps);
+    } else if(video_file.isEmpty()) {
         arguments << "--camera-res" << res;
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
@@ -491,6 +543,7 @@ void MainWindow::runSelected() {
         play_stop->setEnabled(true);
     }
 }
+
 void MainWindow::runAll() {
     if(shader_path.length()==0) {
         QMessageBox::information(this, "Select Shaders", "Select Shader Path");
@@ -525,8 +578,12 @@ void MainWindow::runAll() {
    if(full_screen_value)
         arguments << "--fullscreen";
 
-  
-    if(video_file.isEmpty()) {
+    if(!graphics_file.isEmpty()) {
+        arguments << "--graphic" << graphics_file;
+        if(screen_res.width() != 0)
+            arguments << "--resolution" << scr_res;
+        arguments << "--fps" << QString::number(output_fps);
+    } else if(video_file.isEmpty()) {
         arguments << "--camera-res" << res;
         if(screen_res.width() != 0)
             arguments << "--resolution" << scr_res;
@@ -571,41 +628,6 @@ void MainWindow::runAll() {
     } else {
         play_stop->setEnabled(true);
     }
-}
-
-void MainWindow::cameraSettings() {
-    SettingsWindow settingsWindow(this);
-    if(settingsWindow.exec() == QDialog::Accepted) {
-        full_screen_value = settingsWindow.isFullscreen();
-        if (settingsWindow.isUsingInputVideoFile()) {
-            QString videoFile = settingsWindow.getInputVideoFile();
-            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
-            screen_res = screenResolution;
-            video_file = videoFile;
-            cache_enabled = settingsWindow.isTextureCacheEnabled();
-            cache_delay = settingsWindow.getCacheDelay();
-            copy_audio = settingsWindow.isCopyAudioEnabled();
-        } else {
-            int cameraIndex = settingsWindow.getSelectedCameraIndex();
-            QSize cameraResolution = settingsWindow.getSelectedCameraResolution();
-            QSize screenResolution = settingsWindow.getSelectedScreenResolution();
-            screen_res = screenResolution;
-            camera_index  = cameraIndex;
-            video_file = "";
-            camera_res = cameraResolution;
-            output_fps = settingsWindow.getCameraFPS();
-            cache_enabled = false;
-            cache_delay = 1;
-        }
-        if(settingsWindow.isSavingToOutputVideoFile()) {
-            output_file = settingsWindow.getOutputVideoFile();
-            output_kbps = settingsWindow.getSaveFileKbps();
-        } else {
-            output_file = "";
-            output_kbps = 10000;
-        }
-    }
-    enable_3d = settingsWindow.is3dEnabled();
 }
 
 QString MainWindow::concatList(const QStringList lst) {

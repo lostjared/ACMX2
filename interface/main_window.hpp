@@ -88,6 +88,7 @@ private:
     QSize camera_res, screen_res;
     unsigned int camera_index;
     QString video_file;
+    QString graphics_file;
     QString prefix_path;
     QString output_file;
     int output_kbps = 10000;
