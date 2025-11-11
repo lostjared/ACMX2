@@ -117,6 +117,20 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+            
+            // New uniforms
+            program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
+            program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
+            program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
+            program_names[pos].iFrameRate = glGetUniformLocation(programs.back()->id(), "iFrameRate");
+            program_names[pos].iMouseClick = glGetUniformLocation(programs.back()->id(), "iMouseClick");
+            
+            for(int i = 0; i < 4; ++i) {
+                std::string channelTime = "iChannelTime[" + std::to_string(i) + "]";
+                std::string channelRes = "iChannelResolution[" + std::to_string(i) + "]";
+                program_names[pos].iChannelTime[i] = glGetUniformLocation(programs.back()->id(), channelTime.c_str());
+                program_names[pos].iChannelResolution[i] = glGetUniformLocation(programs.back()->id(), channelRes.c_str());
+            }
 
             if(name.find("cache") != std::string::npos) {
                 for(int i = 0; i < 4; ++i) {
@@ -127,7 +141,15 @@ public:
 #ifdef AUDIO_ENABLED
             program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
             program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
+            program_names[pos].iSampleRate = glGetUniformLocation(programs.back()->id(), "iSampleRate");
 #endif
+        }
+    }
+
+    void setFPS(float fps_value) {
+        GLuint iFrameRateLoc = program_names[index()].iFrameRate;
+        if(iFrameRateLoc != GL_INVALID_INDEX) {
+            glUniform1f(iFrameRateLoc, fps_value);
         }
     }
 
@@ -198,6 +220,21 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
+                    
+                    // New uniforms
+                    program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
+                    program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
+                    program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
+                    program_names[pos].iFrameRate = glGetUniformLocation(programs.back()->id(), "iFrameRate");
+                    program_names[pos].iMouseClick = glGetUniformLocation(programs.back()->id(), "iMouseClick");
+                    
+                    for(int i = 0; i < 4; ++i) {
+                        std::string channelTime = "iChannelTime[" + std::to_string(i) + "]";
+                        std::string channelRes = "iChannelResolution[" + std::to_string(i) + "]";
+                        program_names[pos].iChannelTime[i] = glGetUniformLocation(programs.back()->id(), channelTime.c_str());
+                        program_names[pos].iChannelResolution[i] = glGetUniformLocation(programs.back()->id(), channelRes.c_str());
+                    }
+
                     if(name.find("cache") != std::string::npos) {
                         for(int i = 0; i < 4; ++i) {
                             program_names[pos].texture_cache_loc[i] = glGetUniformLocation(programs.back()->id(), std::string("samp" + std::to_string(i+1)).c_str());
@@ -206,6 +243,7 @@ public:
 #ifdef AUDIO_ENABLED
                     program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
                     program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
+                    program_names[pos].iSampleRate = glGetUniformLocation(programs.back()->id(), "iSampleRate");
 #endif
                 }
            }
@@ -243,8 +281,14 @@ public:
 
     void update(gl::GLWindow *win) {
         static Uint64 start_time = SDL_GetPerformanceCounter();
+        static Uint64 last_frame_time = start_time;
+        static int frame_counter = 0;
+        
         Uint64 now_time = SDL_GetPerformanceCounter();
         double elapsed_time = (double)(now_time - start_time) / SDL_GetPerformanceFrequency();
+        double delta_time = (double)(now_time - last_frame_time) / SDL_GetPerformanceFrequency();
+        last_frame_time = now_time;
+        frame_counter++;
 
         if(time_audio == false && time_active) {
             time_f = static_cast<float>(elapsed_time);
@@ -259,47 +303,101 @@ public:
         if(std::isnan(time_f) || std::isinf(time_f))
             time_f = 1.0;
 
+        // Existing uniforms
         GLuint time_f_loc = program_names[index()].time_f;
         glUniform1f(time_f_loc, time_f);
         GLint loc = program_names[index()].loc;
         glUniform1f(loc, alpha);
         GLuint iTimeLoc = program_names[index()].iTime;
         double currentTime = (float)SDL_GetTicks() / 1000.0f; 
-        glUniform1f(iTimeLoc, currentTime);    
+        glUniform1f(iTimeLoc, currentTime);
+        
+        // New: iFrame
+        GLuint iFrameLoc = program_names[index()].iFrame;
+        glUniform1i(iFrameLoc, frame_counter);
+        
+        // New: iTimeDelta
+        GLuint iTimeDeltaLoc = program_names[index()].iTimeDelta;
+        glUniform1f(iTimeDeltaLoc, static_cast<float>(delta_time));
+        
+        // New: iDate (year, month, day, time in seconds)
+        GLuint iDateLoc = program_names[index()].iDate;
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        std::tm* localTime = std::localtime(&now_c);
+        float year = static_cast<float>(localTime->tm_year + 1900);
+        float month = static_cast<float>(localTime->tm_mon + 1);
+        float day = static_cast<float>(localTime->tm_mday);
+        float seconds = static_cast<float>(localTime->tm_hour * 3600 + 
+                                           localTime->tm_min * 60 + 
+                                           localTime->tm_sec);
+        glUniform4f(iDateLoc, year, month, day, seconds);
+        
+        // New: iFrameRate - set this if the uniform location is valid
+        GLuint iFrameRateLoc = program_names[index()].iFrameRate;
+        if(iFrameRateLoc != GL_INVALID_INDEX) {
+            // This will need to be passed in - for now use a default
+            glUniform1f(iFrameRateLoc, 24.0f);
+        }
+        
+        // Mouse handling
         static bool isDragging = false;
+        static bool wasClicked = false;
         static float clickStartX = 0.0f;
         static float clickStartY = 0.0f;
+        static float lastClickX = 0.0f;
+        static float lastClickY = 0.0f;
+        
         GLuint iMouseLoc = program_names[index()].iMouse;
+        GLuint iMouseClickLoc = program_names[index()].iMouseClick;
+        
         int mouseX = 0, mouseY = 0;
         Uint32 mouseState = SDL_GetMouseState(&mouseX, &mouseY);
         float currentY = static_cast<float>(win->h - mouseY);
         float currentX = static_cast<float>(mouseX);
+        
         if (mouseState & SDL_BUTTON(SDL_BUTTON_LEFT)) {
             if (!isDragging) {
                 clickStartX = currentX;
                 clickStartY = currentY;
+                lastClickX = currentX;
+                lastClickY = currentY;
                 isDragging = true;
+                wasClicked = true;
             }
         } else {
             isDragging = false;
         }
+        
         if (isDragging) {
             glUniform4f(iMouseLoc, currentX, currentY, clickStartX, clickStartY);
         } else {
             glUniform4f(iMouseLoc, currentX, currentY, 0.0f, 0.0f);
         }
+        
+        // iMouseClick - stores last click position
+        if(wasClicked && iMouseClickLoc != GL_INVALID_INDEX) {
+            glUniform2f(iMouseClickLoc, lastClickX, lastClickY);
+        }
+        
         GLuint iResolution = program_names[index()].iResolution;
         glUniform2f(iResolution, win->w, win->h);
+        
 #ifdef AUDIO_ENABLED
-        GLuint amp_i = program_names[index()].amp;
-        static float amplitude = 1.0;
-        amplitude += (get_amp() * get_sense());
-        glUniform1f(amp_i, amplitude);
-        GLuint amp_u = program_names[index()].amp_untouched;
-        glUniform1f(amp_u, get_amp());
-        fflush(stdout);
-#endif
+    GLuint amp_i = program_names[index()].amp;
+    static float amplitude = 1.0;
+    amplitude += (get_amp() * get_sense());
+    glUniform1f(amp_i, amplitude);
+    GLuint amp_u = program_names[index()].amp_untouched;
+    glUniform1f(amp_u, get_amp());
+    
+    // New: iSampleRate
+    GLuint iSampleRateLoc = program_names[index()].iSampleRate;
+    if(iSampleRateLoc != GL_INVALID_INDEX) {
+        glUniform1f(iSampleRateLoc, 44100.0f);
     }
+#endif
+}
 
     void incTime(float value) {
         if(!time_active) {
@@ -354,6 +452,14 @@ private:
         GLuint amp, amp_untouched;
 #endif
         GLuint texture_cache_loc[4];
+        GLuint iFrame;
+        GLuint iTimeDelta;
+        GLuint iDate; 
+        GLuint iChannelTime[4];
+        GLuint iChannelResolution[4];
+        GLuint iSampleRate;
+        GLuint iFrameRate; 
+        GLuint iMouseClick;
     };
     bool time_audio = false;
     std::unordered_map<int, ProgramData> program_names;
@@ -730,6 +836,7 @@ public:
 
         library.useProgram();
         library.update(win);
+        library.setFPS(static_cast<float>(fps)); // Add this line
 
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
