@@ -845,12 +845,14 @@ public:
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
+        
         if(!graphic.empty()) {
             if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) { 
                 double seconds = static_cast<double>(frame_counter) / fps;
                 std::ostringstream stream;
                 stream << "ACMX2 - Graphics Mode - Frame: " << frame_counter
-                       << " - " << seconds << " seconds";
+                       << " - " << std::fixed << std::setprecision(1) 
+                       << seconds << " seconds";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
                 fflush(stdout);
@@ -878,11 +880,11 @@ public:
         } 
         else if(cap.isOpened() && filename.empty() && writer.is_open()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
-                auto now = std::chrono::steady_clock::now();
                 double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
                 if(fps > 0) {
                     std::ostringstream stream;
-                    stream << "ACMX2 - " << elapsedSeconds 
+                    stream << "ACMX2 - " << std::fixed << std::setprecision(1)
+                           << elapsedSeconds 
                            << " seconds - [" << frame_counter 
                            << "] - Capture Mode";
                     win->setWindowTitle(stream.str());
@@ -891,6 +893,7 @@ public:
             }
         }
         
+        // Frame timing - only for graphics mode
         if(!graphic.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
