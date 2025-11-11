@@ -523,6 +523,9 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+            
+            
+            SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
@@ -607,6 +610,9 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+            
+            
+            SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
@@ -616,9 +622,6 @@ public:
                     throw mx::Exception("Could not open output video file: " + ofilename);
                 }
             }
-            totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
-            fflush(stderr);
-            fflush(stdout);
         } else if(graphic.empty()  && filename.empty()) {
             throw mx::Exception("Requires input from a file, or camera.");
         }
@@ -694,7 +697,6 @@ public:
             }
             cv::flip(newFrame, newFrame, 0);
         }
-
         library.useProgram();
 
         if(!newFrame.empty()) {
@@ -714,7 +716,7 @@ public:
                         glBindTexture(GL_TEXTURE_2D, cache_textures[i]);
                     }
                 } 
-            }
+            } 
         }          
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
         glViewport(0, 0, win->w, win->h);
@@ -841,7 +843,6 @@ public:
         fshader.setUniform("proj_matrix", glm::mat4(1.0f));
         sprite.setShader(&fshader);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
-        
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         if(!graphic.empty()) {
@@ -855,7 +856,6 @@ public:
                 fflush(stdout);
             }
         } else if(cap.isOpened() && !filename.empty()) {
-            
             frame_counter = static_cast<int>(cap.get(cv::CAP_PROP_POS_FRAMES));
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
                 double currentFrame = static_cast<double>(frame_counter);
@@ -891,13 +891,13 @@ public:
             }
         }
         
-        if(!graphic.empty() || !filename.empty()) {
-            auto m = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
+        if(!graphic.empty()) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
             if (fps > 0) {
-                int fps_mil = static_cast<int>(1000 / fps);
-                if (m < fps_mil) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(fps_mil - m - 1));
+                int target_ms = static_cast<int>(1000.0 / fps);
+                if (elapsed < target_ms) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(target_ms - elapsed));
                 }
             }
         }
