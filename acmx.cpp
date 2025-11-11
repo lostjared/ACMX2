@@ -893,7 +893,7 @@ public:
             }
         }
         
-        // Frame timing - only for graphics mode
+        
         if(!graphic.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
