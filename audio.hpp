@@ -3,7 +3,8 @@
 
 #include<RtAudio.h>
 
-int init_audio(unsigned int channels, float sense);
+int init_audio(unsigned int channels, float sense, int in_device, int out_device);
+void list_audio_devices(); 
 void close_audio();
 float get_amp();
 float get_sense();
