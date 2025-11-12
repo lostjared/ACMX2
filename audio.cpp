@@ -34,22 +34,83 @@ int audioCallback(void* outputBuffer, void* inputBuffer, unsigned int nBufferFra
 float get_amp() { return gAmplitude; }
 float get_sense() { return amp_sense; }
 
-RtAudio audio;
+RtAudio *audio = nullptr;
 
 void set_output(bool o) {
     output_buffer = o;
 }
 
+void init_rtaudio() {
+    if (audio != nullptr) return;
+    
+    
+    std::vector<RtAudio::Api> apis;
+    
+#ifdef _WIN32
+    
+    apis.push_back(RtAudio::WINDOWS_WASAPI);
+    apis.push_back(RtAudio::WINDOWS_DS);
+    apis.push_back(RtAudio::WINDOWS_ASIO);
+#elif defined(__APPLE__)
+    apis.push_back(RtAudio::MACOSX_CORE);
+#else
+    
+    apis.push_back(RtAudio::LINUX_ALSA);
+    apis.push_back(RtAudio::LINUX_PULSE);
+    apis.push_back(RtAudio::UNIX_JACK);
+#endif
+
+    for (auto api : apis) {
+        try {
+            audio = new RtAudio(api);
+            if (audio->getDeviceCount() > 0) {
+                std::cout << "acmx2: Using audio API: ";
+                switch(api) {
+                    case RtAudio::WINDOWS_WASAPI: std::cout << "WASAPI\n"; break;
+                    case RtAudio::WINDOWS_DS: std::cout << "DirectSound\n"; break;
+                    case RtAudio::WINDOWS_ASIO: std::cout << "ASIO\n"; break;
+                    case RtAudio::MACOSX_CORE: std::cout << "CoreAudio\n"; break;
+                    case RtAudio::LINUX_ALSA: std::cout << "ALSA\n"; break;
+                    case RtAudio::LINUX_PULSE: std::cout << "PulseAudio\n"; break;
+                    case RtAudio::UNIX_JACK: std::cout << "JACK\n"; break;
+                    default: std::cout << "Unknown\n"; break;
+                }
+                return;
+            }
+            delete audio;
+            audio = nullptr;
+        } catch (std::exception &e) {
+            if (audio) {
+                delete audio;
+                audio = nullptr;
+            }
+        }
+    }
+    
+    
+    try {
+        audio = new RtAudio();
+        std::cout << "acmx2: Using default audio API\n";
+    } catch (std::exception &e) {
+        std::cerr << "acmx2: Failed to initialize any audio API: " << e.what() << "\n";
+    }
+}
 
 void list_audio_devices() {
-    unsigned int devices = audio.getDeviceCount();
+    init_rtaudio();
+    if (!audio) {
+        std::cerr << "acmx2: Audio not initialized!\n";
+        return;
+    }
+    
+    unsigned int devices = audio->getDeviceCount();
     std::cout << "acmx2: Found " << devices << " audio device(s):\n";
     
+    unsigned int validDevices = 0;
     for (unsigned int i = 0; i < devices; i++) {
         try {
-            RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+            RtAudio::DeviceInfo info = audio->getDeviceInfo(i);
             if (info.outputChannels == 0 && info.inputChannels == 0) {
-                std::cout << "  Device " << i << ": [Unable to probe device]\n";
                 continue;
             }
             std::cout << "  Device " << i << ": " << info.name;
@@ -63,35 +124,46 @@ void list_audio_devices() {
                 std::cout << rate << " ";
             }
             std::cout << "\n";
+            validDevices++;
         } catch (std::exception &e) {
-            std::cout << "  Device " << i << ": Error - " << e.what() << "\n";
+            
         }
+    }
+    
+    if (validDevices == 0) {
+        std::cout << "acmx2: No valid audio devices found!\n";
     }
 }
 
 int init_audio(unsigned int channels, float sense, int inputDeviceId, int outputDeviceId)  {
+    init_rtaudio();
+    if (!audio) {
+        std::cerr << "acmx2: Audio initialization failed!\n";
+        return 1;
+    }
+    
     input_channels = channels;
     amp_sense = sense;
     
-    if (audio.getDeviceCount() < 1) {
+    if (audio->getDeviceCount() < 1) {
         std::cerr << "acmx2: No audio devices found!" << std::endl;
         return 1;
     } else {
-        std::cout << "acmx2: Audio device found...\n";
+        std::cout << "acmx2: Audio devices available...\n";
     }
 
     unsigned int sampleRate = 44100;
     unsigned int bufferFrames = 512;
     RtAudio::StreamParameters inputParams, outputParams;
     
-    unsigned int inputDevice = audio.getDeviceCount();
-    unsigned int outputDevice = audio.getDeviceCount();
+    unsigned int inputDevice = audio->getDeviceCount();
+    unsigned int outputDevice = audio->getDeviceCount();
     
     if (inputDeviceId < 0) {
         std::cout << "acmx2: Searching for valid input device...\n";
-        for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+        for (unsigned int i = 0; i < audio->getDeviceCount(); i++) {
             try {
-                RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+                RtAudio::DeviceInfo info = audio->getDeviceInfo(i);
                 if (info.inputChannels > 0) {
                     inputDevice = i;
                     std::cout << "acmx2: Found input device: " << i << " - " << info.name << "\n";
@@ -101,7 +173,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
                 continue;
             }
         }
-        if (inputDevice >= audio.getDeviceCount()) {
+        if (inputDevice >= audio->getDeviceCount()) {
             std::cerr << "acmx2: No valid input devices available!\n";
             return 1;
         }
@@ -112,9 +184,9 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     
     if (outputDeviceId < 0) {
         std::cout << "acmx2: Searching for valid output device...\n";
-        for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+        for (unsigned int i = 0; i < audio->getDeviceCount(); i++) {
             try {
-                RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+                RtAudio::DeviceInfo info = audio->getDeviceInfo(i);
                 if (info.outputChannels > 0) {
                     outputDevice = i;
                     std::cout << "acmx2: Found output device: " << i << " - " << info.name << "\n";
@@ -124,7 +196,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
                 continue;
             }
         }
-        if (outputDevice >= audio.getDeviceCount()) {
+        if (outputDevice >= audio->getDeviceCount()) {
             std::cerr << "acmx2: No valid output devices available!\n";
             return 1;
         }
@@ -137,7 +209,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     RtAudio::DeviceInfo outputInfo;
     
     try {
-        inputInfo = audio.getDeviceInfo(inputDevice);
+        inputInfo = audio->getDeviceInfo(inputDevice);
         if (inputInfo.inputChannels == 0) {
             std::cerr << "acmx2: Invalid input device or no input channels!\n";
             return 1;
@@ -148,7 +220,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     }
     
     try {
-        outputInfo = audio.getDeviceInfo(outputDevice);
+        outputInfo = audio->getDeviceInfo(outputDevice);
         if (outputInfo.outputChannels == 0) {
             std::cerr << "acmx2: Invalid output device or no output channels!\n";
             return 1;
@@ -185,19 +257,19 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     std::cout << "acmx2: Using " << inputParams.nChannels << " input channel(s)\n";
     
     try {
-        audio.openStream(&outputParams, &inputParams, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
-        audio.startStream();
-        if (audio.isStreamOpen())
+        audio->openStream(&outputParams, &inputParams, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
+        audio->startStream();
+        if (audio->isStreamOpen())
             std::cout << "acmx2: Audio stream opened...\n";
     }
     catch (std::exception& e) {
         std::cerr << "acmx2: RtAudio error: " << e.what() << std::endl;
-        if (audio.isStreamOpen()) audio.closeStream();
+        if (audio->isStreamOpen()) audio->closeStream();
         return 1;
     }
     catch (...) {
         std::cerr << "acmx2: Unknown error occurred!" << std::endl;
-        if (audio.isStreamOpen()) audio.closeStream();
+        if (audio->isStreamOpen()) audio->closeStream();
         return 1;
     }
 
@@ -205,8 +277,12 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
 }
 
 void close_audio() {
-    if (audio.isStreamOpen()) {
-        audio.closeStream();
+    if (audio && audio->isStreamOpen()) {
+        audio->closeStream();
         std::cout << "acmx2: Audio stream closed.\n";
+    }
+    if (audio) {
+        delete audio;
+        audio = nullptr;
     }
 }
