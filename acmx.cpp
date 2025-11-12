@@ -1549,10 +1549,16 @@ int main(int argc, char **argv) {
                     set_output(true);
                     break;
                  case 300:
-                    args.audio_input = atoi(arg.arg_value.c_str());
+                    if(arg.arg_value == "-1")
+                        args.audio_input = -1;
+                    else
+                        args.audio_input = atoi(arg.arg_value.c_str());
                 break;
                 case 301:
-                    args.audio_input = atoi(arg.arg_value.c_str());
+                    if(arg.arg_value == "-1") 
+                        args.audio_output= -1;
+                    else
+                        args.audio_output = atoi(arg.arg_value.c_str());
                 break;
                 case 302:
                     list_audio_devices();
