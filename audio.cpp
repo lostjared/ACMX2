@@ -83,7 +83,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
         try {
             inputDevice = audio.getDefaultInputDevice();
             std::cout << "acmx2: Using default input device: " << inputDevice << "\n";
-        } catch (RtAudioError &e) {
+        } catch (std::exception &e) {
             std::cout << "acmx2: No default input device, searching for valid input device...\n";
             inputDevice = audio.getDeviceCount(); 
             for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
@@ -108,7 +108,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
         try {
             outputDevice = audio.getDefaultOutputDevice();
             std::cout << "acmx2: Using default output device: " << outputDevice << "\n";
-        } catch (RtAudioError &e) {
+        } catch (std::exception &e) {
             std::cout << "acmx2: No default output device, searching for valid output device...\n";
             outputDevice = audio.getDeviceCount();
             for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
@@ -186,13 +186,8 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
         if (audio.isStreamOpen())
             std::cout << "acmx2: Audio stream opened...\n";
     }
-    catch (RtAudioError& e) {
-        std::cerr << "acmx2: RtAudio error: " << e.getMessage() << std::endl;
-        if (audio.isStreamOpen()) audio.closeStream();
-        return 1;
-    }
     catch (std::exception& e) {
-        std::cerr << "acmx2: Standard exception: " << e.what() << std::endl;
+        std::cerr << "acmx2: RtAudio error: " << e.what() << std::endl;
         if (audio.isStreamOpen()) audio.closeStream();
         return 1;
     }
