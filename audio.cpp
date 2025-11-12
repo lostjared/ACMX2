@@ -46,58 +46,61 @@ void list_audio_devices() {
     std::cout << "acmx2: Found " << devices << " audio device(s):\n";
     
     for (unsigned int i = 0; i < devices; i++) {
-        RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-        std::cout << "  Device " << i << ": " << info.name;
-        if (info.isDefaultInput) std::cout << " [DEFAULT INPUT]";
-        if (info.isDefaultOutput) std::cout << " [DEFAULT OUTPUT]";
-        std::cout << "\n";
-        std::cout << "    Input channels: " << info.inputChannels << "\n";
-        std::cout << "    Output channels: " << info.outputChannels << "\n";
-        std::cout << "    Sample rates: ";
-        for (auto rate : info.sampleRates) {
-            std::cout << rate << " ";
+        try {
+            RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+            if (info.probed == false) {
+                std::cout << "  Device " << i << ": [Unable to probe device]\n";
+                continue;
+            }
+            std::cout << "  Device " << i << ": " << info.name;
+            if (info.isDefaultInput) std::cout << " [DEFAULT INPUT]";
+            if (info.isDefaultOutput) std::cout << " [DEFAULT OUTPUT]";
+            std::cout << "\n";
+            std::cout << "    Input channels: " << info.inputChannels << "\n";
+            std::cout << "    Output channels: " << info.outputChannels << "\n";
+            std::cout << "    Sample rates: ";
+            for (auto rate : info.sampleRates) {
+                std::cout << rate << " ";
+            }
+            std::cout << "\n";
+        } catch (std::exception &e) {
+            std::cout << "  Device " << i << ": Error - " << e.what() << "\n";
         }
-        std::cout << "\n";
     }
 }
 
 int init_audio(unsigned int channels, float sense, int inputDeviceId, int outputDeviceId)  {
     input_channels = channels;
     amp_sense = sense;
-    
     if (audio.getDeviceCount() < 1) {
         std::cerr << "acmx2: No audio devices found!" << std::endl;
         return 1;
     } else {
         std::cout << "acmx2: Audio device found...\n";
     }
-
     unsigned int sampleRate = 44100;
     unsigned int bufferFrames = 512;
     RtAudio::StreamParameters inputParams, outputParams;
     
-    unsigned int inputDevice;
-    unsigned int outputDevice;
-    
+    unsigned int inputDevice = audio.getDeviceCount();
+    unsigned int outputDevice = audio.getDeviceCount();
     if (inputDeviceId < 0) {
-        try {
-            inputDevice = audio.getDefaultInputDevice();
-            std::cout << "acmx2: Using default input device: " << inputDevice << "\n";
-        } catch (std::exception &e) {
-            std::cout << "acmx2: No default input device, searching for valid input device...\n";
-            inputDevice = audio.getDeviceCount(); 
-            for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+        std::cout << "acmx2: Searching for valid input device...\n";
+        for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+            try {
                 RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-                if (info.inputChannels > 0) {
+                if (info.probed && info.inputChannels > 0) {
                     inputDevice = i;
                     std::cout << "acmx2: Found input device: " << i << " - " << info.name << "\n";
                     break;
                 }
+            } catch (std::exception &e) {
+                continue;
             }
-            if (inputDevice >= audio.getDeviceCount()) {
-                std::cerr << "acmx2: No input devices available!\n";
-                return 1;
-            }
+        }
+        if (inputDevice >= audio.getDeviceCount()) {
+            std::cerr << "acmx2: No valid input devices available!\n";
+            return 1;
         }
     } else {
         inputDevice = static_cast<unsigned int>(inputDeviceId);
@@ -105,56 +108,55 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     }
     
     if (outputDeviceId < 0) {
-        try {
-            outputDevice = audio.getDefaultOutputDevice();
-            std::cout << "acmx2: Using default output device: " << outputDevice << "\n";
-        } catch (std::exception &e) {
-            std::cout << "acmx2: No default output device, searching for valid output device...\n";
-            outputDevice = audio.getDeviceCount();
-            for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+        std::cout << "acmx2: Searching for valid output device...\n";
+        for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
+            try {
                 RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-                if (info.outputChannels > 0) {
+                if (info.probed && info.outputChannels > 0) {
                     outputDevice = i;
                     std::cout << "acmx2: Found output device: " << i << " - " << info.name << "\n";
                     break;
                 }
+            } catch (std::exception &e) {
+                continue;
             }
-            if (outputDevice >= audio.getDeviceCount()) {
-                std::cerr << "acmx2: No output devices available!\n";
-                return 1;
-            }
+        }
+        if (outputDevice >= audio.getDeviceCount()) {
+            std::cerr << "acmx2: No valid output devices available!\n";
+            return 1;
         }
     } else {
         outputDevice = static_cast<unsigned int>(outputDeviceId);
         std::cout << "acmx2: Using specified output device: " << outputDevice << "\n";
     }
 
+    RtAudio::DeviceInfo inputInfo;
+    RtAudio::DeviceInfo outputInfo;
     
-    if (inputDevice >= audio.getDeviceCount()) {
-        std::cerr << "acmx2: Invalid input device ID: " << inputDevice << std::endl;
+    try {
+        inputInfo = audio.getDeviceInfo(inputDevice);
+        if (!inputInfo.probed || inputInfo.inputChannels == 0) {
+            std::cerr << "acmx2: Invalid input device or no input channels!\n";
+            return 1;
+        }
+    } catch (std::exception &e) {
+        std::cerr << "acmx2: Error getting input device info: " << e.what() << "\n";
         return 1;
     }
     
-    if (outputDevice >= audio.getDeviceCount()) {
-        std::cerr << "acmx2: Invalid output device ID: " << outputDevice << std::endl;
+    try {
+        outputInfo = audio.getDeviceInfo(outputDevice);
+        if (!outputInfo.probed || outputInfo.outputChannels == 0) {
+            std::cerr << "acmx2: Invalid output device or no output channels!\n";
+            return 1;
+        }
+    } catch (std::exception &e) {
+        std::cerr << "acmx2: Error getting output device info: " << e.what() << "\n";
         return 1;
     }
-
-    RtAudio::DeviceInfo inputInfo = audio.getDeviceInfo(inputDevice);
-    RtAudio::DeviceInfo outputInfo = audio.getDeviceInfo(outputDevice);
     
     std::cout << "acmx2: Input device: " << inputInfo.name << "\n";
     std::cout << "acmx2: Output device: " << outputInfo.name << "\n";
-
-    if (inputInfo.inputChannels == 0) {
-        std::cerr << "acmx2: Selected input device has no input channels!\n";
-        return 1;
-    }
-    
-    if (outputInfo.outputChannels == 0) {
-        std::cerr << "acmx2: Selected output device has no output channels!\n";
-        return 1;
-    }
 
     inputParams.deviceId = inputDevice;
     inputParams.nChannels = std::min(input_channels, inputInfo.inputChannels);
@@ -165,15 +167,14 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     outputParams.firstChannel = 0;
 
     std::vector<unsigned int> sampleRates = inputInfo.sampleRates;
-    if (std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
-        sampleRate = 48000;
-        if (std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
-            if (!sampleRates.empty()) {
-                sampleRate = sampleRates[0];
-            } else {
-                std::cerr << "acmx2: No supported sample rates found!\n";
-                return 1;
-            }
+    if (sampleRates.empty() || std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
+        if (std::find(sampleRates.begin(), sampleRates.end(), 48000) != sampleRates.end()) {
+            sampleRate = 48000;
+        } else if (!sampleRates.empty()) {
+            sampleRate = sampleRates[0];
+        } else {
+            std::cerr << "acmx2: No supported sample rates found!\n";
+            return 1;
         }
     }
     
