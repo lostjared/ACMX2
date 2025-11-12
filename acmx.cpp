@@ -1549,13 +1549,13 @@ int main(int argc, char **argv) {
                     set_output(true);
                     break;
                  case 300:
-                    if(arg.arg_value == "-1")
+                    if(arg.arg_value == "default")
                         args.audio_input = -1;
                     else
                         args.audio_input = atoi(arg.arg_value.c_str());
                 break;
                 case 301:
-                    if(arg.arg_value == "-1") 
+                    if(arg.arg_value == "default") 
                         args.audio_output= -1;
                     else
                         args.audio_output = atoi(arg.arg_value.c_str());
