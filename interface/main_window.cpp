@@ -529,13 +529,18 @@ void MainWindow::runSelected() {
         arguments << "--enable-audio";
         arguments << "--channels" << QString::number(audio_channels);
         arguments << "--sense" << QString::number(audio_sense);
-
-        QString input_value = "\"" + QString::number(audio_input) + "\"";
-        arguments << "--audio-input" << input_value;
-        QString input_Value = "\"" + QString::number(audio_output) + "\"";
-        arguments << "--audio-output" << input_value;
         if(audio_passthrough)
             arguments << "--pass-through";
+
+        if(audio_input == -1)
+            arguments << "--audio-input" << "default";
+        else
+            arguments << "--audio-input" << QString::number(audio_input);
+
+        if(audio_output == -1) 
+            arguments << "--audio-output" << "default";
+        else
+            arguments << "--audio-output" << QString::number(audio_output);
     }
 
     if(enable_3d)
@@ -622,11 +627,16 @@ void MainWindow::runAll() {
         arguments << "--sense" << QString::number(audio_sense);
         if(audio_passthrough)
             arguments << "--pass-through";
-        
-        QString input_value = "\"" + QString::number(audio_input) + "\"";
-        arguments << "--audio-input" << input_value;
-        QString input_Value = "\"" + QString::number(audio_output) + "\"";
-        arguments << "--audio-output" << input_value;
+
+        if(audio_input == -1)
+            arguments << "--audio-input" << "default";
+        else
+            arguments << "--audio-input" << QString::number(audio_input);
+
+        if(audio_output == -1) 
+            arguments << "--audio-output" << "default";
+        else
+            arguments << "--audio-output" << QString::number(audio_output);
     }
 
     if(enable_3d)
