@@ -48,7 +48,7 @@ void list_audio_devices() {
     for (unsigned int i = 0; i < devices; i++) {
         try {
             RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-            if (info.probed == false) {
+            if (info.outputChannels == 0 && info.inputChannels == 0) {
                 std::cout << "  Device " << i << ": [Unable to probe device]\n";
                 continue;
             }
@@ -72,24 +72,27 @@ void list_audio_devices() {
 int init_audio(unsigned int channels, float sense, int inputDeviceId, int outputDeviceId)  {
     input_channels = channels;
     amp_sense = sense;
+    
     if (audio.getDeviceCount() < 1) {
         std::cerr << "acmx2: No audio devices found!" << std::endl;
         return 1;
     } else {
         std::cout << "acmx2: Audio device found...\n";
     }
+
     unsigned int sampleRate = 44100;
     unsigned int bufferFrames = 512;
     RtAudio::StreamParameters inputParams, outputParams;
     
     unsigned int inputDevice = audio.getDeviceCount();
     unsigned int outputDevice = audio.getDeviceCount();
+    
     if (inputDeviceId < 0) {
         std::cout << "acmx2: Searching for valid input device...\n";
         for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
             try {
                 RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-                if (info.probed && info.inputChannels > 0) {
+                if (info.inputChannels > 0) {
                     inputDevice = i;
                     std::cout << "acmx2: Found input device: " << i << " - " << info.name << "\n";
                     break;
@@ -112,7 +115,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
         for (unsigned int i = 0; i < audio.getDeviceCount(); i++) {
             try {
                 RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
-                if (info.probed && info.outputChannels > 0) {
+                if (info.outputChannels > 0) {
                     outputDevice = i;
                     std::cout << "acmx2: Found output device: " << i << " - " << info.name << "\n";
                     break;
@@ -135,7 +138,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     
     try {
         inputInfo = audio.getDeviceInfo(inputDevice);
-        if (!inputInfo.probed || inputInfo.inputChannels == 0) {
+        if (inputInfo.inputChannels == 0) {
             std::cerr << "acmx2: Invalid input device or no input channels!\n";
             return 1;
         }
@@ -146,7 +149,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     
     try {
         outputInfo = audio.getDeviceInfo(outputDevice);
-        if (!outputInfo.probed || outputInfo.outputChannels == 0) {
+        if (outputInfo.outputChannels == 0) {
             std::cerr << "acmx2: Invalid output device or no output channels!\n";
             return 1;
         }
