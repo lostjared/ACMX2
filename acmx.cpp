@@ -118,7 +118,7 @@ public:
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
             
-            // New uniforms
+            
             program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
             program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
             program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
@@ -221,7 +221,7 @@ public:
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
                     
-                    // New uniforms
+                    
                     program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
                     program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
                     program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
@@ -303,7 +303,6 @@ public:
         if(std::isnan(time_f) || std::isinf(time_f))
             time_f = 1.0;
 
-        // Existing uniforms
         GLuint time_f_loc = program_names[index()].time_f;
         glUniform1f(time_f_loc, time_f);
         GLint loc = program_names[index()].loc;
@@ -312,15 +311,12 @@ public:
         double currentTime = (float)SDL_GetTicks() / 1000.0f; 
         glUniform1f(iTimeLoc, currentTime);
         
-        // New: iFrame
         GLuint iFrameLoc = program_names[index()].iFrame;
         glUniform1i(iFrameLoc, frame_counter);
         
-        // New: iTimeDelta
         GLuint iTimeDeltaLoc = program_names[index()].iTimeDelta;
         glUniform1f(iTimeDeltaLoc, static_cast<float>(delta_time));
         
-        // New: iDate (year, month, day, time in seconds)
         GLuint iDateLoc = program_names[index()].iDate;
         auto now = std::chrono::system_clock::now();
         std::time_t now_c = std::chrono::system_clock::to_time_t(now);
@@ -333,14 +329,11 @@ public:
                                            localTime->tm_sec);
         glUniform4f(iDateLoc, year, month, day, seconds);
         
-        // New: iFrameRate - set this if the uniform location is valid
         GLuint iFrameRateLoc = program_names[index()].iFrameRate;
         if(iFrameRateLoc != GL_INVALID_INDEX) {
-            // This will need to be passed in - for now use a default
             glUniform1f(iFrameRateLoc, 24.0f);
         }
         
-        // Mouse handling
         static bool isDragging = false;
         static bool wasClicked = false;
         static float clickStartX = 0.0f;
@@ -375,7 +368,7 @@ public:
             glUniform4f(iMouseLoc, currentX, currentY, 0.0f, 0.0f);
         }
         
-        // iMouseClick - stores last click position
+        
         if(wasClicked && iMouseClickLoc != GL_INVALID_INDEX) {
             glUniform2f(iMouseClickLoc, lastClickX, lastClickY);
         }
@@ -391,7 +384,7 @@ public:
     GLuint amp_u = program_names[index()].amp_untouched;
     glUniform1f(amp_u, get_amp());
     
-    // New: iSampleRate
+    
     GLuint iSampleRateLoc = program_names[index()].iSampleRate;
     if(iSampleRateLoc != GL_INVALID_INDEX) {
         glUniform1f(iSampleRateLoc, 44100.0f);
@@ -468,6 +461,7 @@ private:
 struct MXArguments {
     std::string path, filename, ofilename;
     std::string graphic_file;
+    int audio_input = -1, audio_output = -1;
     int tw = 1280, th = 720;
     int Kbps = 10000;
     int camera_device = 0;
@@ -505,6 +499,8 @@ struct FrameData {
 class ACView : public gl::GLObject {
 #ifdef AUDIO_ENABLED
     bool audio_is_enabled = false;
+    int audio_input_device;
+    int audio_output_device;
 #endif
  
 public:
@@ -526,8 +522,10 @@ public:
           cache_delay{args.cache_delay},
           copy_audio{args.copy_audio} {
 #ifdef AUDIO_ENABLED
+        audio_input_device = args.audio_input;
+        audio_output_device = args.audio_output;
         if(args.audio_enabled) {
-            if(init_audio(args.audio_channels, args.audio_sensitivty) != 0) {
+            if(init_audio(args.audio_channels, args.audio_sensitivty, audio_input_device, audio_output_device) != 0) {
                 mx::system_err << "acmx2: Error could not initalize audio\n";
             } else {
                 audio_is_enabled = true;
@@ -836,7 +834,7 @@ public:
 
         library.useProgram();
         library.update(win);
-        library.setFPS(static_cast<float>(fps)); // Add this line
+        library.setFPS(static_cast<float>(fps)); 
 
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
@@ -1409,6 +1407,9 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
           .addOptionSingle('y', "Enable Audio Pass-through")
           .addOptionDouble('Y', "pass-through", "Enable audio pass thorugh")
+          .addOptionDoubleValue(300, "audio-input", "Audio input device")
+          .addOptionDoubleValue(301, "audio-output", "Audio output device")
+          .addOptionDouble(302, "list-devices", "list audio devices")
 #endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
@@ -1547,6 +1548,16 @@ int main(int argc, char **argv) {
                 case 'y':
                     set_output(true);
                     break;
+                 case 300:
+                    args.audio_input = std::stoi(arg.arg_value);
+                break;
+                case 301:
+                    args.audio_output = std::stoi(arg.arg_value);
+                break;
+                case 302:
+                    list_audio_devices();
+                    exit(EXIT_SUCCESS);
+                break;
 #endif
             }
         }

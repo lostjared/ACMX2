@@ -40,47 +40,105 @@ void set_output(bool o) {
     output_buffer = o;
 }
 
-int init_audio(unsigned int channels, float sense)  {
+
+void list_audio_devices() {
+    unsigned int devices = audio.getDeviceCount();
+    std::cout << "acmx2: Found " << devices << " audio device(s):\n";
+    
+    for (unsigned int i = 0; i < devices; i++) {
+        RtAudio::DeviceInfo info = audio.getDeviceInfo(i);
+        std::cout << "  Device " << i << ": " << info.name;
+        if (info.isDefaultInput) std::cout << " [DEFAULT INPUT]";
+        if (info.isDefaultOutput) std::cout << " [DEFAULT OUTPUT]";
+        std::cout << "\n";
+        std::cout << "    Input channels: " << info.inputChannels << "\n";
+        std::cout << "    Output channels: " << info.outputChannels << "\n";
+        std::cout << "    Sample rates: ";
+        for (auto rate : info.sampleRates) {
+            std::cout << rate << " ";
+        }
+        std::cout << "\n";
+    }
+}
+
+int init_audio(unsigned int channels, float sense, int inputDeviceId, int outputDeviceId)  {
     input_channels = channels;
     amp_sense = sense;
+    
     if (audio.getDeviceCount() < 1) {
         std::cerr << "acmx2: No audio devices found!" << std::endl;
         return 1;
-    }
-    else {
+    } else {
         std::cout << "acmx2: Audio device found...\n";
     }
 
     unsigned int sampleRate = 44100;
     unsigned int bufferFrames = 512;
     RtAudio::StreamParameters inputParams, outputParams;
-    unsigned int inputDeviceId = audio.getDefaultInputDevice();
-    unsigned int outputDeviceId = audio.getDefaultOutputDevice();
+    
+    unsigned int inputDevice;
+    unsigned int outputDevice;
+    
+    if (inputDeviceId < 0) {
+        inputDevice = audio.getDefaultInputDevice();
+        std::cout << "acmx2: Using default input device: " << inputDevice << "\n";
+    } else {
+        inputDevice = static_cast<unsigned int>(inputDeviceId);
+        std::cout << "acmx2: Using specified input device: " << inputDevice << "\n";
+    }
+    
+    if (outputDeviceId < 0) {
+        outputDevice = audio.getDefaultOutputDevice();
+        std::cout << "acmx2: Using default output device: " << outputDevice << "\n";
+    } else {
+        outputDevice = static_cast<unsigned int>(outputDeviceId);
+        std::cout << "acmx2: Using specified output device: " << outputDevice << "\n";
+    }
 
-    if (inputDeviceId == 0) {
-        std::cout << "acmx2: No Input device found...\n";
+    if (inputDevice >= audio.getDeviceCount()) {
+        std::cerr << "acmx2: Invalid input device ID: " << inputDevice << std::endl;
         return 1;
     }
-    else if (outputDeviceId == 0) {
-        std::cout << "acmx2: No Output device found...\n";
+    
+    if (outputDevice >= audio.getDeviceCount()) {
+        std::cerr << "acmx2: Invalid output device ID: " << outputDevice << std::endl;
         return 1;
     }
-    else {
-        inputParams.deviceId = audio.getDefaultInputDevice();
-        inputParams.nChannels = input_channels;
-        inputParams.firstChannel = 0;
-        outputParams.deviceId = audio.getDefaultOutputDevice();
-        outputParams.nChannels = 2;
-        outputParams.firstChannel = 0;
 
-        std::vector<unsigned int> sampleRates = audio.getDeviceInfo(inputDeviceId).sampleRates;
+    RtAudio::DeviceInfo inputInfo = audio.getDeviceInfo(inputDevice);
+    RtAudio::DeviceInfo outputInfo = audio.getDeviceInfo(outputDevice);
+    
+    std::cout << "acmx2: Input device: " << inputInfo.name << "\n";
+    std::cout << "acmx2: Output device: " << outputInfo.name << "\n";
+
+    if (inputInfo.inputChannels == 0) {
+        std::cerr << "acmx2: Selected input device has no input channels!\n";
+        return 1;
+    }
+    
+    if (outputInfo.outputChannels == 0) {
+        std::cerr << "acmx2: Selected output device has no output channels!\n";
+        return 1;
+    }
+
+    inputParams.deviceId = inputDevice;
+    inputParams.nChannels = std::min(input_channels, inputInfo.inputChannels);
+    inputParams.firstChannel = 0;
+    
+    outputParams.deviceId = outputDevice;
+    outputParams.nChannels = std::min(2u, outputInfo.outputChannels);
+    outputParams.firstChannel = 0;
+
+    std::vector<unsigned int> sampleRates = inputInfo.sampleRates;
+    if (std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
+        sampleRate = 48000;
         if (std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
-            sampleRate = 48000;
-            if (std::find(sampleRates.begin(), sampleRates.end(), sampleRate) == sampleRates.end()) {
-                sampleRate = sampleRates[0]; // Choose the first supported sample rate
-            }
+            sampleRate = sampleRates[0]; 
         }
     }
+    
+    std::cout << "acmx2: Using sample rate: " << sampleRate << " Hz\n";
+    std::cout << "acmx2: Using " << inputParams.nChannels << " input channel(s)\n";
     
     try {
         audio.openStream(&outputParams, &inputParams, RTAUDIO_FLOAT32, sampleRate, &bufferFrames, &audioCallback);
