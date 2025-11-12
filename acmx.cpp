@@ -1549,10 +1549,10 @@ int main(int argc, char **argv) {
                     set_output(true);
                     break;
                  case 300:
-                    args.audio_input = std::stoi(arg.arg_value);
+                    args.audio_input = atoi(arg.arg_value.c_str());
                 break;
                 case 301:
-                    args.audio_output = std::stoi(arg.arg_value);
+                    args.audio_input = atoi(arg.arg_value.c_str());
                 break;
                 case 302:
                     list_audio_devices();
