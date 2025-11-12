@@ -1,5 +1,5 @@
-#ifndef __AUDIO_WINDOW__H_
-#define __AUDIO_WINDOW__H_
+#ifndef AUDIOSETTINGS_HPP
+#define AUDIOSETTINGS_HPP
 
 #include <QDialog>
 #include <QCheckBox>
@@ -9,6 +9,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QComboBox>
 
 class AudioSettings : public QDialog {
     Q_OBJECT
@@ -17,15 +18,21 @@ public:
     explicit AudioSettings(QWidget *parent = nullptr);
 
     bool isAudioReactivityEnabled() const;
-    bool isAudioPassThroughEnabled() const; 
+    bool isAudioPassThroughEnabled() const;
     int getNumberOfChannels() const;
     double getSensitivity() const;
+    int getInputDeviceIndex() const;
+    int getOutputDeviceIndex() const;
 
 private:
+    void populateAudioDevices();
+
     QCheckBox *audioReactivityCheckBox;
-    QCheckBox *audioPassThroughCheckBox; 
+    QCheckBox *audioPassThroughCheckBox;
     QSpinBox *channelSpinBox;
     QSlider *sensitivitySlider;
+    QComboBox *inputDeviceComboBox;
+    QComboBox *outputDeviceComboBox;
     QPushButton *okButton;
     QPushButton *cancelButton;
 };

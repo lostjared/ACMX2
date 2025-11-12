@@ -1,4 +1,7 @@
 #include "audio-window.hpp"
+#ifdef AUDIO_ENABLED
+#include <RtAudio.h>
+#endif
 
 AudioSettings::AudioSettings(QWidget *parent)
     : QDialog(parent) {
@@ -23,6 +26,17 @@ AudioSettings::AudioSettings(QWidget *parent)
         sensitivityValueLabel->setText(QString::number(floatValue, 'f', 1));
     });
 
+    
+    QLabel *inputDeviceLabel = new QLabel("Input Device:", this);
+    inputDeviceComboBox = new QComboBox(this);
+    
+    
+    QLabel *outputDeviceLabel = new QLabel("Output Device:", this);
+    outputDeviceComboBox = new QComboBox(this);
+    
+    
+    populateAudioDevices();
+
     okButton = new QPushButton("OK", this);
     cancelButton = new QPushButton("Cancel", this);
 
@@ -44,12 +58,35 @@ AudioSettings::AudioSettings(QWidget *parent)
     sensitivityLayout->addWidget(sensitivityValueLabel); 
     mainLayout->addLayout(sensitivityLayout);
 
+    
+    QHBoxLayout *inputDeviceLayout = new QHBoxLayout();
+    inputDeviceLayout->addWidget(inputDeviceLabel);
+    inputDeviceLayout->addWidget(inputDeviceComboBox);
+    mainLayout->addLayout(inputDeviceLayout);
+
+    
+    QHBoxLayout *outputDeviceLayout = new QHBoxLayout();
+    outputDeviceLayout->addWidget(outputDeviceLabel);
+    outputDeviceLayout->addWidget(outputDeviceComboBox);
+    mainLayout->addLayout(outputDeviceLayout);
+
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
     mainLayout->addLayout(buttonLayout);
 
     setLayout(mainLayout);
+}
+
+void AudioSettings::populateAudioDevices() {
+    inputDeviceComboBox->addItem("Default", -1);
+    outputDeviceComboBox->addItem("Default", -1);
+    for(int i = 0; i < 10; i++) {
+        inputDeviceComboBox->addItem(QString::number(i), i);
+        outputDeviceComboBox->addItem(QString::number(i), i);
+    }
+    inputDeviceComboBox->setCurrentIndex(0);
+    outputDeviceComboBox->setCurrentIndex(0);
 }
 
 bool AudioSettings::isAudioReactivityEnabled() const {
@@ -66,4 +103,12 @@ int AudioSettings::getNumberOfChannels() const {
 
 double AudioSettings::getSensitivity() const {
     return sensitivitySlider->value() / 10.0; 
+}
+
+int AudioSettings::getInputDeviceIndex() const {
+    return inputDeviceComboBox->currentData().toInt();
+}
+
+int AudioSettings::getOutputDeviceIndex() const {
+    return outputDeviceComboBox->currentData().toInt();
 }

@@ -412,6 +412,8 @@ void MainWindow::menuAudioSettings() {
         audio_channels = audio_set.getNumberOfChannels();
         audio_sense = audio_set.getSensitivity();
         audio_passthrough = audio_set.isAudioPassThroughEnabled();
+        audio_input = audio_set.getInputDeviceIndex();
+        audio_output = audio_set.getOutputDeviceIndex();
         Log("Audio Settings Saved");
     }
 }
@@ -527,6 +529,8 @@ void MainWindow::runSelected() {
         arguments << "--enable-audio";
         arguments << "--channels" << QString::number(audio_channels);
         arguments << "--sense" << QString::number(audio_sense);
+        arguments << "--audio-input" << QString::number(audio_input);
+        arguments << "--audio-output" << QString::number(audio_output);
         if(audio_passthrough)
             arguments << "--pass-through";
     }
@@ -615,6 +619,8 @@ void MainWindow::runAll() {
         arguments << "--sense" << QString::number(audio_sense);
         if(audio_passthrough)
             arguments << "--pass-through";
+        arguments << "--audio-input" << QString::number(audio_input);
+        arguments << "--audio-output" << QString::number(audio_output);
     }
 
     if(enable_3d)

@@ -105,6 +105,8 @@ private:
     bool full_screen_value = false;
     bool copy_audio = false;
     bool enable_3d = false;
+    int audio_input = -1;
+    int audio_output = -1;
 };
 
 
