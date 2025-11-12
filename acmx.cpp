@@ -1561,9 +1561,7 @@ int main(int argc, char **argv) {
                         args.audio_output = atoi(arg.arg_value.c_str());
                 break;
                 case 302:
-                    init_rtaudio();
                     list_audio_devices();
-                    close_audio();
                     exit(EXIT_SUCCESS);
                 break;
 #endif

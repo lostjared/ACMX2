@@ -79,7 +79,7 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
     unsigned int inputDevice;
     unsigned int outputDevice;
     
-    // Get input device
+    
     if (inputDeviceId >= 0) {
         inputDevice = static_cast<unsigned int>(inputDeviceId);
         std::cout << "acmx2: Using specified input device: " << inputDevice << "\n";
@@ -88,7 +88,6 @@ int init_audio(unsigned int channels, float sense, int inputDeviceId, int output
         std::cout << "acmx2: Using default input device: " << inputDevice << "\n";
     }
     
-    // Get output device
     if (outputDeviceId >= 0) {
         outputDevice = static_cast<unsigned int>(outputDeviceId);
         std::cout << "acmx2: Using specified output device: " << outputDevice << "\n";
