@@ -1084,16 +1084,20 @@ public:
                         library.toggleBypass();
                         break;
                     case SDLK_p:
-                        isPaused = !isPaused;
-                        std::cout << "acmx2: paused: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
-                        fflush(stdout);
-                        fflush(stderr);
+                        if(!filename.empty() || !graphic.empty()) {
+                            isPaused = !isPaused;
+                            std::cout << "acmx2: paused: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
+                            fflush(stdout);
+                            fflush(stderr);
+                        }
                         break;
                     case SDLK_l:
-                        isFrozen = !isFrozen;
-                        std::cout << "acmx2: frozen: " << ((isFrozen == true) ? "enabled" : "disabled") << "\n";
-                        fflush(stdout);
-                        fflush(stderr);
+                        if(!filename.empty() || !graphic.empty()) {
+                            isFrozen = !isFrozen;
+                            std::cout << "acmx2: frozen: " << ((isFrozen == true) ? "enabled" : "disabled") << "\n";
+                            fflush(stdout);
+                            fflush(stderr);
+                        }
                         break;
                     case SDLK_z:
                         snapshot = true;
@@ -1403,8 +1407,8 @@ const char *message = R"(
     Up arrow - Previous shader
     Down arrow - Next shader
     Space -  Enable/Disable Processing
-    L - Enable/Disable video freeze
-    P - Enable/Disable pause video 
+    L - Enable/Disable video freeze (Video/Image Modes)
+    P - Enable/Disable pause video (Video/Image Modes)
     T - enable/disable time
     I/O - step time if not disabled
     Z - take snapshot
