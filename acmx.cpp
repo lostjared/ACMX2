@@ -514,7 +514,7 @@ class ACView : public gl::GLObject {
     int audio_input_device;
     int audio_output_device;
 #endif
- 
+    bool isPaused = false;
 public:
     ACView(const MXArguments &args)
         : bit_rate{args.Kbps},
@@ -1080,6 +1080,10 @@ public:
                         break;
                     case SDLK_SPACE:
                         library.toggleBypass();
+                        break;
+                    case SDLK_p:
+                        isPaused = !isPaused;
+                        std::cout << "acmx2: Paused: " << ((isPaused == true) ? "enabled" : "disabled")();
                         break;
                     case SDLK_z:
                         snapshot = true;
