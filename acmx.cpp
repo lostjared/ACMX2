@@ -1133,6 +1133,7 @@ public:
 
 private:
     unsigned int frame_counter = 0;
+    unsigned int written_frame_counter = 0; 
     int bit_rate = 25000;
     std::string prefix_path;
     std::string filename, ofilename, graphic;
@@ -1285,6 +1286,7 @@ private:
         if (writerThread.joinable()) 
             return;
         running = true;
+        written_frame_counter = 0;
         writerThread = std::thread([this]() {
             static unsigned int snapshotOffset = 0; 
             captureStartTime = std::chrono::steady_clock::now();
@@ -1311,6 +1313,7 @@ private:
                     } else {
                         writer.write_ts(fd.pixels.data());
                     }
+                    written_frame_counter++;
                 }
                 if(fd.isSnapshot) {
                     auto now = std::chrono::system_clock::now();
@@ -1350,7 +1353,7 @@ private:
             auto now = std::chrono::steady_clock::now();
             double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
             if(!filename.empty() && fps > 0)
-                elapsedSeconds = static_cast<double>(frame_counter) / fps;
+                elapsedSeconds = static_cast<double>(written_frame_counter) / fps;
             
             mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
             if(!filename.empty() && repeat == false && copy_audio && finished) {
