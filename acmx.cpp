@@ -583,7 +583,7 @@ public:
     }
     
     mx::Model cube;
-    gl::ShaderProgram fshader;
+    gl::ShaderProgram fshader, fshader3d;
     std::string m_file;
     
     virtual void load(gl::GLWindow *win) override {
@@ -598,13 +598,13 @@ public:
         if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/" + m_file))) {
             throw mx::Exception("Could not open model: cube.mxmod.z");
         }
-
         cube.setShaderProgram(library.shader(), "samp");
-
         if(!fshader.loadProgram(win->util.getFilePath("data/vert.glsl"), win->util.getFilePath("data/framebuffer.glsl"))) {
             throw mx::Exception("Error loading shader");
         }
-
+         if(!fshader3d.loadProgram(win->util.getFilePath("data/vertex.glsl"), win->util.getFilePath("data/framebuffer.glsl"))) {
+            throw mx::Exception("Error loading shader");
+        }
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
             throw mx::Exception("OpenGL error occurred: GL Error: " + std::to_string(error));
@@ -821,7 +821,11 @@ public:
         }
 
         if(library.isBypassed()) {
-            fshader.useProgram();
+            if(is3d_enabled) {
+                fshader3d.useProgram();
+            } else {
+                fshader.useProgram();
+            }
         } else {
             library.useProgram();
         }
@@ -849,9 +853,11 @@ public:
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        library.useProgram();
-        library.update(win);
-        library.setFPS(static_cast<float>(fps)); 
+        if(!library.isBypassed()) {
+            library.useProgram();
+            library.update(win);
+            library.setFPS(static_cast<float>(fps)); 
+        }
 
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
@@ -913,25 +919,40 @@ public:
 
             glFrontFace(GL_CW);
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
-            library.shader()->setUniform("mv_matrix", mvMatrix);
-            library.shader()->setUniform("proj_matrix", projectionMatrix);
+            gl::ShaderProgram *activeShader;
+            if(library.isBypassed()) {
+                activeShader = &fshader3d;
+            } else {
+                activeShader = library.shader();
+            }
+            activeShader->setUniform("mv_matrix", mvMatrix);
+            activeShader->setUniform("proj_matrix", projectionMatrix);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
-            glUniform1i(glGetUniformLocation(library.shader()->id(), "samp"), 0);
+            glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
             glEnableVertexAttribArray(2);
+            
+            if(!library.isBypassed()) {
+                cube.setShaderProgram(activeShader);
+            } else {
+                cube.setShaderProgram(&fshader3d);
+            }
+            
             for(auto &m : cube.meshes) {
                 m.draw();
             }
             glFrontFace(GL_CCW); 
         } else {
             glDisable(GL_DEPTH_TEST);
-            library.shader()->setUniform("mv_matrix", glm::mat4(1.0f));
-            library.shader()->setUniform("proj_matrix", glm::mat4(1.0f));
+            gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
-                sprite.setShader(&fshader);
+                activeShader = &fshader;
             } else {
-                sprite.setShader(library.shader());
+                activeShader = library.shader();
             }
+            activeShader->setUniform("mv_matrix", glm::mat4(1.0f));
+            activeShader->setUniform("proj_matrix", glm::mat4(1.0f));
+            sprite.setShader(activeShader);
             sprite.setName("samp");
             sprite.draw(camera_texture, 0, 0, win->w, win->h);
         }
@@ -1364,6 +1385,7 @@ const char *message = R"(
 -[ Keyboard controls ]- {
     Up arrow - Previous shader
     Down arrow - Next shader
+    Space -  Enable/Disable Processing
     T - enable/disable time
     I/O - step time if not disabled
     Z - take snapshot
