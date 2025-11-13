@@ -1091,7 +1091,7 @@ public:
                         break;
                     case SDLK_l:
                         isFrozen = !isFrozen;
-                        std::cout << "acmx2: frozen: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
+                        std::cout << "acmx2: frozen: " << ((isFrozen == true) ? "enabled" : "disabled") << "\n";
                         fflush(stdout);
                         fflush(stderr);
                         break;
