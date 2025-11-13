@@ -1,5 +1,7 @@
 #include "prop.hpp"
 #include<QMainWindow>
+#include<QStandardPaths>
+
 PropWindow::PropWindow(QWidget *parent) : QDialog(parent) {
     init();
 }
@@ -74,7 +76,7 @@ void PropWindow::init() {
         accept();
     });
     connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
-
+    QString defaultPicturesDir = getDefaultPicturesDirectory();
     QSettings appSettings("LostSideDead");
 #ifndef _WIN32
     QString filePath = appSettings.value("exePath", "acmx2").toString();
@@ -82,7 +84,7 @@ void PropWindow::init() {
     QString filePath = appSettings.value("exePath", "acmx2.exe").toString();
 #endif    
     QString shader_ = appSettings.value("shaders", "").toString();
-    QString screenshotDir = appSettings.value("prefix_path", ".").toString();
+    QString screenshotDir = appSettings.value("prefix_path", defaultPicturesDir).toString();
 
     exePathLineEdit->setText(filePath);
     shaderDirLineEdit->setText(shader_);
@@ -98,6 +100,19 @@ void PropWindow::init() {
     okButton->setMinimumHeight(30);
     cancelButton->setMinimumHeight(30);
     restoreDefaultsButton->setMinimumHeight(30);
+}
+
+QString PropWindow::getDefaultPicturesDirectory() {
+    QStringList picturePaths = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
+    
+    if (!picturePaths.isEmpty()) {
+        QString picturesDir = picturePaths.first();
+        QDir dir(picturesDir);
+        if (dir.exists()) {
+            return picturesDir;
+        }
+    }
+    return ".";
 }
 
 void PropWindow::selectExecutable() {
@@ -130,13 +145,16 @@ void PropWindow::restoreDefaults() {
                                    "Are you sure you want to restore default settings?",
                                    QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
+        QString defaultPicturesDir = getDefaultPicturesDirectory();
+        
 #ifdef _WIN32
         exePathLineEdit->setText("acmx2.exe");
 #else
         exePathLineEdit->setText("acmx2");
 #endif
         shaderDirLineEdit->setText("");
-        screenshotDirLineEdit->setText(".");
+        screenshotDirLineEdit->setText(defaultPicturesDir);
+        
         QSettings appSettings("LostSideDead");
         appSettings.setValue("exePath", exePathLineEdit->text());
         appSettings.setValue("shaders", shaderDirLineEdit->text());
