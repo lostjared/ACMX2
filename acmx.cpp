@@ -161,6 +161,17 @@ public:
         this->is3d = is3d;
     }
 
+    void toggleBypass() {
+        shader_bypass = !shader_bypass;
+        std::string state = shader_bypass ? "disabled" : "enabled";
+        mx::system_out << "acmx2: Shader processing " << state << "\n";
+        fflush(stdout);
+    }
+
+    bool isBypassed() const {
+        return shader_bypass;
+    }
+
     void loadPrograms(gl::GLWindow *win, const std::string &text) {
         std::fstream file;
         file.open(text + "/index.txt", std::ios::in);
@@ -456,6 +467,7 @@ private:
     };
     bool time_audio = false;
     std::unordered_map<int, ProgramData> program_names;
+    bool shader_bypass = false;
 };
 
 struct MXArguments {
@@ -807,7 +819,12 @@ public:
             }
             cv::flip(newFrame, newFrame, 0);
         }
-        library.useProgram();
+
+        if(library.isBypassed()) {
+            fshader.useProgram();
+        } else {
+            library.useProgram();
+        }
 
         if(!newFrame.empty()) {
             glActiveTexture(GL_TEXTURE0);
@@ -910,7 +927,11 @@ public:
             glDisable(GL_DEPTH_TEST);
             library.shader()->setUniform("mv_matrix", glm::mat4(1.0f));
             library.shader()->setUniform("proj_matrix", glm::mat4(1.0f));
-            sprite.setShader(library.shader());
+            if(library.isBypassed()) {
+                sprite.setShader(&fshader);
+            } else {
+                sprite.setShader(library.shader());
+            }
             sprite.setName("samp");
             sprite.draw(camera_texture, 0, 0, win->w, win->h);
         }
@@ -1035,6 +1056,9 @@ public:
                         else
                             sprite.setShader(library.shader());
                         
+                        break;
+                    case SDLK_SPACE:
+                        library.toggleBypass();
                         break;
                     case SDLK_z:
                         snapshot = true;
