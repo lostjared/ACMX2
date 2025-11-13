@@ -85,18 +85,15 @@ void PropWindow::init() {
 #endif    
     QString shader_ = appSettings.value("shaders", "").toString();
     QString screenshotDir = appSettings.value("prefix_path", defaultPicturesDir).toString();
-
     exePathLineEdit->setText(filePath);
     shaderDirLineEdit->setText(shader_);
     screenshotDirLineEdit->setText(screenshotDir);
     exePathLineEdit->setMinimumHeight(30);
     shaderDirLineEdit->setMinimumHeight(30);
     screenshotDirLineEdit->setMinimumHeight(30);
-
     exeBrowseButton->setMinimumHeight(30);
     shaderDirBrowseButton->setMinimumHeight(30);
     screenshotDirBrowseButton->setMinimumHeight(30);
-
     okButton->setMinimumHeight(30);
     cancelButton->setMinimumHeight(30);
     restoreDefaultsButton->setMinimumHeight(30);
@@ -104,7 +101,6 @@ void PropWindow::init() {
 
 QString PropWindow::getDefaultPicturesDirectory() {
     QStringList picturePaths = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
-    
     if (!picturePaths.isEmpty()) {
         QString picturesDir = picturePaths.first();
         QDir dir(picturesDir);
