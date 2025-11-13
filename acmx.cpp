@@ -306,7 +306,6 @@ public:
             }
 #endif
         }
-
         if(std::isnan(time_f) || std::isinf(time_f))
             time_f = 1.0;
 
@@ -316,14 +315,11 @@ public:
         glUniform1f(loc, alpha);
         GLuint iTimeLoc = program_names[index()].iTime;
         double currentTime = (float)SDL_GetTicks() / 1000.0f; 
-        glUniform1f(iTimeLoc, currentTime);
-        
+        glUniform1f(iTimeLoc, currentTime);   
         GLuint iFrameLoc = program_names[index()].iFrame;
         glUniform1i(iFrameLoc, static_cast<int>(frame_counter % INT_MAX));
-        
         GLuint iTimeDeltaLoc = program_names[index()].iTimeDelta;
         glUniform1f(iTimeDeltaLoc, static_cast<float>(delta_time));
-        
         GLuint iDateLoc = program_names[index()].iDate;
         auto now = std::chrono::system_clock::now();
         std::time_t now_c = std::chrono::system_clock::to_time_t(now);
@@ -375,7 +371,6 @@ public:
             glUniform4f(iMouseLoc, currentX, currentY, 0.0f, 0.0f);
         }
         
-        
         if(wasClicked && iMouseClickLoc != GL_INVALID_INDEX) {
             glUniform2f(iMouseClickLoc, lastClickX, lastClickY);
         }
@@ -384,23 +379,23 @@ public:
         glUniform2f(iResolution, win->w, win->h);
         
 #ifdef AUDIO_ENABLED
-    GLuint amp_i = program_names[index()].amp;
-    static float amplitude = 1.0;
-    float new_amp = amplitude + (get_amp() * get_sense());
-    if (std::isnan(new_amp) || std::isinf(new_amp) || new_amp > 1e6f) {
-        amplitude = 1.0f;
-    } else {
-        amplitude = new_amp;
-    }
-    glUniform1f(amp_i, amplitude);
-    GLuint amp_u = program_names[index()].amp_untouched;
-    glUniform1f(amp_u, get_amp());
-    GLuint iSampleRateLoc = program_names[index()].iSampleRate;
-    if(iSampleRateLoc != GL_INVALID_INDEX) {
-        glUniform1f(iSampleRateLoc, 44100.0f);
-    }
+        GLuint amp_i = program_names[index()].amp;
+        static float amplitude = 1.0;
+        float new_amp = amplitude + (get_amp() * get_sense());
+        if (std::isnan(new_amp) || std::isinf(new_amp) || new_amp > 1e6f) {
+            amplitude = 1.0f;
+        } else {
+            amplitude = new_amp;
+        }
+        glUniform1f(amp_i, amplitude);
+        GLuint amp_u = program_names[index()].amp_untouched;
+        glUniform1f(amp_u, get_amp());
+        GLuint iSampleRateLoc = program_names[index()].iSampleRate;
+        if(iSampleRateLoc != GL_INVALID_INDEX) {
+            glUniform1f(iSampleRateLoc, 44100.0f);
+        }
 #endif
-}
+    }
 
     void incTime(float value) {
         if(!time_active) {
