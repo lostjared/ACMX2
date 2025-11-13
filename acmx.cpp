@@ -1049,7 +1049,7 @@ public:
         }
         
         
-        if(!graphic.empty()) {
+        if(!graphic.empty() || !filename.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
             if (fps > 0) {
