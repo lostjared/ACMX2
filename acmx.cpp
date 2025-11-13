@@ -1083,7 +1083,7 @@ public:
                         break;
                     case SDLK_p:
                         isPaused = !isPaused;
-                        std::cout << "acmx2: Paused: " << ((isPaused == true) ? "enabled" : "disabled")();
+                        std::cout << "acmx2: Paused: " << ((isPaused == true) ? "enabled" : "disabled");
                         break;
                     case SDLK_z:
                         snapshot = true;
