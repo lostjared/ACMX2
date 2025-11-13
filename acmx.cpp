@@ -1401,6 +1401,7 @@ const char *message = R"(
     Down arrow - Next shader
     Space -  Enable/Disable Processing
     L - Enable/Disable video freeze
+    P - Enable/Disable pause video 
     T - enable/disable time
     I/O - step time if not disabled
     Z - take snapshot
