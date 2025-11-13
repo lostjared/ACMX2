@@ -427,14 +427,14 @@ public:
     void activeTime(bool t) {
         time_active = t;
         std::string enabled = ((t == true) ? "on" : "off");
-        std::cout << "acmx2: active time: " << enabled << "\n";
+       mx::system_out << "acmx2: active time: " << enabled << "\n";
         fflush(stdout);
     }
 
     void audioTime(bool t) {
         time_audio = t;
         std::string enabled = ((t == true) ? "on" : "off");
-        std::cout << "acmx2: audio time: " << enabled << "\n";
+       mx::system_out << "acmx2: audio time: " << enabled << "\n";
         fflush(stdout);
     }
 
@@ -626,13 +626,13 @@ public:
             frame_h = h;
             fps = this->fps; 
             
-            mx::system_out << "acmx2: Graphics file loaded: " << w << "x" << h << " at FPS: " << fps << "\n";
+           mx::system_out << "acmx2: Graphics file loaded: " << w << "x" << h << " at FPS: " << fps << "\n";
             fflush(stdout);
             fflush(stderr);
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
-                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+               mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
                 fflush(stdout);
                 fflush(stderr);
             }
@@ -645,7 +645,7 @@ public:
 
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename 
+                   mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate 
                                    << " Kbps FPS: " << fps <<"\n";
 
@@ -677,14 +677,14 @@ public:
             fps = cap.get(cv::CAP_PROP_FPS);
             frame_w = w;
             frame_h = h;
-            mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
+           mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
             fflush(stderr);
             fflush(stdout);
 
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
-                mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
+               mx::system_out << "acmx2: Resolution stretched to: " << w << "x" << h << "\n";
             }
 
             win->setWindowSize(w, h);
@@ -693,7 +693,7 @@ public:
 
             if(!ofilename.empty()) {
                 if(writer.open_ts(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename 
+                   mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate 
                                    << " Kbps FPS: " << fps <<"\n";
                 } else {
@@ -714,7 +714,7 @@ public:
             frame_w = w;
             frame_h = h;
 
-            mx::system_out << "acmx2: Video opened: " << w << "x" << h 
+           mx::system_out << "acmx2: Video opened: " << w << "x" << h 
                            << " at FPS: " << fps 
                            << " Total Frames: " << totalFrames << "\n"; 
             fflush(stdout);
@@ -723,7 +723,7 @@ public:
             if(sizev.has_value()) {
                 w = sizev.value().width;
                 h = sizev.value().height;
-                mx::system_out << "acmx2: Resolution stretched to: " 
+               mx::system_out << "acmx2: Resolution stretched to: " 
                                << w << "x" << h << "\n";
                 fflush(stdout);
                 fflush(stderr);
@@ -737,7 +737,7 @@ public:
 
             if(!ofilename.empty()) {
                 if(writer.open(ofilename, w, h, fps, bit_rate)) {
-                    mx::system_out << "acmx2: Opened: " << ofilename 
+                   mx::system_out << "acmx2: Opened: " << ofilename 
                                    << " for writing at: " << bit_rate << " Kbps\n";
                     fflush(stdout);
                     fflush(stderr);
@@ -756,7 +756,7 @@ public:
                 cache_textures[i] = loadTexture(blankMat);
             }
             frame_cache.fill(blankMat);
-            mx::system_out << "acmx2: Texture cache initalized.\n";
+           mx::system_out << "acmx2: Texture cache initalized.\n";
             fflush(stdout);
         }
         sprite.initSize(win->w, win->h);
@@ -808,10 +808,10 @@ public:
             } else {
                 if(!cap.read(newFrame)) {
                     if(!filename.empty() && repeat) {
-                        mx::system_out << "acmx2: video loop...\n";
+                       mx::system_out << "acmx2: video loop...\n";
                         cap.set(cv::CAP_PROP_POS_FRAMES, 0);
                         if(!cap.read(newFrame)) {
-                            mx::system_out << "acmx2: cannot read after looping.\n";
+                           mx::system_out << "acmx2: cannot read after looping.\n";
                         }
                     } else {
                         running = false;
@@ -1086,7 +1086,7 @@ public:
                     case SDLK_p:
                         if(!filename.empty() || !graphic.empty()) {
                             isPaused = !isPaused;
-                            std::cout << "acmx2: paused: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
+                            mx::system_out << "acmx2: paused: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
                             fflush(stdout);
                             fflush(stderr);
                         }
@@ -1094,7 +1094,7 @@ public:
                     case SDLK_l:
                         if(!filename.empty() || !graphic.empty()) {
                             isFrozen = !isFrozen;
-                            std::cout << "acmx2: frozen: " << ((isFrozen == true) ? "enabled" : "disabled") << "\n";
+                            mx::system_out << "acmx2: frozen: " << ((isFrozen == true) ? "enabled" : "disabled") << "\n";
                             fflush(stdout);
                             fflush(stderr);
                         }
@@ -1337,7 +1337,7 @@ private:
                                       fd.pixels.data(), 
                                       fd.width, fd.height);
 
-                    mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                   mx::system_out << "acmx2: Took snapshot: " << name << "\n";
                     fflush(stdout);
                     fflush(stderr);
                 }
@@ -1420,12 +1420,12 @@ const char *message = R"(
 
 template<typename T>
 void printAbout(Argz<T> &parser) { 
-    std::cout << PROGRAM_NAME << ": " << VERSION_INFO << "\n";
-    std::cout << "(C) 2025 " << VERSION_AUTHOR << "\n";
-    std::cout << "https://lostsidedead.biz\n";
-    std::cout << "Command Line Arguments:\n";
-    parser.help(std::cout);
-    std::cout << message;
+     mx::system_out << PROGRAM_NAME << ": " << VERSION_INFO << "\n";
+     mx::system_out << "(C) 2025 " << VERSION_AUTHOR << "\n";
+     mx::system_out << "https://lostsidedead.biz\n";
+     mx::system_out << "Command Line Arguments:\n";
+    parser.help( mx::system_out);
+     mx::system_out << message;
 }
 
 int main(int argc, char **argv) {
