@@ -68,11 +68,11 @@ const char *defaultShFile = R"(#version 330 core
 in vec2 tc;
 out vec4 color;
 uniform float time_f;
-uniform sampler2D samp;
+uniform sampler2D samp; 
 uniform vec2 iResolution;
 uniform vec4 iMouse;
-uniform float amp;
-uniform float uamp;
+uniform float amp;  
+uniform float uamp; // untouched amp
 uniform float iTime;
 uniform int iFrame; 
 uniform float iTimeDelta;
@@ -86,6 +86,7 @@ uniform float iSampleRate;
 void main(void) {
     color = texture(samp, tc);
 }
+    
 )";
 
 

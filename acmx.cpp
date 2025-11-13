@@ -117,8 +117,6 @@ public:
             program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
             program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
             program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-            
-            
             program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
             program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
             program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
@@ -231,8 +229,6 @@ public:
                     program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
                     program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
                     program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-                    
-                    
                     program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
                     program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
                     program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
@@ -293,7 +289,7 @@ public:
     void update(gl::GLWindow *win) {
         static Uint64 start_time = SDL_GetPerformanceCounter();
         static Uint64 last_frame_time = start_time;
-        static int frame_counter = 0;
+        static uint64_t frame_counter = 0;
         
         Uint64 now_time = SDL_GetPerformanceCounter();
         double elapsed_time = (double)(now_time - start_time) / SDL_GetPerformanceFrequency();
@@ -323,7 +319,7 @@ public:
         glUniform1f(iTimeLoc, currentTime);
         
         GLuint iFrameLoc = program_names[index()].iFrame;
-        glUniform1i(iFrameLoc, frame_counter);
+        glUniform1i(iFrameLoc, static_cast<int>(frame_counter % INT_MAX));
         
         GLuint iTimeDeltaLoc = program_names[index()].iTimeDelta;
         glUniform1f(iTimeDeltaLoc, static_cast<float>(delta_time));
@@ -390,12 +386,15 @@ public:
 #ifdef AUDIO_ENABLED
     GLuint amp_i = program_names[index()].amp;
     static float amplitude = 1.0;
-    amplitude += (get_amp() * get_sense());
+    float new_amp = amplitude + (get_amp() * get_sense());
+    if (std::isnan(new_amp) || std::isinf(new_amp) || new_amp > 1e6f) {
+        amplitude = 1.0f;
+    } else {
+        amplitude = new_amp;
+    }
     glUniform1f(amp_i, amplitude);
     GLuint amp_u = program_names[index()].amp_untouched;
     glUniform1f(amp_u, get_amp());
-    
-    
     GLuint iSampleRateLoc = program_names[index()].iSampleRate;
     if(iSampleRateLoc != GL_INVALID_INDEX) {
         glUniform1f(iSampleRateLoc, 44100.0f);
@@ -564,7 +563,7 @@ public:
 
         stopCaptureThread(); 
         
-       if (captureFBO) {
+        if (captureFBO) {
             glDeleteFramebuffers(1, &captureFBO);
             captureFBO = 0;
         }
@@ -574,10 +573,14 @@ public:
         }
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
+            camera_texture = 0;
         }
 
         if(texture_cache) {
             glDeleteTextures(4, cache_textures);
+            for(int i = 0; i < 4; i++) {
+                cache_textures[i] = 0;
+            }
         }
 
         stopWriterThread();
@@ -894,9 +897,7 @@ public:
             }
             if (viewRotationActive) {
                 static float viewRotation = 0.0f;
-                viewRotation += 0.3f;
-                if (viewRotation > 360.0f) viewRotation -= 360.0f;
-                
+                viewRotation = fmod(viewRotation + 0.3f, 360.0f);
                 float lookX = 0.48f * sin(glm::radians(viewRotation));
                 float lookY = 0.48f * sin(glm::radians(viewRotation * 0.7f));
                 float lookZ = 0.48f * cos(glm::radians(viewRotation));
@@ -983,6 +984,10 @@ public:
 
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
+                while(frameQueue.size() > 60) {
+                    frameQueue.pop();
+                    mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
+                }
                 frameQueue.push(std::move(fd));
             }
             queueCondVar.notify_one();
@@ -1047,8 +1052,7 @@ public:
                 }
             }
         }
-        
-        
+
         if(!graphic.empty() || !filename.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
@@ -1271,6 +1275,9 @@ private:
                 cv::flip(localFrame, localFrame, 0);
                 {
                     std::lock_guard<std::mutex> lock(captureQueueMutex);
+                    if(captureQueue.size() > 30) {
+                        captureQueue.pop(); 
+                    }
                     captureQueue.push(std::move(localFrame));
                 }
                 captureQueueCondVar.notify_one();
@@ -1292,7 +1299,7 @@ private:
         running = true;
         written_frame_counter = 0;
         writerThread = std::thread([this]() {
-            static unsigned int snapshotOffset = 0; 
+            static uint64_t snapshotOffset = 0; 
             captureStartTime = std::chrono::steady_clock::now();
     
             while (running) {
