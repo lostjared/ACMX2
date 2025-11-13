@@ -515,6 +515,7 @@ class ACView : public gl::GLObject {
     int audio_output_device;
 #endif
     bool isPaused = false;
+    bool isFrozen = false;
 public:
     ACView(const MXArguments &args)
         : bit_rate{args.Kbps},
@@ -785,41 +786,43 @@ public:
         }
     }
 
+    cv::Mat newFrame;
+
     virtual void draw(gl::GLWindow *win) override {
         if(!running) {
             win->quit();
             return;
         }
 
-        cv::Mat newFrame;
-        if(!graphic.empty()) {
-            newFrame = graphic_frame.clone();
-            cv::flip(newFrame, newFrame, 0);
-            frame_counter++; 
-        } else if(filename.empty()) {
-            std::unique_lock<std::mutex> lock(captureQueueMutex);
-            if (!captureQueue.empty()) {
-                newFrame = std::move(captureQueue.front());
-                captureQueue.pop();
-            }
-        } else {
-            if(!cap.read(newFrame)) {
-                if(!filename.empty() && repeat) {
-                    mx::system_out << "acmx2: video loop...\n";
-                    cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-                    if(!cap.read(newFrame)) {
-                        mx::system_out << "acmx2: cannot read after looping.\n";
-                    }
-                } else {
-                    running = false;
-                    finished = true;
-                    win->quit();
-                    return;
+        if(!isPaused && !isFrozen) {
+            if(!graphic.empty()) {
+                newFrame = graphic_frame.clone();
+                cv::flip(newFrame, newFrame, 0);
+                frame_counter++; 
+            } else if(filename.empty()) {
+                std::unique_lock<std::mutex> lock(captureQueueMutex);
+                if (!captureQueue.empty()) {
+                    newFrame = std::move(captureQueue.front());
+                    captureQueue.pop();
                 }
+            } else {
+                if(!cap.read(newFrame)) {
+                    if(!filename.empty() && repeat) {
+                        mx::system_out << "acmx2: video loop...\n";
+                        cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+                        if(!cap.read(newFrame)) {
+                            mx::system_out << "acmx2: cannot read after looping.\n";
+                        }
+                    } else {
+                        running = false;
+                        finished = true;
+                        win->quit();
+                        return;
+                    }
+                }
+                cv::flip(newFrame, newFrame, 0);
             }
-            cv::flip(newFrame, newFrame, 0);
         }
-
         if(library.isBypassed()) {
             if(is3d_enabled) {
                 fshader3d.useProgram();
@@ -829,8 +832,7 @@ public:
         } else {
             library.useProgram();
         }
-
-        if(!newFrame.empty()) {
+        if(!isFrozen && !newFrame.empty()) {
             glActiveTexture(GL_TEXTURE0);
             updateTexture(camera_texture, newFrame);
             if(texture_cache && library.isCache() && (!filename.empty() || !graphic.empty())) { 
@@ -853,7 +855,7 @@ public:
         glViewport(0, 0, win->w, win->h);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if(!library.isBypassed()) {
+        if(!isFrozen && !library.isBypassed()) {
             library.useProgram();
             library.update(win);
             library.setFPS(static_cast<float>(fps)); 
@@ -956,7 +958,7 @@ public:
             sprite.setName("samp");
             sprite.draw(camera_texture, 0, 0, win->w, win->h);
         }
-        bool needWriter = (writer.is_open() || snapshot);
+        bool needWriter = (writer.is_open() || snapshot) && !isFrozen;
         if (needWriter) {
             std::vector<unsigned char> pixels(win->w * win->h * 4);
             glBindTexture(GL_TEXTURE_2D, fboTexture);
@@ -1083,7 +1085,15 @@ public:
                         break;
                     case SDLK_p:
                         isPaused = !isPaused;
-                        std::cout << "acmx2: Paused: " << ((isPaused == true) ? "enabled" : "disabled");
+                        std::cout << "acmx2: paused: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
+                        fflush(stdout);
+                        fflush(stderr);
+                        break;
+                    case SDLK_l:
+                        isFrozen = !isFrozen;
+                        std::cout << "acmx2: frozen: " << ((isPaused == true) ? "enabled" : "disabled") << "\n";
+                        fflush(stdout);
+                        fflush(stderr);
                         break;
                     case SDLK_z:
                         snapshot = true;
@@ -1390,6 +1400,7 @@ const char *message = R"(
     Up arrow - Previous shader
     Down arrow - Next shader
     Space -  Enable/Disable Processing
+    L - Enable/Disable video freeze
     T - enable/disable time
     I/O - step time if not disabled
     Z - take snapshot
