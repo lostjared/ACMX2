@@ -9,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QSettings>
+#include <QMessageBox>
 
 class PropWindow : public QDialog {
     Q_OBJECT
@@ -16,6 +17,7 @@ class PropWindow : public QDialog {
 public:
     PropWindow(QWidget *parent = nullptr);
     void init();
+    void restoreDefaults(); 
 
 private slots:
     void selectExecutable();

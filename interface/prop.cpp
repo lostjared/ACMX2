@@ -1,12 +1,12 @@
 #include "prop.hpp"
-
+#include<QMainWindow>
 PropWindow::PropWindow(QWidget *parent) : QDialog(parent) {
     init();
 }
 
 void PropWindow::init() {
     setWindowTitle("Properties");
-    setFixedSize(400, 250);
+    setFixedSize(400, 300);
 
     QLabel *exeLabel = new QLabel("Program Executable:");
     exePathLineEdit = new QLineEdit(this);
@@ -30,6 +30,7 @@ void PropWindow::init() {
 
     QPushButton *okButton = new QPushButton("OK");
     QPushButton *cancelButton = new QPushButton("Cancel");
+    QPushButton *restoreDefaultsButton = new QPushButton("Restore Defaults");
 
     QHBoxLayout *exeLayout = new QHBoxLayout();
     exeLayout->addWidget(exePathLineEdit, 1);
@@ -44,6 +45,7 @@ void PropWindow::init() {
     screenshotDirLayout->addWidget(screenshotDirBrowseButton);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
+    buttonLayout->addWidget(restoreDefaultsButton);
     buttonLayout->addStretch(1);
     buttonLayout->addWidget(okButton);
     buttonLayout->addWidget(cancelButton);
@@ -63,6 +65,7 @@ void PropWindow::init() {
     connect(exeBrowseButton, &QPushButton::clicked, this, &PropWindow::selectExecutable);
     connect(shaderDirBrowseButton, &QPushButton::clicked, this, &PropWindow::selectShaderDirectory);
     connect(screenshotDirBrowseButton, &QPushButton::clicked, this, &PropWindow::selectScreenshotDirectory);
+    connect(restoreDefaultsButton, &QPushButton::clicked, this, &PropWindow::restoreDefaults);
     connect(okButton, &QPushButton::clicked, this, [this]() {
         QSettings appSettings("LostSideDead");
         appSettings.setValue("exePath", exePathLineEdit->text());
@@ -94,6 +97,7 @@ void PropWindow::init() {
 
     okButton->setMinimumHeight(30);
     cancelButton->setMinimumHeight(30);
+    restoreDefaultsButton->setMinimumHeight(30);
 }
 
 void PropWindow::selectExecutable() {
@@ -117,5 +121,27 @@ void PropWindow::selectScreenshotDirectory() {
         this, "Select Screenshot Directory", "", QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (!dirPath.isEmpty()) {
         screenshotDirLineEdit->setText(dirPath);
+    }
+}
+
+void PropWindow::restoreDefaults() {
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Restore Defaults", 
+                                   "Are you sure you want to restore default settings?",
+                                   QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+#ifdef _WIN32
+        exePathLineEdit->setText("acmx2.exe");
+#else
+        exePathLineEdit->setText("acmx2");
+#endif
+        shaderDirLineEdit->setText("");
+        screenshotDirLineEdit->setText(".");
+        QSettings appSettings("LostSideDead");
+        appSettings.setValue("exePath", exePathLineEdit->text());
+        appSettings.setValue("shaders", shaderDirLineEdit->text());
+        appSettings.setValue("prefix_path", screenshotDirLineEdit->text());
+        
+        QMessageBox::information(this, "Defaults Restored", "Default settings have been restored.");
     }
 }
