@@ -840,7 +840,7 @@ public:
                     counter = 0;
                 }
                 if(frame_cache.isFull()) {
-                    for(int i = 0; i < 4; i++) {
+                    for(int i = 0; i < 4; ++i) {
                         library.setUniform("samp" + std::to_string(i+1), (i+1));
                         glActiveTexture(GL_TEXTURE1 + i);
                         updateTexture(cache_textures[i], frame_cache.at(i));
@@ -1000,9 +1000,9 @@ public:
         
         if(!graphic.empty()) {
             if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) { 
-                double seconds = static_cast<double>(frame_counter) / fps;
+                double seconds = static_cast<double>(written_frame_counter) / fps;
                 std::ostringstream stream;
-                stream << "ACMX2 - Graphics Mode - Frame: " << frame_counter
+                stream << "ACMX2 - Graphics Mode - Frame: " << written_frame_counter
                        << " - " << std::fixed << std::setprecision(1) 
                        << seconds << " seconds";
                 win->setWindowTitle(stream.str());
@@ -1377,6 +1377,8 @@ private:
                 transfer_audio(filename, ofilename);
                 mx::system_out << "acmx2: copied audio track from: " << filename << " to " << ofilename << "\n";
             }
+            fflush(stdout);
+            fflush(stderr);
         }
     }
 };
