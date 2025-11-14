@@ -640,51 +640,53 @@ void Writer::write_ts(void* rgba_buffer) {
     av_packet_free(&pkt);
 }
 
-void Writer::close()
-{
+void Writer::close() {
     std::lock_guard<std::mutex> lock(writer_mutex);
     if (!opened) {
         return;
     }
-    while (true) { 
-        {
-            std::lock_guard<std::mutex> queue_lock(queue_mutex);
-            if (frame_queue.empty()) {
-                break;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
 
+    AVPacket* pkt = av_packet_alloc();
     avcodec_send_frame(codec_ctx, nullptr);
 
     while (true) {
-        AVPacket* pkt = av_packet_alloc();
         int ret = avcodec_receive_packet(codec_ctx, pkt);
-        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            av_packet_free(&pkt);
+        if (ret == AVERROR_EOF || ret < 0) {
             break;
         }
         av_packet_rescale_ts(pkt, codec_ctx->time_base, stream->time_base);
         pkt->stream_index = stream->index;
         av_interleaved_write_frame(format_ctx, pkt);
-        av_packet_free(&pkt);
+        av_packet_unref(pkt);
     }
+
+    av_packet_free(&pkt);
     av_write_trailer(format_ctx);
-    if (sws_ctx) {
-        sws_freeContext(sws_ctx);
-        sws_ctx = nullptr;
-    }
-    if (frameRGBA) {
-        av_frame_free(&frameRGBA);
-    }
-    if (frameYUV) {
-        av_frame_free(&frameYUV);
-    }
-    avcodec_free_context(&codec_ctx);
+
     if (!(format_ctx->oformat->flags & AVFMT_NOFILE)) {
         avio_closep(&format_ctx->pb);
     }
+
+    av_frame_free(&frameRGBA);
+    av_frame_free(&frameYUV);
+    sws_freeContext(sws_ctx);
+    avcodec_free_context(&codec_ctx);
     avformat_free_context(format_ctx);
+
     opened = false;
+    format_ctx = nullptr;
+    codec_ctx = nullptr;
+    sws_ctx = nullptr;
+    frameRGBA = nullptr;
+    frameYUV = nullptr;
+}
+
+double Writer::get_duration() const {
+    if (!opened && stream) {
+        return static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+    }
+    if (fps_num > 0) {
+        return static_cast<double>(frame_count) * fps_den / fps_num;
+    }
+    return 0.0;
 }

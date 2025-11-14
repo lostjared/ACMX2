@@ -32,6 +32,7 @@ public:
     void close();
     bool is_open() const { return opened; }
     int64_t get_frame_count() const { return frame_count; } 
+    double get_duration() const;
     ~Writer() {
         if (is_open()) {
             close();
