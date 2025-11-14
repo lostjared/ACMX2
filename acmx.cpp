@@ -795,7 +795,6 @@ public:
             if(!graphic.empty()) {
                 newFrame = graphic_frame.clone();
                 cv::flip(newFrame, newFrame, 0);
-                frame_counter++; 
             } else if(filename.empty()) {
                 std::unique_lock<std::mutex> lock(captureQueueMutex);
                 if (!captureQueue.empty()) {
@@ -1035,12 +1034,12 @@ public:
         } 
         else if(cap.isOpened() && filename.empty() && writer.is_open()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
-                double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
+                double elapsedSeconds = static_cast<double>(written_frame_counter) / fps;
                 if(fps > 0) {
                     std::ostringstream stream;
                     stream << "ACMX2 - " << std::fixed << std::setprecision(1)
                            << elapsedSeconds 
-                           << " seconds - [" << frame_counter 
+                           << " seconds - [" << written_frame_counter 
                            << "] - Capture Mode";
                     win->setWindowTitle(stream.str());
                     lastUpdate = now;
@@ -1365,14 +1364,15 @@ private:
             writerThread.join();
         }
         if(recording) {
+            int64_t final_frame_count = writer.get_frame_count();
             writer.close();
-            auto now = std::chrono::steady_clock::now();
-            double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
+            
+            double elapsedSeconds = 0.0;
             if(fps > 0) {
-                elapsedSeconds = static_cast<double>(written_frame_counter) / fps;
+                elapsedSeconds = static_cast<double>(final_frame_count) / fps;
             }
             
-            mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
+            mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds (" << final_frame_count << " frames) to file: " << ofilename << "\n";
             if(!filename.empty() && repeat == false && copy_audio && finished) {
                 transfer_audio(filename, ofilename);
                 mx::system_out << "acmx2: copied audio track from: " << filename << " to " << ofilename << "\n";
