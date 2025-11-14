@@ -1034,8 +1034,8 @@ public:
         } 
         else if(cap.isOpened() && filename.empty() && writer.is_open()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
+                double elapsedSeconds = writer.get_duration();
                 int64_t temp_frames = writer.get_frame_count();
-                double elapsedSeconds = static_cast<double>(temp_frames) / fps;
                 if(fps > 0) {
                     std::ostringstream stream;
                     stream << "ACMX2 - " << std::fixed << std::setprecision(1)
