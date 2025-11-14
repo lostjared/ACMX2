@@ -431,14 +431,11 @@ public:
         mx::system_out << "acmx2: audio time: " << enabled << "\n";
         fflush(stdout);
     }
-
 #ifdef AUDIO_ENABLED
     bool timeActive() const { return time_active; }
     bool timeAudio() const { return time_audio; }
 #endif
-
     void event(SDL_Event &e) {  }
-
 private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
@@ -688,6 +685,8 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
+
+            SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
                 if(writer.open_ts(ofilename, w, h, fps, bit_rate)) {
