@@ -1024,6 +1024,9 @@ public:
                 if(fps > 0) {
                     seconds = currentFrame / fps;
                 }
+                if(totalFrames <= 0.0) {
+                   totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
+                }
                 std::ostringstream stream;
                 stream << "ACMX2 - " << static_cast<int>(percentage) << "% ["
                        << static_cast<int>(currentFrame) << "/"
