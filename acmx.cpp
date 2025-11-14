@@ -1014,62 +1014,89 @@ public:
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
 
         static auto lastUpdate = std::chrono::steady_clock::now();
-        
-        if(!graphic.empty()) {
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) {
-                double seconds = static_cast<double>(written_frame_counter) / fps;
+        auto now = std::chrono::steady_clock::now();
+
+        if (!graphic.empty()) {
+            if (writer.is_open() &&
+                std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 250) {
+
+                double elapsedSeconds = writer.get_duration();
+                int64_t temp_frames   = writer.get_frame_count();
+
                 std::ostringstream stream;
-                stream << "ACMX2 - Graphics Mode - Frame: " << written_frame_counter
-                       << " - " << std::fixed << std::setprecision(1) 
-                       << seconds << " seconds";
+                stream << "ACMX2 - Graphics Mode - "
+                       << std::fixed << std::setprecision(1)
+                       << elapsedSeconds << " seconds"
+                       << " [" << temp_frames << " frames]";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
-                fflush(stdout);
+            } else if (!writer.is_open()) {
+                win->setWindowTitle("ACMX2 - Graphics Mode");
             }
-        } else if(cap.isOpened() && !filename.empty()) {
-            frame_counter = static_cast<int>(cap.get(cv::CAP_PROP_POS_FRAMES));
+
+        } else if (cap.isOpened() && !filename.empty()) {
+            frame_counter = static_cast<unsigned int>(cap.get(cv::CAP_PROP_POS_FRAMES));
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 3) {
+
                 double currentFrame = static_cast<double>(frame_counter);
-                double percentage = 0.0;
-                double seconds = 0.0;
+                double percentage   = 0.0;
+                double seconds      = 0.0;
+
+                if (totalFrames <= 0.0) {
+                    totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
+                }
                 if (totalFrames > 0.0) {
                     percentage = (currentFrame / totalFrames) * 100.0;
                 }
-                if(fps > 0) {
+
+                double displaySeconds = seconds;
+                int64_t displayFrames = static_cast<int64_t>(currentFrame);
+
+                if (writer.is_open()) {
+                    double recordedSeconds = writer.get_duration();
+                    int64_t recordedFrames = writer.get_frame_count();
+                    if (recordedSeconds > 0.0) {
+                        displaySeconds = recordedSeconds;
+                        displayFrames  = recordedFrames;
+                    } else if (fps > 0.0) {
+                        seconds = currentFrame / fps;
+                        displaySeconds = seconds;
+                    }
+                } else if (fps > 0.0) {
                     seconds = currentFrame / fps;
+                    displaySeconds = seconds;
                 }
-                if(totalFrames <= 0.0) {
-                   totalFrames = cap.get(cv::CAP_PROP_FRAME_COUNT);
-                }
+
                 std::ostringstream stream;
                 stream << "ACMX2 - " << static_cast<int>(percentage) << "% ["
-                       << static_cast<int>(currentFrame) << "/"
+                       << static_cast<int>(displayFrames) << "/"
                        << static_cast<int>(totalFrames) << "] - "
-                       << static_cast<int>(seconds) << " seconds - Video Mode";
+                       << static_cast<int>(displaySeconds) << " seconds - Video Mode";
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
             }
-        } 
-        else if(cap.isOpened() && filename.empty() && writer.is_open()) {
+
+        } else if (cap.isOpened() && filename.empty() && writer.is_open()) {
+            
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
+
                 double elapsedSeconds = writer.get_duration();
-                int64_t temp_frames = writer.get_frame_count();
-                if(fps > 0) {
-                    std::ostringstream stream;
-                    stream << "ACMX2 - " << std::fixed << std::setprecision(1)
-                           << elapsedSeconds 
-                           << " seconds - [" << temp_frames 
-                           << "] - Capture Mode";
-                    win->setWindowTitle(stream.str());
-                    lastUpdate = now;
-                }
+                int64_t temp_frames   = writer.get_frame_count();
+
+                std::ostringstream stream;
+                stream << "ACMX2 - Capture Mode - "
+                       << std::fixed << std::setprecision(1)
+                       << elapsedSeconds << " seconds"
+                       << " [" << temp_frames << " frames]";
+                win->setWindowTitle(stream.str());
+                lastUpdate = now;
             }
         }
 
-        if(!graphic.empty() || !filename.empty()) {
+        if (!graphic.empty() || !filename.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
             lastFrameTime = now;
-            if (fps > 0) {
+            if (fps > 0.0) {
                 int target_ms = static_cast<int>(1000.0 / fps);
                 if (elapsed < target_ms) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(target_ms - elapsed));
