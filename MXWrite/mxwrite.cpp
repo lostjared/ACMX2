@@ -616,6 +616,8 @@ void Writer::write_ts(void* rgba_buffer) {
             continue;
         }
 
+        frame_count++; 
+
         while (true) {
             ret = avcodec_receive_packet(codec_ctx, pkt);
             if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
