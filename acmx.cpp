@@ -1034,12 +1034,13 @@ public:
         } 
         else if(cap.isOpened() && filename.empty() && writer.is_open()) {
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
-                double elapsedSeconds = static_cast<double>(written_frame_counter) / fps;
+                int64_t temp_frames = writer.get_frame_count();
+                double elapsedSeconds = static_cast<double>(temp_frames) / fps;
                 if(fps > 0) {
                     std::ostringstream stream;
                     stream << "ACMX2 - " << std::fixed << std::setprecision(1)
                            << elapsedSeconds 
-                           << " seconds - [" << written_frame_counter 
+                           << " seconds - [" << temp_frames 
                            << "] - Capture Mode";
                     win->setWindowTitle(stream.str());
                     lastUpdate = now;
