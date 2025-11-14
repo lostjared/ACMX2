@@ -44,7 +44,10 @@ private:
     bool opened {false};
     int width = 0;
     int height = 0;
-    int frame_count = 0;
+    int fps_num = 0;
+    int fps_den = 0;
+    int64_t frame_count = 0;
+    double last_duration = 0.0; 
     AVFormatContext* format_ctx = nullptr;
     AVCodecContext* codec_ctx = nullptr;
     AVStream* stream = nullptr;
@@ -54,8 +57,6 @@ private:
     AVRational time_base;
     void calculateFPSFraction(float fps, int &fps_num, int &fps_den);
     std::chrono::steady_clock::time_point recordingStart;
-    int fps_num = 0; 
-    int fps_den = 0; 
     std::queue<Frame_Data> frame_queue;
     const size_t MAX_QUEUE_SIZE = 30; 
     std::mutex queue_mutex{};
@@ -66,4 +67,4 @@ private:
 extern void transfer_audio(std::string_view sourceAudioFile, std::string_view destVideoFile);
 extern void cleanup_contexts(AVFormatContext* source_ctx, AVFormatContext* dest_ctx, AVFormatContext* output_ctx);
 
-#endif 
+#endif

@@ -646,6 +646,12 @@ void Writer::close() {
         return;
     }
 
+    if (stream && stream->duration > 0) {
+        last_duration = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+    } else if (fps_num > 0 && fps_den > 0) {
+        last_duration = static_cast<double>(frame_count) * static_cast<double>(fps_den) / static_cast<double>(fps_num);
+    }
+
     AVPacket* pkt = av_packet_alloc();
     avcodec_send_frame(codec_ctx, nullptr);
 
@@ -682,11 +688,14 @@ void Writer::close() {
 }
 
 double Writer::get_duration() const {
-    if (!opened && stream) {
+    if (!opened && last_duration > 0.0) {
+        return last_duration;
+    }
+    if (stream && stream->duration > 0) {
         return static_cast<double>(stream->duration) * av_q2d(stream->time_base);
     }
-    if (fps_num > 0) {
-        return static_cast<double>(frame_count) * fps_den / fps_num;
+    if (fps_num > 0 && fps_den > 0) {
+        return static_cast<double>(frame_count) * static_cast<double>(fps_den) / static_cast<double>(fps_num);
     }
     return 0.0;
 }
