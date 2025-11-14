@@ -466,7 +466,7 @@ struct MXArguments {
     std::string graphic_file;
     int audio_input = -1, audio_output = -1;
     int tw = 1280, th = 720;
-    int Kbps = 10000;
+    std::string crf = "23";
     int camera_device = 0;
     std::string library = "./filters";
     std::string fragment = "./frag.glsl";
@@ -509,7 +509,7 @@ class ACView : public gl::GLObject {
     bool isFrozen = false;
 public:
     ACView(const MXArguments &args)
-        : bit_rate{args.Kbps},
+        : crf{args.crf},
           prefix_path{args.prefix_path},
           filename{args.filename},
           ofilename{args.ofilename},
@@ -637,10 +637,10 @@ public:
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
-                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                if(writer.open(ofilename, w, h, fps, crf.c_str())) {
                     mx::system_out << "acmx2: Opened: " << ofilename 
-                                   << " for writing at: " << bit_rate 
-                                   << " Kbps FPS: " << fps <<"\n";
+                                   << " for writing at: " << crf 
+                                   << " CRF FPS: " << fps <<"\n";
 
                     fflush(stdout);
                     fflush(stderr);
@@ -689,10 +689,10 @@ public:
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
-                if(writer.open_ts(ofilename, w, h, fps, bit_rate)) {
+                if(writer.open_ts(ofilename, w, h, fps, crf.c_str())) {
                     mx::system_out << "acmx2: Opened: " << ofilename 
-                                   << " for writing at: " << bit_rate 
-                                   << " Kbps FPS: " << fps <<"\n";
+                                   << " for writing at: " << crf 
+                                   << " CRF FPS: " << fps <<"\n";
                 } else {
                     throw mx::Exception("Could not open output video file: " +  ofilename);
                 }
@@ -733,9 +733,9 @@ public:
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
-                if(writer.open(ofilename, w, h, fps, bit_rate)) {
+                if(writer.open(ofilename, w, h, fps, crf.c_str())) {
                     mx::system_out << "acmx2: Opened: " << ofilename 
-                                   << " for writing at: " << bit_rate << " Kbps\n";
+                                   << " for writing at: " << crf << " CRF\n";
                     fflush(stdout);
                     fflush(stderr);
                 } else {
@@ -1137,7 +1137,7 @@ public:
 private:
     unsigned int frame_counter = 0;
     unsigned int written_frame_counter = 0; 
-    int bit_rate = 25000;
+    std::string crf = "23";
     std::string prefix_path;
     std::string filename, ofilename, graphic;
     int camera_index = 0;
@@ -1466,8 +1466,8 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue('E', "prefix", "Save Prefix")
           .addOptionSingleValue('o', "output file")
           .addOptionDoubleValue('O', "output", "output file")
-          .addOptionSingleValue('b', "Bitrate in Kbps")
-          .addOptionDoubleValue('B', "bitrate", "Bitrate in Kbps")
+          .addOptionSingleValue('b', "Bitrate in CRF")
+          .addOptionDoubleValue('B', "bitrate", "Bitrate in CRF")
           .addOptionSingleValue('u', "frames per second")
           .addOptionDoubleValue('U', "fps", "Frames per second")
           .addOptionSingle('a', "Repeat")
@@ -1580,7 +1580,7 @@ int main(int argc, char **argv) {
                     break;
                 case 'b':
                 case 'B':
-                    args.Kbps = atoi(arg.arg_value.c_str());
+                    args.crf = arg.arg_value;
                     break;
                 case 'u':
                 case 'U':
