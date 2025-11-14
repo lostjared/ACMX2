@@ -1368,8 +1368,9 @@ private:
             writer.close();
             auto now = std::chrono::steady_clock::now();
             double elapsedSeconds = std::chrono::duration<double>(now - captureStartTime).count();
-            if(!filename.empty() && fps > 0)
+            if(fps > 0) {
                 elapsedSeconds = static_cast<double>(written_frame_counter) / fps;
+            }
             
             mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds to file: " << ofilename << "\n";
             if(!filename.empty() && repeat == false && copy_audio && finished) {
