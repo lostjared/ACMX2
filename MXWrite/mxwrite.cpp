@@ -232,7 +232,7 @@ void Writer::calculateFPSFraction(float fps, int &fps_num, int &fps_den) {
 bool Writer::open(const std::string& filename, int w, int h, float fps, int bitrate_kbps) {
     std::lock_guard<std::mutex> lock(writer_mutex);
     avformat_network_init();
-    av_log_set_level(AV_LOG_INFO);
+    av_log_set_level(AV_LOG_ERROR); // Reduce logging overhead
     opened = false;
 
     if (avformat_alloc_output_context2(&format_ctx, nullptr, "mp4", filename.c_str()) < 0) {
@@ -274,26 +274,44 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
     codec_ctx->framerate = AVRational{fps_num, fps_den};
     codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
     codec_ctx->bit_rate = bitrate_kbps * 1000LL;
-    codec_ctx->gop_size = 12;
-    codec_ctx->max_b_frames = 0;
+    
+    // OPTIMIZATIONS FOR REAL-TIME ENCODING
+    codec_ctx->gop_size = 30;  // Increase from 12 for better compression
+    codec_ctx->max_b_frames = 0;  // Keep at 0 for low latency
     codec_ctx->thread_count = std::thread::hardware_concurrency();
-    codec_ctx->thread_type = FF_THREAD_FRAME;
+    codec_ctx->thread_type = FF_THREAD_SLICE;  // Changed from FF_THREAD_FRAME - faster for real-time
+    codec_ctx->slices = 4;  // Enable slice-based threading
+    
+    // Fast encoding preset
+    av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);  // Fastest encoding
+    av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);  // Low latency
+    av_opt_set(codec_ctx->priv_data, "crf", "23", 0);  // Constant quality (lower = better, 23 is good)
+    
+    // Disable b-frames and enable fast decode
+    av_opt_set(codec_ctx->priv_data, "x264-params", "bframes=0:ref=1:me=dia:subme=0", 0);
 
+    // Try hardware acceleration (optional, keep existing code)
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "Hardware acceleration enabled (CUDA)\n";
+    } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
+        codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "Hardware acceleration enabled (VAAPI)\n";
     } else {
-        std::cerr << "Could not initialize hardware acceleration.\n";
+        std::cerr << "Hardware acceleration not available, using CPU encoding\n";
     }
 
-    codec_ctx->rc_max_rate = bitrate_kbps * 1000LL;
-    codec_ctx->rc_min_rate = bitrate_kbps * 1000LL;
-    codec_ctx->rc_buffer_size = bitrate_kbps * 1000LL;  
-    codec_ctx->rc_initial_buffer_occupancy = codec_ctx->rc_buffer_size * 3/4;
+    // Remove rate control settings - let CRF handle it
+    // codec_ctx->rc_max_rate = bitrate_kbps * 1000LL;
+    // codec_ctx->rc_min_rate = bitrate_kbps * 1000LL;
+    // codec_ctx->rc_buffer_size = bitrate_kbps * 1000LL;  
+    // codec_ctx->rc_initial_buffer_occupancy = codec_ctx->rc_buffer_size * 3/4;
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
+    
     if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
         std::cerr << "Could not open codec.\n";
         avcodec_free_context(&codec_ctx);
@@ -363,7 +381,7 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, int bitr
         return false;
     }
 
-    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, nullptr, nullptr, nullptr); 
+    sws_ctx = sws_getContext(width, height, AV_PIX_FMT_RGBA, width, height, AV_PIX_FMT_YUV420P, SWS_FAST_BILINEAR, nullptr, nullptr, nullptr); 
     if (!sws_ctx) {
         std::cerr << "Could not initialize the conversion context.\n";
         av_frame_free(&frameRGBA);
@@ -384,10 +402,15 @@ void Writer::write(void* rgba_buffer) {
     if (!opened || !rgba_buffer) {
         return;
     }
-
-    
-    while (frame_queue.size() >= MAX_QUEUE_SIZE) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    {
+        std::lock_guard<std::mutex> frame_lock(frame_mutex);
+        if (frame_queue.size() >= MAX_QUEUE_SIZE) {
+            static int drop_counter = 0;
+            if (++drop_counter % 30 == 0) {
+                std::cerr << "Writer: dropped " << drop_counter << " frames (encoder too slow)\n";
+            }
+            return; // Drop frame instead of blocking
+        }
     }
 
     std::lock_guard<std::mutex> frame_lock(frame_mutex);
@@ -426,7 +449,8 @@ void Writer::write(void* rgba_buffer) {
 
 bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int bitrate_kbps) {
     avformat_network_init();
-    av_log_set_level(AV_LOG_INFO);
+    av_log_set_level(AV_LOG_ERROR);  
+    
     if (avformat_alloc_output_context2(&format_ctx, nullptr, "mp4", filename.c_str()) < 0) {
         std::cerr << "Could not allocate output context.\n";
         return false;
@@ -458,13 +482,19 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, int b
     codec_ctx->framerate   = AVRational{fps_num, fps_den};
     codec_ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
     codec_ctx->bit_rate    = bitrate_kbps * 1000LL;
-    codec_ctx->gop_size    = 12;
+    codec_ctx->gop_size    = 30;  
     codec_ctx->thread_count = std::thread::hardware_concurrency();
-    codec_ctx->thread_type  = FF_THREAD_FRAME;
+    codec_ctx->thread_type  = FF_THREAD_SLICE; 
+    codec_ctx->slices       = 4;
     codec_ctx->max_b_frames = 0;
     codec_ctx->delay        = 0;
     codec_ctx->flags       |= AV_CODEC_FLAG_LOW_DELAY;
-
+    
+    av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
+    av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+    av_opt_set(codec_ctx->priv_data, "crf", "23", 0);
+    av_opt_set(codec_ctx->priv_data, "x264-params", "bframes=0:ref=1:me=dia:subme=0", 0);
+    
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
