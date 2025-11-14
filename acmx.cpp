@@ -1365,14 +1365,12 @@ private:
             writerThread.join();
         }
         if(recording) {
-            int64_t final_frame_count = writer.get_frame_count();
             writer.close();
-            
+            int64_t final_frame_count = writer.get_frame_count();
             double elapsedSeconds = 0.0;
             if(fps > 0) {
                 elapsedSeconds = static_cast<double>(final_frame_count) / fps;
             }
-            
             mx::system_out << "acmx2: " << " wrote " << elapsedSeconds << " seconds (" << final_frame_count << " frames) to file: " << ofilename << "\n";
             if(!filename.empty() && repeat == false && copy_audio && finished) {
                 transfer_audio(filename, ofilename);
