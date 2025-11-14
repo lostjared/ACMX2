@@ -314,7 +314,7 @@ public:
         GLint loc = program_names[index()].loc;
         glUniform1f(loc, alpha);
         GLuint iTimeLoc = program_names[index()].iTime;
-        double currentTime = (float)SDL_GetTicks() / 1000.0f; 
+        double currentTime = (double)SDL_GetTicks64() / 1000.0f; 
         glUniform1f(iTimeLoc, currentTime);   
         GLuint iFrameLoc = program_names[index()].iFrame;
         glUniform1i(iFrameLoc, static_cast<int>(frame_counter % INT_MAX));
