@@ -118,6 +118,7 @@ void MainWindow::initControls() {
             QPixmap resizedIcon = bigIcon.scaled(64, 64, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
             box.setIconPixmap(resizedIcon);
         }
+        Log(info);
         box.exec();
     });
     helpMenu->addAction(helpMenu_about);
