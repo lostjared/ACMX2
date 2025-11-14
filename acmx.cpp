@@ -953,35 +953,53 @@ public:
             sprite.draw(camera_texture, 0, 0, win->w, win->h);
         }
         bool needWriter = (writer.is_open() || snapshot) && !isFrozen;
+
+        
+        static auto lastEncodedFrameTime = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+
         if (needWriter) {
-            std::vector<unsigned char> pixels(win->w * win->h * 4);
-            glBindTexture(GL_TEXTURE_2D, fboTexture);
-            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-            glBindTexture(GL_TEXTURE_2D, 0);
+        
+            double targetMsPerFrame = (fps > 0.0) ? (1000.0 / fps) : 0.0;
+            auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastEncodedFrameTime).count();
 
-            std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
-            for (int y = 0; y < win->h; ++y) {
-                int src_row_start = y * win->w * 4;
-                int dest_row_start = (win->h - 1 - y) * win->w * 4;
-                std::copy(pixels.begin() + src_row_start,
-                          pixels.begin() + src_row_start + (win->w * 4),
-                          flipped_pixels.begin() + dest_row_start);
-            }
+        
+            bool allowSnapshot = snapshot;
+            bool allowVideoFrame = (fps <= 0.0) || (elapsedMs >= targetMsPerFrame);
 
-            FrameData fd;
-            fd.pixels = std::move(flipped_pixels);
-            fd.width  = win->w;
-            fd.height = win->h;
-            fd.isSnapshot = snapshot;
-            snapshot = false;
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                while(frameQueue.size() > 10) { 
-                    frameQueue.pop();
+            if (allowSnapshot || allowVideoFrame) {
+                lastEncodedFrameTime = now;
+
+                std::vector<unsigned char> pixels(win->w * win->h * 4);
+                glBindTexture(GL_TEXTURE_2D, fboTexture);
+                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                glBindTexture(GL_TEXTURE_2D, 0);
+
+                std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
+                for (int y = 0; y < win->h; ++y) {
+                    int src_row_start  = y * win->w * 4;
+                    int dest_row_start = (win->h - 1 - y) * win->w * 4;
+                    std::copy(pixels.begin() + src_row_start,
+                              pixels.begin() + src_row_start + (win->w * 4),
+                              flipped_pixels.begin() + dest_row_start);
                 }
-                frameQueue.push(std::move(fd));
+
+                FrameData fd;
+                fd.pixels = std::move(flipped_pixels);
+                fd.width  = win->w;
+                fd.height = win->h;
+                fd.isSnapshot = snapshot;
+                snapshot = false;
+
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    while (frameQueue.size() > 10) {
+                        frameQueue.pop();
+                    }
+                    frameQueue.push(std::move(fd));
+                }
+                queueCondVar.notify_one();
             }
-            queueCondVar.notify_one();
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -994,11 +1012,11 @@ public:
         fshader.setUniform("proj_matrix", glm::mat4(1.0f));
         sprite.setShader(&fshader);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
+
         static auto lastUpdate = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();
         
         if(!graphic.empty()) {
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) { 
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate).count() >= 100) {
                 double seconds = static_cast<double>(written_frame_counter) / fps;
                 std::ostringstream stream;
                 stream << "ACMX2 - Graphics Mode - Frame: " << written_frame_counter
