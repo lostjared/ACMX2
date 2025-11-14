@@ -883,11 +883,11 @@ public:
                 }
                 if (keystate[SDL_SCANCODE_A]) {
                     cameraYaw -= cameraRotationSpeed * 0.3f;
-                    if (cameraYaw < 0.0f) cameraYaw += 360.0f;
-               }
+                    cameraYaw = fmod(cameraYaw + 360.0f, 360.0f);
+                }
                 if (keystate[SDL_SCANCODE_D]) {
                     cameraYaw += cameraRotationSpeed * 0.3f;
-                    if (cameraYaw >= 360.0f) cameraYaw -= 360.0f;
+                    cameraYaw = fmod(cameraYaw, 360.0f);
                 }
             }
             if (viewRotationActive) {
