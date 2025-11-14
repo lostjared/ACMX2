@@ -976,12 +976,13 @@ public:
             fd.height = win->h;
             fd.isSnapshot = snapshot;
             snapshot = false;
-
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
                 while(frameQueue.size() > 10) { 
                     frameQueue.pop();
                     mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
+                    fflush(stderr);
+                    fflush(stdout);
                 }
                 frameQueue.push(std::move(fd));
             }
