@@ -31,7 +31,7 @@ public:
     void write_ts(void* rgba_buffer);
     void close();
     bool is_open() const { return opened; }
-  
+    int64_t get_frame_count() const { return frame_count; } 
     ~Writer() {
         if (is_open()) {
             close();
