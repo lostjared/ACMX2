@@ -977,15 +977,8 @@ public:
             snapshot = false;
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
-                static uint64_t warn_counter = 0;
                 while(frameQueue.size() > 10) { 
                     frameQueue.pop();
-                    ++warn_counter;
-                    if(warn_counter % 30 == 0) {
-                        mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
-                        fflush(stderr);
-                        fflush(stdout);
-                    }
                 }
                 frameQueue.push(std::move(fd));
             }
