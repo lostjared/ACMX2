@@ -1258,27 +1258,42 @@ private:
         }
         running = true;
         captureThread = std::thread([this]() {
-            while(running) {
-                cv::Mat localFrame;
-                if(!cap.read(localFrame)) {
-                    mx::system_err << "acmx2: read from capture failed.\n";
-                    running = false;
-                    fflush(stderr);
-                    fflush(stdout);
-                    break;
-                }
-                if(localFrame.empty())
-                    continue;
-
-                cv::flip(localFrame, localFrame, 0);
-                {
-                    std::lock_guard<std::mutex> lock(captureQueueMutex);
-                    if(captureQueue.size() >= 2) {
-                        captureQueue.pop(); 
+            try {
+                auto lastCapture = std::chrono::steady_clock::now();
+                auto frameInterval = std::chrono::microseconds(static_cast<int64_t>(1000000.0 / fps));
+                
+                while(running) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastCapture);
+                    if (elapsed < frameInterval) {
+                        std::this_thread::sleep_for(frameInterval - elapsed);
+                        continue;
                     }
-                    captureQueue.push(std::move(localFrame));
+                    
+                    lastCapture = now;
+                    
+                    cv::Mat localFrame;
+                    if(!cap.read(localFrame)) {
+                        mx::system_err << "acmx2: camera read failed.\n";
+                        running = false;
+                        break;
+                    }
+                    if(localFrame.empty()) {
+                        continue;
+                    }
+                    cv::flip(localFrame, localFrame, 0);
+                    {
+                        std::lock_guard<std::mutex> lock(captureQueueMutex);
+                        while(captureQueue.size() >= 2) {
+                            captureQueue.pop(); 
+                        }
+                        captureQueue.push(std::move(localFrame));
+                    }
+                    captureQueueCondVar.notify_one();
                 }
-                captureQueueCondVar.notify_one();
+            } catch(const std::exception &e) {
+                mx::system_err << "acmx2: Capture thread exception: " << e.what() << "\n";
+                running = false;
             }
         });
     }

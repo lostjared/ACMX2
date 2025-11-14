@@ -279,21 +279,26 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, const ch
     codec_ctx->thread_type = FF_THREAD_SLICE; 
     codec_ctx->slices = 4;  
     
-    av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);  
-    av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);  
-    av_opt_set(codec_ctx->priv_data, "crf", crf, 0);  
+    av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
+    av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+    av_opt_set(codec_ctx->priv_data, "crf", crf, 0);
     av_opt_set(codec_ctx->priv_data, "x264-params", "bframes=0:ref=1:me=dia:subme=0", 0);
+    
+    
+    av_opt_set(codec_ctx->priv_data, "force_cfr", "1", 0);
     
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "Hardware acceleration enabled (CUDA)\n";
+        std::cout << "MXWrite: hardware acceleration enabled (CUDA)\n";
     } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "Hardware acceleration enabled (VAAPI)\n";
+        std::cout << "MXWrite: hardware acceleration enabled (VAAPI)\n";
     } else {
-        std::cerr << "Hardware acceleration not available, using CPU encoding\n";
+        std::cerr << "MXWrite: hardware acceleration not available, using CPU encoding\n";
     }
+    
+    time_base = tb;
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -460,7 +465,8 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     width = w;
     height = h;
     calculateFPSFraction(fps, fps_num, fps_den);
-    AVRational tb = {fps_den, fps_num};
+
+    AVRational tb = { fps_den, fps_num };
     stream->time_base = tb;
 
     codec_ctx = avcodec_alloc_context3(codec);
@@ -470,52 +476,63 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
         return false;
     }
 
-    codec_ctx->width       = width;
-    codec_ctx->height      = height;
-    codec_ctx->time_base   = tb;  
-    codec_ctx->framerate   = AVRational{fps_num, fps_den};  
-    codec_ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
-    codec_ctx->gop_size    = 30;
+    codec_ctx->width        = width;
+    codec_ctx->height       = height;
+    codec_ctx->time_base    = tb;
+    codec_ctx->framerate    = AVRational{ fps_num, fps_den };
+    codec_ctx->pix_fmt      = AV_PIX_FMT_YUV420P;
+    codec_ctx->gop_size     = 30;
     codec_ctx->thread_count = std::thread::hardware_concurrency();
     codec_ctx->thread_type  = FF_THREAD_SLICE;
     codec_ctx->slices       = 4;
     codec_ctx->max_b_frames = 0;
     codec_ctx->delay        = 0;
     codec_ctx->flags       |= AV_CODEC_FLAG_LOW_DELAY;
-    
-    
-    av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
-    av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
-    av_opt_set(codec_ctx->priv_data, "crf", crf, 0);
-    av_opt_set(codec_ctx->priv_data, "x264-params", "bframes=0:ref=1:me=dia:subme=0", 0);
-    
-    
-    av_opt_set(codec_ctx->priv_data, "force_cfr", "1", 0);
-    
-    
+
+    av_opt_set(codec_ctx->priv_data, "preset",       "ultrafast",    0);
+    av_opt_set(codec_ctx->priv_data, "tune",         "zerolatency",  0);
+    av_opt_set(codec_ctx->priv_data, "crf",          crf,            0);
+    av_opt_set(codec_ctx->priv_data, "x264-params",  "bframes=0:ref=1:me=dia:subme=0", 0);
+    av_opt_set(codec_ctx->priv_data, "force_cfr",    "1",            0);
+
+    AVBufferRef *hw_device_ctx = nullptr;
+    if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
+        codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "MXWrite: hardware acceleration enabled (CUDA) for TS\n";
+    } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
+        codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "MXWrite: hardware acceleration enabled (VAAPI) for TS\n";
+    } else {
+        std::cerr << "MXWrite: hardware acceleration not available for TS, using CPU encoding\n";
+    }
     time_base = tb;
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
+
     if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
         std::cerr << "Could not open codec.\n";
         return false;
     }
-    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
-        std::cerr << "Could not copy codec parameters.\n";
-        return false;
-    }
-    if (!(format_ctx->flags & AVFMT_NOFILE)) {
+
+    if (!(format_ctx->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&format_ctx->pb, filename.c_str(), AVIO_FLAG_WRITE) < 0) {
-            std::cerr << "Could not open output file: " << filename << "\n";
+            std::cerr << "Could not open output file.\n";
             return false;
         }
     }
-    if (avformat_write_header(format_ctx, nullptr) < 0) {
-        std::cerr << "Error writing MP4 header.\n";
+
+    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
+        std::cerr << "Failed to copy codec parameters.\n";
         return false;
     }
+
+    if (avformat_write_header(format_ctx, nullptr) < 0) {
+        std::cerr << "Error occurred when writing header.\n";
+        return false;
+    }
+
     frameRGBA = av_frame_alloc();
     if (!frameRGBA) {
         std::cerr << "Could not allocate frameRGBA.\n";
@@ -552,7 +569,6 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     }
     opened = true;
     frame_count = 0;
-    recordingStart = std::chrono::steady_clock::now();
     return true;
 }
 
