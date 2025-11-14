@@ -865,8 +865,7 @@ public:
             glDisable(GL_CULL_FACE);  
             
             static float rotation = 0.0f;
-            rotation += 0.5f; 
-            if (rotation > 360.0f) rotation -= 360.0f;
+            rotation = fmod(rotation + 0.5f, 360.0f);
             
             glm::mat4 modelMatrix = glm::mat4(1.0f);
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
