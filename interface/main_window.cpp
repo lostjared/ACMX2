@@ -5,11 +5,13 @@
 #include<QMessageBox>
 #include<QFile>
 #include<QTextStream>
+#include<QInputDialog>
 #include<QFileInfo>
 #include"settings.hpp"
 #include"audio-window.hpp"
 #include <random>
 #include <algorithm>
+
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -102,7 +104,15 @@ void MainWindow::initControls() {
     listMenu_sort = new QAction(tr("Sort Shaders"), this);
     connect(listMenu_sort, &QAction::triggered, this, &MainWindow::menuSort);
     listMenu->addAction(listMenu_sort);
-    
+    listMenu->addSeparator();
+    listMenu_search = new QAction(tr("Search Shaders"), this);
+    listMenu_search->setShortcut(QKeySequence("Ctrl+F"));
+    connect(listMenu_search, &QAction::triggered, this, &MainWindow::menuSearch);
+    listMenu->addAction(listMenu_search);
+    listMenu_findNext = new QAction(tr("Find Next"), this);
+    listMenu_findNext->setShortcut(QKeySequence("F3"));
+    connect(listMenu_findNext, &QAction::triggered, this, &MainWindow::menuFindNext);
+    listMenu->addAction(listMenu_findNext);
     helpMenu_about = new QAction("About", this);
 
     connect(helpMenu_about, &QAction::triggered, this, [=](){
@@ -161,6 +171,117 @@ void MainWindow::newList() {
         loadShaders(shader_path);
         QSettings appSettings("LostSideDead");
         appSettings.setValue("shaders", shader_path);
+    }
+}
+
+void MainWindow::menuSearch() {
+    bool ok;
+    QString searchText = QInputDialog::getText(this, 
+                                               tr("Search Shaders"),
+                                               tr("Enter shader name to search:"), 
+                                               QLineEdit::Normal,
+                                               lastSearchText,  
+                                               &ok);
+    
+    if (!ok || searchText.isEmpty()) {
+        return;
+    }
+    
+    lastSearchText = searchText;  
+    lastFoundIndex = -1;          // Reset for new search
+    
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        QMessageBox::warning(this, "Error", "The model is not a QStringListModel.");
+        return;
+    }
+    QStringList items = model->stringList();
+    int foundIndex = -1;
+    
+    for (int i = 0; i < items.size(); ++i) {
+        if (items[i].compare(searchText, Qt::CaseInsensitive) == 0) {
+            foundIndex = i;
+            break;
+        }
+    }
+    
+    if (foundIndex == -1) {
+        for (int i = 0; i < items.size(); ++i) {
+            if (items[i].contains(searchText, Qt::CaseInsensitive)) {
+                foundIndex = i;
+                break;
+            }
+        }
+    }
+    
+    if (foundIndex != -1) {
+        lastFoundIndex = foundIndex;  
+        QModelIndex matchIndex = model->index(foundIndex, 0);
+        list_view->setCurrentIndex(matchIndex);
+        list_view->selectionModel()->select(matchIndex, QItemSelectionModel::ClearAndSelect);
+        list_view->scrollTo(matchIndex, QAbstractItemView::PositionAtCenter);
+        
+        Log("Found shader: " + items[foundIndex] + " at index " + QString::number(foundIndex));
+    } else {
+        QMessageBox::information(this, 
+                                tr("Not Found"), 
+                                tr("Shader \"") + searchText + tr("\" not found in the list."));
+        Log("Shader not found: " + searchText);
+    }
+}
+
+void MainWindow::menuFindNext() {
+    if (lastSearchText.isEmpty()) {
+        QMessageBox::information(this, 
+                                tr("No Search"), 
+                                tr("Please perform a search first (Ctrl+F)."));
+        return;
+    }
+    
+    QStringListModel *model = qobject_cast<QStringListModel *>(list_view->model());
+    if (!model) {
+        QMessageBox::warning(this, "Error", "The model is not a QStringListModel.");
+        return;
+    }
+    
+    QStringList items = model->stringList();
+    if (items.isEmpty()) {
+        return;
+    }
+    
+    int foundIndex = -1;
+    int startIndex = (lastFoundIndex + 1) % items.size();  
+    
+    
+    for (int i = startIndex; i < items.size(); ++i) {
+        if (items[i].contains(lastSearchText, Qt::CaseInsensitive)) {
+            foundIndex = i;
+            break;
+        }
+    }
+    
+    if (foundIndex == -1 && startIndex > 0) {
+        for (int i = 0; i < startIndex; ++i) {
+            if (items[i].contains(lastSearchText, Qt::CaseInsensitive)) {
+                foundIndex = i;
+                break;
+            }
+        }
+    }
+    
+    if (foundIndex != -1) {
+        lastFoundIndex = foundIndex;
+        QModelIndex matchIndex = model->index(foundIndex, 0);
+        list_view->setCurrentIndex(matchIndex);
+        list_view->selectionModel()->select(matchIndex, QItemSelectionModel::ClearAndSelect);
+        list_view->scrollTo(matchIndex, QAbstractItemView::PositionAtCenter);
+        
+        Log("Found next: " + items[foundIndex] + " at index " + QString::number(foundIndex));
+    } else {
+        QMessageBox::information(this, 
+                                tr("No More Results"), 
+                                tr("No more matches for \"") + lastSearchText + tr("\"."));
+        Log("No more matches for: " + lastSearchText);
     }
 }
 
@@ -428,7 +549,7 @@ void MainWindow::cameraSettings() {
             QSize screenResolution = settingsWindow.getSelectedScreenResolution();
             screen_res = screenResolution;
             video_file = videoFile;
-            graphics_file = ""; // Clear graphics file
+            graphics_file = ""; 
             cache_enabled = settingsWindow.isTextureCacheEnabled();
             cache_delay = settingsWindow.getCacheDelay();
             copy_audio = settingsWindow.isCopyAudioEnabled();
@@ -437,7 +558,7 @@ void MainWindow::cameraSettings() {
             QSize screenResolution = settingsWindow.getSelectedScreenResolution();
             screen_res = screenResolution;
             graphics_file = graphicsFile;
-            video_file = ""; // Clear video file
+            video_file = ""; 
             output_fps = settingsWindow.getCameraFPS();
             cache_enabled = false;
             cache_delay = 1;

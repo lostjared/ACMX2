@@ -53,6 +53,8 @@ public slots:
     void menuAudioSettings();
     void menuSort();
     void menuShuffle();
+    void menuSearch();
+    void menuFindNext();
 protected:
     bool addShaderToList(const QString &shaderName);
 
@@ -82,7 +84,11 @@ private:
     QAction *play_repeat, *play_stop;
     QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down, *listMenu_shuffle, *listMenu_sort;
     QAction *helpMenu_about;
+    QAction *listMenu_findNext;
+    QString lastSearchText;  
+    int lastFoundIndex;    
     QString executable_path;
+    QAction *listMenu_search;
     QString shader_path;
     QProcess *process;
     QSize camera_res, screen_res;
