@@ -475,6 +475,7 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     codec_ctx->delay        = 0;
     codec_ctx->flags       |= AV_CODEC_FLAG_LOW_DELAY;
     
+
     av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
     av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
     av_opt_set(codec_ctx->priv_data, "crf", crf, 0);
@@ -483,8 +484,12 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "Hardware acceleration enabled (CUDA)\n";
+    } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
+        codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        std::cout << "Hardware acceleration enabled (VAAPI)\n";
     } else {
-        std::cerr << "Could not initialize hardware acceleration.\n";
+        std::cerr << "Hardware acceleration not available, using CPU encoding\n";
     }
 
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
