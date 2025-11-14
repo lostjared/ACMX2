@@ -7,7 +7,7 @@ SettingsWindow::SettingsWindow(QWidget *parent)
       selectedCameraResolution(640, 480),
       selectedScreenResolution(1280, 720),
       cameraFPS(30),
-      saveFileKbps(2500),
+      saveFileKbps(23),
       inputVideoFile(""),
       outputVideoFile(""),
       useGraphicsFile(false),
@@ -71,10 +71,10 @@ void SettingsWindow::init() {
     outputVideoFileLayout->addWidget(outputVideoFileLineEdit);
     outputVideoFileLayout->addWidget(browseOutputVideoButton);
 
-    QLabel *saveFileKbpsLabel = new QLabel("Set Save File Kbps:", this);
+    QLabel *saveFileKbpsLabel = new QLabel("Set Save File CRF:", this);
     saveFileKbpsSpinBox = new QSpinBox(this);
-    saveFileKbpsSpinBox->setRange(100, 50000);
-    saveFileKbpsSpinBox->setValue(10000);
+    saveFileKbpsSpinBox->setRange(0, 51);
+    saveFileKbpsSpinBox->setValue(23);
 
     QLabel *screenResolutionLabel = new QLabel("Select Screen Resolution:", this);
     screenResolutionComboBox = new QComboBox(this);
