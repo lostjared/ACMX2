@@ -800,7 +800,8 @@ public:
                 std::unique_lock<std::mutex> lock(captureQueueMutex);
                 if (!captureQueue.empty()) {
                     newFrame = std::move(captureQueue.front());
-                    captureQueue.pop();
+                    if(!captureQueue.empty())
+                        captureQueue.pop();
                 }
             } else {
                 if(!cap.read(newFrame)) {
@@ -817,7 +818,8 @@ public:
                         return;
                     }
                 }
-                cv::flip(newFrame, newFrame, 0);
+                if(!newFrame.empty())
+                    cv::flip(newFrame, newFrame, 0);
             }
         }
         if(library.isBypassed()) {
