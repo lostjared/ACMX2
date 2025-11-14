@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACMX2 - Keyboard Controls</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(30, 30, 46, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            padding: 30px;
+            text-align: center;
+            border-bottom: 3px solid #4299e1;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #4299e1;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            color: #a0aec0;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            font-size: 1.8em;
+            color: #63b3ed;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a5568;
+        }
+
+        .key-group {
+            margin-bottom: 25px;
+        }
+
+        .key-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: rgba(45, 55, 72, 0.6);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .key-item:hover {
+            background: rgba(66, 153, 225, 0.2);
+            transform: translateX(5px);
+        }
+
+        .key {
+            display: inline-block;
+            min-width: 120px;
+            padding: 8px 12px;
+            background: linear-gradient(145deg, #4a5568, #2d3748);
+            border: 2px solid #4299e1;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            color: #90cdf4;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+
+        .description {
+            flex: 1;
+        }
+
+        .description h3 {
+            color: #90cdf4;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+
+        .description p {
+            color: #cbd5e0;
+            line-height: 1.5;
+        }
+
+        .mode-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: rgba(66, 153, 225, 0.3);
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #90cdf4;
+            margin-left: 8px;
+        }
+
+        .mode-badge.video {
+            background: rgba(72, 187, 120, 0.3);
+            color: #9ae6b4;
+        }
+
+        .mode-badge.audio {
+            background: rgba(237, 137, 54, 0.3);
+            color: #fbd38d;
+        }
+
+        .mode-badge.threed {
+            background: rgba(159, 122, 234, 0.3);
+            color: #d6bcfa;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            background: #1a202c;
+            color: #718096;
+            font-size: 0.9em;
+        }
+
+        .note {
+            background: rgba(237, 137, 54, 0.2);
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .note strong {
+            color: #fbd38d;
+        }
+
+        @media (max-width: 768px) {
+            .key-item {
+                flex-direction: column;
+            }
+
+            .key {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ACMX2 Keyboard Controls</h1>
+            <p class="subtitle">Real-time GLSL Shader Processing & Video Effects</p>
+        </header>
+
+        <div class="content">
+            <section class="section">
+                <h2>Shader Management</h2>
+                <div class="key-group">
+                    <div class="key-item">
+                        <div class="key">↑ Up Arrow</div>
+                        <div class="description">
+                            <h3>Previous Shader</h3>
+                            <p>Cycles backward through your shader library. Instantly loads the previous GLSL shader in the collection, allowing you to quickly compare different visual effects.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">↓ Down Arrow</div>
+                        <div class="description">
+                            <h3>Next Shader</h3>
+                            <p>Cycles forward through your shader library. Move to the next shader in your collection to preview different effects in real-time.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">Space</div>
+                        <div class="description">
+                            <h3>Enable/Disable Processing</h3>
+                            <p>Toggles shader processing on/off. When disabled, displays the raw input video/camera feed without any shader effects applied. Useful for performance comparison or viewing the original source.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Playback Controls</h2>
+                <div class="key-group">
+                    <div class="key-item">
+                        <div class="key">L</div>
+                        <div class="description">
+                            <h3>Freeze Video <span class="mode-badge video">Video/Image Mode</span></h3>
+                            <p>Freezes the current frame while continuing shader processing. The video playback stops, but shaders continue to animate on the frozen frame. Perfect for examining specific moments or creating static effect compositions.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">P</div>
+                        <div class="description">
+                            <h3>Pause Video <span class="mode-badge video">Video/Image Mode</span></h3>
+                            <p>Pauses both video playback and shader processing. Everything stops - the video frame and shader animations. Resume by pressing P again. Useful for inspecting a particular frame without shader animation.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Time & Animation Control</h2>
+                <div class="key-group">
+                    <div class="key-item">
+                        <div class="key">T</div>
+                        <div class="description">
+                            <h3>Enable/Disable Time</h3>
+                            <p>Toggles the shader time uniform. When disabled, the time value stops incrementing, freezing all time-based shader animations. Shaders that depend on iTime will stop animating.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">I / O</div>
+                        <div class="description">
+                            <h3>Step Time Forward/Backward</h3>
+                            <p><strong>I</strong> - Increment time by one frame step<br>
+                               <strong>O</strong> - Decrement time by one frame step<br>
+                               Only works when time is disabled (press T first). Allows frame-by-frame control of time-based animations.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">Q</div>
+                        <div class="description">
+                            <h3>Reactive Time <span class="mode-badge audio">Audio Mode</span></h3>
+                            <p>Toggles audio-reactive time mode. When enabled, the shader time progression responds to audio input amplitude, creating music-synchronized visual effects. Requires AUDIO_ENABLED build flag.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Camera & View Control</h2>
+                <div class="key-group">
+                    <div class="key-item">
+                        <div class="key">W / A / S / D</div>
+                        <div class="description">
+                            <h3>3D Camera Movement <span class="mode-badge threed">3D Mode</span></h3>
+                            <p><strong>W</strong> - Look up (pitch up)<br>
+                               <strong>S</strong> - Look down (pitch down)<br>
+                               <strong>A</strong> - Rotate left (yaw left)<br>
+                               <strong>D</strong> - Rotate right (yaw right)<br>
+                               Navigate the 3D space when rendering shaders on 3D geometry. Provides first-person camera controls.</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">V</div>
+                        <div class="description">
+                            <h3>Auto-Rotation <span class="mode-badge threed">3D Mode</span></h3>
+                            <p>Toggles automatic view rotation in 3D mode. When enabled, the camera automatically rotates around the 3D object, providing a continuous 360° view without manual input.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Capture & Display</h2>
+                <div class="key-group">
+                    <div class="key-item">
+                        <div class="key">Z</div>
+                        <div class="description">
+                            <h3>Take Snapshot</h3>
+                            <p>Captures the current frame as a PNG image. Saves to the configured screenshot directory with timestamp and resolution in the filename (e.g., ACMX2.Snapshot-2025.11.14-15.30.45-1920x1080-0.png).</p>
+                        </div>
+                    </div>
+                    <div class="key-item">
+                        <div class="key">F</div>
+                        <div class="description">
+                            <h3>Toggle Fullscreen</h3>
+                            <p>Switches between windowed and fullscreen mode. Provides an immersive viewing experience and better performance by removing window decorations and OS overhead.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="note">
+                <strong>Note:</strong> Some controls are mode-specific:
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li><strong>Video/Image Mode:</strong> L (freeze) and P (pause) only work when playing video files or displaying images</li>
+                    <li><strong>Audio Mode:</strong> Q (reactive time) requires the program to be compiled with AUDIO_ENABLED</li>
+                    <li><strong>3D Mode:</strong> W/A/S/D camera controls and V (auto-rotation) only function when 3D mode is enabled</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 ACMX2 Project | Real-time GLSL Shader Processing</p>
+            <p>For more information, visit the project repository</p>
+        </footer>
+    </div>
+</body>
+</html>
