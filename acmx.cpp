@@ -657,6 +657,7 @@ public:
             if(!cap.isOpened()) {
                 throw mx::Exception("Could not open camera index: " + std::to_string(camera_index));
             }
+            cap.set(cv::CAP_PROP_BUFFERSIZE, 1);
             if(sizec.has_value()) {
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, sizec.value().width);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, sizec.value().height);
@@ -664,6 +665,7 @@ public:
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
             }
+            cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
             cap.set(cv::CAP_PROP_FPS, fps);
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
@@ -977,7 +979,7 @@ public:
 
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
-                while(frameQueue.size() > 60) {
+                while(frameQueue.size() > 10) { 
                     frameQueue.pop();
                     mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
                 }
@@ -1242,13 +1244,14 @@ private:
 
     void updateTexture(GLuint texture, cv::Mat &frame) {
         glBindTexture(GL_TEXTURE_2D, texture);
-        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGBA);
+        cv::Mat temp;
+        cv::cvtColor(frame, temp, cv::COLOR_BGR2RGBA);  
         glTexSubImage2D(GL_TEXTURE_2D, 
                         0, 0, 0,
-                        frame.cols, frame.rows,
+                        temp.cols, temp.rows,
                         GL_RGBA,
                         GL_UNSIGNED_BYTE,
-                        frame.ptr());
+                        temp.ptr());
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
