@@ -800,8 +800,7 @@ public:
                 std::unique_lock<std::mutex> lock(captureQueueMutex);
                 if (!captureQueue.empty()) {
                     newFrame = std::move(captureQueue.front());
-                    if(!captureQueue.empty())
-                        captureQueue.pop();
+                    captureQueue.pop();
                 }
             } else {
                 if(!cap.read(newFrame)) {
@@ -978,11 +977,15 @@ public:
             snapshot = false;
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
+                static uint64_t warn_counter = 0;
                 while(frameQueue.size() > 10) { 
                     frameQueue.pop();
-                    mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
-                    fflush(stderr);
-                    fflush(stdout);
+                    ++warn_counter;
+                    if(warn_counter % 30 == 0) {
+                        mx::system_err << "acmx2: Warning - dropping frame, writer too slow\n";
+                        fflush(stderr);
+                        fflush(stdout);
+                    }
                 }
                 frameQueue.push(std::move(fd));
             }
@@ -1263,19 +1266,21 @@ private:
         running = true;
         captureThread = std::thread([this]() {
             while(running) {
-                if(!cap.grab()) {
-                    running = false;
-                    return;
-                }
                 cv::Mat localFrame;
-                if(!cap.retrieve(localFrame)) {
-                    mx::system_err << "acmx2: retrieve failed.\n";
+                if(!cap.read(localFrame)) {
+                    mx::system_err << "acmx2: read from capture failed.\n";
+                    running = false;
+                    fflush(stderr);
+                    fflush(stdout);
                     break;
                 }
+                if(localFrame.empty())
+                    continue;
+
                 cv::flip(localFrame, localFrame, 0);
                 {
                     std::lock_guard<std::mutex> lock(captureQueueMutex);
-                    if(captureQueue.size() > 30) {
+                    if(captureQueue.size() >= 2) {
                         captureQueue.pop(); 
                     }
                     captureQueue.push(std::move(localFrame));
@@ -1299,6 +1304,7 @@ private:
         running = true;
         written_frame_counter = 0;
         writerThread = std::thread([this]() {
+        try {
             static uint64_t snapshotOffset = 0; 
             captureStartTime = std::chrono::steady_clock::now();
     
@@ -1349,7 +1355,13 @@ private:
                     fflush(stderr);
                 }
             }
-        });
+        } catch(const std::exception &e) {
+            mx::system_err << "acmx2: Writer thread exception: " << e.what() << "\n";
+            running = false;
+            fflush(stderr);
+            fflush(stdout);
+        }
+    });
     }
 
     void stopWriterThread() {
