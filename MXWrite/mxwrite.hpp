@@ -25,9 +25,9 @@ public:
 
     Writer() : opened(false), queue_mutex(), writer_mutex(), frame_mutex() {}
 
-    bool open(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
+    bool open(const std::string& filename, int width, int height, float fps, const char *crf);
     void write(void* rgba_buffer);
-    bool open_ts(const std::string& filename, int width, int height, float fps, int bitrate_kbps);
+    bool open_ts(const std::string& filename, int width, int height, float fps, const char *crf);
     void write_ts(void* rgba_buffer);
     void close();
     bool is_open() const { return opened; }
