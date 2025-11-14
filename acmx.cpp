@@ -619,8 +619,6 @@ public:
             h = graphic_frame.rows;
             frame_w = w;
             frame_h = h;
-            fps = this->fps; 
-            
             mx::system_out << "acmx2: Graphics file loaded: " << w << "x" << h << " at FPS: " << fps << "\n";
             fflush(stdout);
             fflush(stderr);
