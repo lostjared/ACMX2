@@ -1439,7 +1439,7 @@ void printAbout(Argz<T> &parser) {
     mx::system_out << "(C) 2025 " << VERSION_AUTHOR << "\n";
     mx::system_out << "https://lostsidedead.biz\n";
     mx::system_out << "Command Line Arguments:\n";
-    parser.help( mx::system_out);
+    parser.help(mx::system_out);
     mx::system_out << message;
 }
 
@@ -1499,6 +1499,7 @@ int main(int argc, char **argv) {
 
     if(argc == 1) {
         printAbout(parser);
+        exit(EXIT_SUCCESS);
     }
     Argument<std::string> arg;
     MXArguments args;
