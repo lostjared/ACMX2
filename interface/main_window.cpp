@@ -585,6 +585,7 @@ void MainWindow::cameraSettings() {
         }
     }
     enable_3d = settingsWindow.is3dEnabled();
+    model_file = settingsWindow.getModelFile();
 }
 
 void MainWindow::runSelected() {
@@ -665,8 +666,10 @@ void MainWindow::runSelected() {
             arguments << "--audio-output" << QString::number(audio_output);
     }
 
-    if(enable_3d)
+    if(enable_3d) {
         arguments << "--enable-3d";
+        arguments << "--model" << model_file;
+    }
  
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
@@ -761,9 +764,10 @@ void MainWindow::runAll() {
             arguments << "--audio-output" << QString::number(audio_output);
     }
 
-    if(enable_3d)
-        arguments << "--enable-3d"; 
-
+    if(enable_3d) {
+        arguments << "--enable-3d";
+        arguments << "--model" << model_file;
+    }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {

@@ -113,6 +113,7 @@ private:
     bool enable_3d = false;
     int audio_input = -1;
     int audio_output = -1;
+    QString model_file;
 };
 
 

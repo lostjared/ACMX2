@@ -10,11 +10,12 @@ SettingsWindow::SettingsWindow(QWidget *parent)
       saveFileKbps(23),
       inputVideoFile(""),
       outputVideoFile(""),
-      useGraphicsFile(false),
       useInputVideoFile(false),
+      useGraphicsFile(false),
       saveOutputVideoFile(false),
       graphicsFile(""),
-      graphicsDuration(10) {
+      graphicsDuration(10),
+      modelFile("data/cube.mxmod.z") {
     init();
 }
 
@@ -189,6 +190,25 @@ void SettingsWindow::init() {
     enable3dCheckBox->setChecked(false);
     enable3d_layout->addWidget(enable3dCheckBox);
     
+    
+    QHBoxLayout *modelFileLayout = new QHBoxLayout;
+    modelFileLineEdit = new QLineEdit(this);
+    modelFileLineEdit->setText("data/cube.mxmod.z"); 
+    modelFileLineEdit->setReadOnly(true);
+    modelFileLineEdit->setEnabled(false);
+    browseModelButton = new QPushButton("Set Model", this);
+    browseModelButton->setEnabled(false);
+    modelFileLayout->addWidget(modelFileLineEdit);
+    modelFileLayout->addWidget(browseModelButton);
+
+    
+    connect(enable3dCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
+        modelFileLineEdit->setEnabled(checked);
+        browseModelButton->setEnabled(checked);
+        if (!checked) {
+            modelFileLineEdit->clear();
+        }
+    });
 
     mainLayout->addLayout(outputVideoFileLayout);
     mainLayout->addWidget(saveFileKbpsLabel);
@@ -198,7 +218,8 @@ void SettingsWindow::init() {
     copyAudioCheckBox->setEnabled(false);
     mainLayout->addLayout(textureCacheLayout);
     mainLayout->addLayout(fullScreenLayout);
-    mainLayout->addLayout(enable3d_layout);        
+    mainLayout->addLayout(enable3d_layout);
+    mainLayout->addLayout(modelFileLayout);
     mainLayout->addLayout(buttonLayout);
  
   
@@ -210,6 +231,7 @@ void SettingsWindow::init() {
     connect(browseInputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseInputVideoFile);
     connect(browseOutputVideoButton, &QPushButton::clicked, this, &SettingsWindow::browseOutputVideoFile);
     connect(browseGraphicsButton, &QPushButton::clicked, this, &SettingsWindow::browseGraphicsFile);
+    connect(browseModelButton, &QPushButton::clicked, this, &SettingsWindow::browseModelFile);
 
     
     inputVideoFileLineEdit->setEnabled(false);
@@ -285,6 +307,10 @@ bool SettingsWindow::isCopyAudioEnabled() const {
     return copyAudioCheckBox->isChecked();
 }
 
+QString SettingsWindow::getModelFile() const {
+    return modelFile;
+}
+
 void SettingsWindow::acceptSettings() {
     useInputVideoFile = inputVideoOptionRadioButton->isChecked();
     useGraphicsFile = graphicsFileOptionRadioButton->isChecked();
@@ -329,6 +355,12 @@ void SettingsWindow::acceptSettings() {
         }
         saveFileKbps = saveFileKbpsSpinBox->value();
     }
+    
+    
+    if (enable3dCheckBox->isChecked()) {
+        modelFile = modelFileLineEdit->text();
+    }
+    
     accept();
 }
 
@@ -357,5 +389,12 @@ void SettingsWindow::browseGraphicsFile() {
     QString fileName = QFileDialog::getOpenFileName(this, "Select Graphics File", "", "Image Files (*.jpg *.jpeg *.png *.bmp *.tiff *.gif)");
     if (!fileName.isEmpty()) {
         graphicsFileLineEdit->setText(fileName);
+    }
+}
+
+void SettingsWindow::browseModelFile() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Select 3D Model File", "", "Model Files (*.mxmod *.mxmod.z)");
+    if (!fileName.isEmpty()) {
+        modelFileLineEdit->setText(fileName);
     }
 }
