@@ -880,6 +880,12 @@ public:
                 fflush(stdout);
             }
 
+            if (oscillateScale) {
+                static float t = 0.0f;
+                t += 0.02f;   
+                modelScale = 1.0f + 9.5f * std::sin(t);
+            }
+
             glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
@@ -1181,6 +1187,12 @@ public:
                         mx::system_out << "acmx2: Model scale reset to 1.0\n";
                         fflush(stdout);
                         break;
+                    case SDLK_o:   
+                        oscillateScale = !oscillateScale;
+                        mx::system_out << "acmx2: Scale oscillation "
+                                       << (oscillateScale ? "enabled" : "disabled") << "\n";
+                        fflush(stdout);
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -1243,6 +1255,7 @@ private:
     bool viewRotationActive = false; 
     float modelScale = 1.0f;
     float scaleSpeed = 0.05f;
+    bool oscillateScale = false;
 private:
 
     void setupCaptureFBO(int width, int height) {
