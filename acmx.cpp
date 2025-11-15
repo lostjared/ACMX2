@@ -869,7 +869,7 @@ public:
                 modelScale += scaleSpeed;
                 if (modelScale > 5.0f) modelScale = 5.0f;  
             }
-            if (keystate[SDL_SCANCODE_F]) {
+            if (keystate[SDL_SCANCODE_E]) {
                 modelScale -= scaleSpeed;
                 if (modelScale < 0.1f) modelScale = 0.1f;  
             }
@@ -1237,7 +1237,7 @@ private:
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
     float modelScale = 1.0f;
-    float scaleSpeed = 0.01f;
+    float scaleSpeed = 0.1f;
 private:
 
     void setupCaptureFBO(int width, int height) {
