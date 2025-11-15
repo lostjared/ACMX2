@@ -1012,7 +1012,9 @@ public:
 
                 {
                     std::lock_guard<std::mutex> lock(queueMutex);
-                    while (frameQueue.size() > 10) {
+                    if (frameQueue.size() > 30) {  
+                        mx::system_err << "acmx2: Warning - encoder queue full (" 
+                                      << frameQueue.size() << " frames), dropping frame\n";
                         frameQueue.pop();
                     }
                     frameQueue.push(std::move(fd));
