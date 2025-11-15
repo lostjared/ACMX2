@@ -1034,14 +1034,12 @@ public:
         auto now = std::chrono::steady_clock::now();   
 
         if (needWriter) {
-            double targetMsPerFrame = (fps > 0.0) ? (1000.0 / fps) : 0.0;
-            auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastEncodedFrameTime).count();
-
             bool allowSnapshot   = snapshot;
-            bool allowVideoFrame = (fps <= 0.0) || (elapsedMs >= targetMsPerFrame);
+            bool allowVideoFrame = true;   
 
             if (allowSnapshot || allowVideoFrame) {
                 lastEncodedFrameTime = now;
+
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
                 glBindTexture(GL_TEXTURE_2D, fboTexture);
                 glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0); 
@@ -1087,9 +1085,7 @@ public:
                 }
                 
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-                glBindTexture(GL_TEXTURE_2D, 0);
-                
-                
+                glBindTexture(GL_TEXTURE_2D, 0);                
                 pboIndex = (pboIndex + 1) % 2;
                 pboNextIndex = (pboNextIndex + 1) % 2;
             }
