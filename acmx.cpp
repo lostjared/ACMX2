@@ -864,11 +864,21 @@ public:
             
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
+            const Uint8* keystate = SDL_GetKeyboardState(NULL);
+            if (keystate[SDL_SCANCODE_R]) {
+                modelScale += scaleSpeed;
+                if (modelScale > 5.0f) modelScale = 5.0f;  
+            }
+            if (keystate[SDL_SCANCODE_F]) {
+                modelScale -= scaleSpeed;
+                if (modelScale < 0.1f) modelScale = 0.1f;  
+            }
             
             glm::mat4 modelMatrix = glm::mat4(1.0f);
+            modelMatrix = glm::scale(modelMatrix, glm::vec3(modelScale, modelScale, modelScale));  
+            
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
-            const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
             if (!viewRotationActive) {
                 if (keystate[SDL_SCANCODE_W]) {
@@ -1159,6 +1169,13 @@ public:
                     case SDLK_v:
                         viewRotationActive = !viewRotationActive;
                         break;
+                    case SDLK_x:
+                        if(is3d_enabled) {
+                            modelScale = 1.0f;  
+                            mx::system_out << "acmx2: Model scale reset to 1.0\n";
+                            fflush(stdout);
+                        }
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -1219,7 +1236,8 @@ private:
     float cameraPitch = 0.0f; 
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
-    
+    float modelScale = 1.0f;
+    float scaleSpeed = 0.01f;
 private:
 
     void setupCaptureFBO(int width, int height) {
