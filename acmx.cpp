@@ -558,6 +558,48 @@ public:
 #endif
 
         stopCaptureThread(); 
+
+        if (pboIds[0] && writer.is_open() && win_w > 0 && win_h > 0) {
+            for (int i = 0; i < 2; i++) {
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[i]);
+                GLubyte* src = (GLubyte*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+                
+                if (src) {
+                    std::vector<unsigned char> pixels(win_w * win_h * 4);
+                    std::memcpy(pixels.data(), src, pixels.size());
+                    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                    
+                    std::vector<unsigned char> flipped_pixels(win_w * win_h * 4);
+                    for (int y = 0; y < win_h; ++y) {
+                        int src_row_start  = y * win_w * 4;
+                        int dest_row_start = (win_h - 1 - y) * win_w * 4;
+                        std::copy(pixels.begin() + src_row_start,
+                                  pixels.begin() + src_row_start + (win_w * 4),
+                                  flipped_pixels.begin() + dest_row_start);
+                    }
+
+                    FrameData fd;
+                    fd.pixels = std::move(flipped_pixels);
+                    fd.width  = win_w;
+                    fd.height = win_h;
+                    fd.isSnapshot = false;
+
+                    {
+                        std::lock_guard<std::mutex> lock(queueMutex);
+                        frameQueue.push(std::move(fd));
+                    }
+                    queueCondVar.notify_one();
+                }
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+            }
+        }
+        
+        stopWriterThread();
+        
+        if (pboIds[0]) {
+            glDeleteBuffers(2, pboIds);
+            pboIds[0] = pboIds[1] = 0;
+        }
         
         if (pboIds[0]) {
             glDeleteBuffers(2, pboIds);
@@ -1036,6 +1078,8 @@ public:
                         frames_dropped++;
                         if (frames_dropped % 10 == 0) { 
                             mx::system_err << "acmx2: Total frames dropped: " << frames_dropped << "\n";
+                            fflush(stderr);
+                            fflush(stdout);
                         }
                         frameQueue.pop();
                     }
@@ -1293,7 +1337,48 @@ private:
     float cameraDistance = 0.0f;
 private:
     std::atomic<uint64_t> frames_dropped{0};
+    int win_w = 0;
+    int win_h = 0;
+    
+    void flushPBOs(gl::GLWindow *win) {
+        if (!pboIds[0]) return;
+           for (int i = 0; i < 2; i++) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[i]);
+            GLubyte* src = (GLubyte*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+            
+            if (src) {
+                std::vector<unsigned char> pixels(win->w * win->h * 4);
+                std::memcpy(pixels.data(), src, pixels.size());
+                glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                
+                std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
+                for (int y = 0; y < win->h; ++y) {
+                    int src_row_start  = y * win->w * 4;
+                    int dest_row_start = (win->h - 1 - y) * win->w * 4;
+                    std::copy(pixels.begin() + src_row_start,
+                              pixels.begin() + src_row_start + (win->w * 4),
+                              flipped_pixels.begin() + dest_row_start);
+                }
+
+                FrameData fd;
+                fd.pixels = std::move(flipped_pixels);
+                fd.width  = win->w;
+                fd.height = win->h;
+                fd.isSnapshot = false;
+
+                {
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    frameQueue.push(std::move(fd));
+                }
+                queueCondVar.notify_one();
+            }
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+        }
+    }
+
     void setupCaptureFBO(int width, int height) {
+        win_w = width;
+        win_h = height;
         glGenFramebuffers(1, &captureFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
 
