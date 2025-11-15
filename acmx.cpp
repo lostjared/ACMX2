@@ -640,7 +640,14 @@ public:
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
 
-        if(is3d_enabled && !cube.openModel(win->util.getFilePath("data/" + m_file))) {
+        std::string m_file_path;
+        if(std::filesystem::exists(m_file)) {
+            m_file_path = m_file;
+        } else {
+            m_file_path =  win->util.getFilePath("data/" + m_file);
+        }
+
+        if(is3d_enabled && !cube.openModel(m_file_path)) {
             throw mx::Exception("Could not open model: cube.mxmod.z");
         }
         cube.setShaderProgram(library.shader(), "samp");
