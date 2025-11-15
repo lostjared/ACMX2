@@ -867,11 +867,11 @@ public:
             const Uint8* keystate = SDL_GetKeyboardState(NULL);
             if (keystate[SDL_SCANCODE_EQUALS] || keystate[SDL_SCANCODE_KP_PLUS]) {
                 modelScale += scaleSpeed;
-                if (modelScale > 10.0f) modelScale = 10.0f;  
+                if (modelScale > 20.0f) modelScale = 20.0f;  
             }
             if (keystate[SDL_SCANCODE_MINUS] || keystate[SDL_SCANCODE_KP_MINUS]) {
                 modelScale -= scaleSpeed;
-                if (modelScale < 0.5f) modelScale = 0.5f;  
+                if (modelScale < 1.0f) modelScale = 1.0f;  
             }
             glm::mat4 modelMatrix = glm::mat4(1.0f);            
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
@@ -1158,7 +1158,7 @@ public:
                         fflush(stdout);
                         break;
                     case SDLK_x:
-                        modelScale = 1.0f;
+                        modelScale = 5.0f;
                         mx::system_out << "acmx2: Model scale reset to 1.0\n";
                         fflush(stdout);
                         break;
@@ -1222,7 +1222,7 @@ private:
     float cameraPitch = 0.0f; 
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
-    float modelScale = 1.0f;
+    float modelScale = 5.0f;
     float scaleSpeed = 0.5f;
 private:
 
