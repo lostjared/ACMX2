@@ -954,17 +954,14 @@ public:
         }
         bool needWriter = (writer.is_open() || snapshot) && !isFrozen;
 
-        
         static auto lastEncodedFrameTime = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();   
 
         if (needWriter) {
-        
             double targetMsPerFrame = (fps > 0.0) ? (1000.0 / fps) : 0.0;
             auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastEncodedFrameTime).count();
 
-        
-            bool allowSnapshot = snapshot;
+            bool allowSnapshot   = snapshot;
             bool allowVideoFrame = (fps <= 0.0) || (elapsedMs >= targetMsPerFrame);
 
             if (allowSnapshot || allowVideoFrame) {
@@ -1014,7 +1011,7 @@ public:
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
 
         static auto lastUpdate = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();
+        
 
         if (!graphic.empty()) {
             if (writer.is_open() &&
@@ -1077,7 +1074,6 @@ public:
             }
 
         } else if (cap.isOpened() && filename.empty() && writer.is_open()) {
-            
             if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count() >= 1) {
 
                 double elapsedSeconds = writer.get_duration();
