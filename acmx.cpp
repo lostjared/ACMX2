@@ -867,28 +867,29 @@ public:
             rotation = fmod(rotation + 0.5f, 360.0f);
             
             const Uint8* keystatex = SDL_GetKeyboardState(NULL);
-            if (keystatex[SDL_SCANCODE_EQUALS] || keystatex[SDL_SCANCODE_KP_PLUS]) {
-                modelScale += scaleSpeed;
-                if (modelScale > 8.0f) modelScale = 8.0f;
-                mx::system_out << "acmx2: model scale increased: " << modelScale << "\n";
-                fflush(stdout);
+            if (!oscillateScale) {
+                if (keystatex[SDL_SCANCODE_EQUALS] || keystatex[SDL_SCANCODE_KP_PLUS]) {
+                    cameraDistance += 0.01f;
+                    if (cameraDistance > 0.4f) cameraDistance = 0.4f;
+                    mx::system_out << "acmx2: cameraDistance increased: " << cameraDistance << "\n";
+                    fflush(stdout);
+                }
+                if (keystatex[SDL_SCANCODE_MINUS] || keystatex[SDL_SCANCODE_KP_MINUS]) {
+                    cameraDistance -= 0.01f;                 
+                    if (cameraDistance < -0.2f) cameraDistance = -0.2f;
+                    mx::system_out << "acmx2: cameraDistance decreased: " << cameraDistance << "\n";
+                    fflush(stdout);
+                }
             }
-            if (keystatex[SDL_SCANCODE_MINUS] || keystatex[SDL_SCANCODE_KP_MINUS]) {
-                modelScale -= scaleSpeed;
-                if (modelScale < 0.3f) modelScale = 0.3f;
-                mx::system_out << "acmx2: Model scale decreased: " << modelScale << "\n";
-                fflush(stdout);
-            }
+            static float t = 0.0f;
+            float oscOffset = 0.0f;
             if (oscillateScale) {
-                static float t = 0.0f;
-                t += 0.02f;                    
-                float base = 1.0f;        
-                float amplitude = 5.0f;        
-                float s = (std::sin(t) * 0.5f) + 0.5f;   
-                modelScale = base + amplitude * s;       
+                t += 0.02f;
+                oscOffset = 0.3f * std::sin(t);
             }
-            glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
-            glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 0.0f); 
+
+            glm::mat4 modelMatrix = glm::mat4(1.0f);
+            glm::vec3 cameraPosBase = glm::vec3(0.0f, 0.0f, 0.0f);
             glm::vec3 lookDirection;
             const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
@@ -923,25 +924,18 @@ public:
                 lookDirection.z = cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
                 lookDirection = glm::normalize(lookDirection) * 0.48f;
             }
+
+            float finalOffset = oscillateScale ? oscOffset : cameraDistance;
+            glm::vec3 cameraPos = cameraPosBase - glm::normalize(lookDirection) * finalOffset;
             glm::vec3 cameraTarget = cameraPos + lookDirection;
             glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
             glm::mat4 viewMatrix = glm::lookAt(cameraPos, cameraTarget, cameraUp);
-            glm::mat4 projectionMatrix;
-            if(oscillateScale) {
-                projectionMatrix = glm::perspective(
-                    glm::radians(60.0f),
-                    static_cast<float>(win->w) / static_cast<float>(win->h),
-                    0.01f,
-                    50.0f
-                );
-            } else {
-                projectionMatrix = glm::perspective(
-                    glm::radians(120.0f),
-                    static_cast<float>(win->w) / static_cast<float>(win->h),
-                    0.01f,
-                    10.0f
-                );
-            }
+            glm::mat4 projectionMatrix = glm::perspective(
+                glm::radians(120.0f),
+                static_cast<float>(win->w) / static_cast<float>(win->h),
+                0.01f,
+                10.0f
+            );
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
@@ -1190,8 +1184,8 @@ public:
                         fflush(stdout);
                         break;
                     case SDLK_x:
-                        modelScale = 1.0f;
-                        mx::system_out << "acmx2: Model scale reset to 1.0\n";
+                        cameraDistance = 0.0f;
+                        mx::system_out << "acmx2: Camera distance reset\n";
                         fflush(stdout);
                         break;
                     case SDLK_o:   
@@ -1263,6 +1257,7 @@ private:
     float modelScale = 1.0f;
     float scaleSpeed = 0.05f;
     bool oscillateScale = false;
+    float cameraDistance = 0.0f;
 private:
 
     void setupCaptureFBO(int width, int height) {
