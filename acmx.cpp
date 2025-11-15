@@ -1237,7 +1237,7 @@ private:
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
     float modelScale = 1.0f;
-    float scaleSpeed = 0.1f;
+    float scaleSpeed = 0.5f;
 private:
 
     void setupCaptureFBO(int width, int height) {
