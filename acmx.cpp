@@ -933,6 +933,7 @@ public:
             }
             activeShader->setUniform("mv_matrix", mvMatrix);
             activeShader->setUniform("proj_matrix", projectionMatrix);
+            activeShader->setUniform("model_matrix", modelMatrix);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
