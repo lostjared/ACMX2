@@ -882,8 +882,10 @@ public:
 
             if (oscillateScale) {
                 static float t = 0.0f;
-                t += 0.02f;   
-                modelScale = 1.0f + 9.5f * std::sin(t);
+                t += 0.02f;                          
+                float amplitude = 0.3f;              
+                float base     = 1.0f;               
+                modelScale = base + amplitude * std::sin(t);
             }
 
             glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
