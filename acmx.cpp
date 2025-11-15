@@ -558,7 +558,7 @@ public:
 #endif
 
         stopCaptureThread(); 
-
+    
         if (pboIds[0] && writer.is_open() && win_w > 0 && win_h > 0) {
             for (int i = 0; i < 2; i++) {
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[i]);
@@ -592,14 +592,14 @@ public:
                 }
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
             }
+            
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        
         
         stopWriterThread();
         
-        if (pboIds[0]) {
-            glDeleteBuffers(2, pboIds);
-            pboIds[0] = pboIds[1] = 0;
-        }
         
         if (pboIds[0]) {
             glDeleteBuffers(2, pboIds);
@@ -625,8 +625,6 @@ public:
                 cache_textures[i] = 0;
             }
         }
-
-        stopWriterThread();
     }
     
     mx::Model cube;
@@ -1192,11 +1190,11 @@ public:
             if (fps > 0.0) {
                 int target_ms = static_cast<int>(1000.0 / fps);
                 int sleep_ms = target_ms - static_cast<int>(elapsed);
-                if (sleep_ms > 0 && sleep_ms < target_ms) {  // Only sleep if reasonable
+                if (sleep_ms > 0 && sleep_ms < target_ms) {  
                     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
                 }
             }
-            lastFrameTime = std::chrono::steady_clock::now();  // Update after sleep
+            lastFrameTime = std::chrono::steady_clock::now();
         }
     }
 
