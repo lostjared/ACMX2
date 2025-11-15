@@ -864,22 +864,12 @@ public:
             
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
-            const Uint8* keystate = SDL_GetKeyboardState(NULL);
-            if (keystate[SDL_SCANCODE_R]) {
-                modelScale += scaleSpeed;
-                if (modelScale > 5.0f) modelScale = 5.0f;  
-            }
-            if (keystate[SDL_SCANCODE_E]) {
-                modelScale -= scaleSpeed;
-                if (modelScale < 0.1f) modelScale = 0.1f;  
-            }
-            
             glm::mat4 modelMatrix = glm::mat4(1.0f);
             modelMatrix = glm::scale(modelMatrix, glm::vec3(modelScale, modelScale, modelScale));  
             
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
-
+            const Uint8 *keystate = SDL_GetKeyboardState(0);
             if (!viewRotationActive) {
                 if (keystate[SDL_SCANCODE_W]) {
                     cameraPitch += cameraRotationSpeed * 0.3f;
@@ -923,7 +913,7 @@ public:
                 10.0f
             );
 
-            glFrontFace(GL_CW);
+             glFrontFace(GL_CW);
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
@@ -933,12 +923,11 @@ public:
             }
             activeShader->setUniform("mv_matrix", mvMatrix);
             activeShader->setUniform("proj_matrix", projectionMatrix);
-            activeShader->setUniform("model_matrix", modelMatrix);
+            activeShader->setUniform("modelScale", modelScale);  
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
             glEnableVertexAttribArray(2);
-            
             if(!library.isBypassed()) {
                 cube.setShaderProgram(activeShader);
             } else {
@@ -1167,13 +1156,26 @@ public:
                         library.audioTime(!library.timeAudio());
                         break;
 #endif
-                    case SDLK_v:
+                     case SDLK_v:
                         viewRotationActive = !viewRotationActive;
+                        mx::system_out << "acmx2: View rotation: " << (viewRotationActive ? "enabled" : "disabled") << "\n";
+                        fflush(stdout);
                         break;
                     case SDLK_x:
-                        if(is3d_enabled) {
-                            modelScale = 1.0f;  
-                            mx::system_out << "acmx2: Model scale reset to 1.0\n";
+                        modelScale = 1.0f;
+                        mx::system_out << "acmx2: Model scale reset to 1.0\n";
+                        fflush(stdout);
+                        break;
+                    case SDLK_EQUALS:  
+                    case SDLK_PLUS:
+                        modelScale += scaleSpeed;
+                        mx::system_out << "acmx2: Model scale: " << modelScale << "\n";
+                        fflush(stdout);
+                        break;
+                    case SDLK_MINUS:
+                        if (modelScale - scaleSpeed > 0.1f) {
+                            modelScale -= scaleSpeed;
+                            mx::system_out << "acmx2: Model scale: " << modelScale << "\n";
                             fflush(stdout);
                         }
                         break;
