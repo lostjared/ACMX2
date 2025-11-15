@@ -864,12 +864,19 @@ public:
             
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
-            glm::mat4 modelMatrix = glm::mat4(1.0f);
-            modelMatrix = glm::scale(modelMatrix, glm::vec3(modelScale, modelScale, modelScale));  
-            
+            const Uint8* keystate = SDL_GetKeyboardState(NULL);
+            if (keystate[SDL_SCANCODE_EQUALS] || keystate[SDL_SCANCODE_KP_PLUS]) {
+                modelScale += scaleSpeed;
+                if (modelScale > 10.0f) modelScale = 10.0f;  
+            }
+            if (keystate[SDL_SCANCODE_MINUS] || keystate[SDL_SCANCODE_KP_MINUS]) {
+                modelScale -= scaleSpeed;
+                if (modelScale < 0.5f) modelScale = 0.5f;  
+            }
+            glm::mat4 modelMatrix = glm::mat4(1.0f);            
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
-            const Uint8 *keystate = SDL_GetKeyboardState(0);
+
             if (!viewRotationActive) {
                 if (keystate[SDL_SCANCODE_W]) {
                     cameraPitch += cameraRotationSpeed * 0.3f;
@@ -888,32 +895,21 @@ public:
                     cameraYaw = fmod(cameraYaw, 360.0f);
                 }
             }
-            if (viewRotationActive) {
-                static float viewRotation = 0.0f;
-                viewRotation = fmod(viewRotation + 0.3f, 360.0f);
-                float lookX = 0.48f * sin(glm::radians(viewRotation));
-                float lookY = 0.48f * sin(glm::radians(viewRotation * 0.7f));
-                float lookZ = 0.48f * cos(glm::radians(viewRotation));
-                lookDirection = glm::vec3(lookX, lookY, lookZ);
-            } else {
-                lookDirection.x = cos(glm::radians(cameraPitch)) * cos(glm::radians(cameraYaw));
-                lookDirection.y = sin(glm::radians(cameraPitch));
-                lookDirection.z = cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
-                lookDirection = glm::normalize(lookDirection) * 0.48f;
-            }
+
+            lookDirection.x = cos(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
+            lookDirection.y = sin(glm::radians(cameraPitch));
+            lookDirection.z = sin(glm::radians(cameraYaw)) * cos(glm::radians(cameraPitch));
+            lookDirection = glm::normalize(lookDirection);
 
             glm::vec3 cameraTarget = cameraPos + lookDirection;
-            glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+            glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-            glm::mat4 viewMatrix = glm::lookAt(cameraPos, cameraTarget, cameraUp);
-            glm::mat4 projectionMatrix = glm::perspective(
-                glm::radians(120.0f),
-                static_cast<float>(win->w) / static_cast<float>(win->h),
-                0.01f,
-                10.0f
-            );
+            glm::mat4 viewMatrix = glm::lookAt(cameraPos, cameraTarget, up);
+            glm::mat4 projectionMatrix = glm::perspective(glm::radians(90.0f),
+                                                        static_cast<float>(win->w) / win->h,
+                                                        0.1f, 100.0f);
 
-             glFrontFace(GL_CW);
+            glFrontFace(GL_CW);
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {

@@ -12,7 +12,6 @@ uniform mat4 proj_matrix;
 uniform float modelScale;  
 
 void main() {
-    
     vec3 scaledPosition = position * modelScale;
     gl_Position = proj_matrix * mv_matrix * vec4(scaledPosition, 1.0);
     tc = texCoord;
