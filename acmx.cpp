@@ -879,17 +879,16 @@ public:
                 mx::system_out << "acmx2: Model scale decreased: " << modelScale << "\n";
                 fflush(stdout);
             }
-
             if (oscillateScale) {
                 static float t = 0.0f;
-                t += 0.02f;                          
-                float amplitude = 0.3f;              
-                float base     = 1.0f;               
-                modelScale = base + amplitude * std::sin(t);
+                t += 0.02f;                    
+                float base = 1.0f;        
+                float amplitude = 5.0f;        
+                float s = (std::sin(t) * 0.5f) + 0.5f;   
+                modelScale = base + amplitude * s;       
             }
-
             glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
-            glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
+            glm::vec3 cameraPos   = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
             const Uint8* keystate = SDL_GetKeyboardState(NULL);
 
@@ -924,19 +923,25 @@ public:
                 lookDirection.z = cos(glm::radians(cameraPitch)) * sin(glm::radians(cameraYaw));
                 lookDirection = glm::normalize(lookDirection) * 0.48f;
             }
-
             glm::vec3 cameraTarget = cameraPos + lookDirection;
             glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
             glm::mat4 viewMatrix = glm::lookAt(cameraPos, cameraTarget, cameraUp);
-            glm::mat4 projectionMatrix = glm::perspective(
-                glm::radians(120.0f),             
-                static_cast<float>(win->w) / static_cast<float>(win->h),
-                0.01f,
-                10.0f
-            );
-
-            glFrontFace(GL_CW);
+            glm::mat4 projectionMatrix;
+            if(oscillateScale) {
+                projectionMatrix = glm::perspective(
+                    glm::radians(60.0f),
+                    static_cast<float>(win->w) / static_cast<float>(win->h),
+                    0.01f,
+                    50.0f
+                );
+            } else {
+                projectionMatrix = glm::perspective(
+                    glm::radians(120.0f),
+                    static_cast<float>(win->w) / static_cast<float>(win->h),
+                    0.01f,
+                    10.0f
+                );
+            }
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
@@ -1519,7 +1524,10 @@ const char *message = R"(
     Z - take snapshot
     F - toggle fullscreen
     Q - toggle reactive time (if AUDIO_ENABLED)
-    W,A,S,D - Look around in 3D mode
+    3D mode:
+    W,A,S,D - Look around 
+    O - Oscillation Toggle
+    +, - increase / decrease model scale
 }
 )";
 
