@@ -869,10 +869,14 @@ public:
             if (keystate[SDL_SCANCODE_EQUALS] || keystate[SDL_SCANCODE_KP_PLUS]) {
                 modelScale += scaleSpeed;
                 if (modelScale > 20.0f) modelScale = 20.0f;  
+                mx::system_out << "acmx2: sclae increased: " << modelScale << "\n";
+                fflush(stdout);
             }
             if (keystate[SDL_SCANCODE_MINUS] || keystate[SDL_SCANCODE_KP_MINUS]) {
                 modelScale -= scaleSpeed;
                 if (modelScale < 1.0f) modelScale = 1.0f;  
+                mx::system_out << "acmx2: sclae decreased: " << modelScale << "\n";
+                fflush(stdout);
             }
             
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
