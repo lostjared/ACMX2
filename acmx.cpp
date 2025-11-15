@@ -1162,19 +1162,6 @@ public:
                         mx::system_out << "acmx2: Model scale reset to 1.0\n";
                         fflush(stdout);
                         break;
-                    case SDLK_EQUALS:  
-                    case SDLK_PLUS:
-                        modelScale += scaleSpeed;
-                        mx::system_out << "acmx2: Model scale: " << modelScale << "\n";
-                        fflush(stdout);
-                        break;
-                    case SDLK_MINUS:
-                        if (modelScale - scaleSpeed > 0.1f) {
-                            modelScale -= scaleSpeed;
-                            mx::system_out << "acmx2: Model scale: " << modelScale << "\n";
-                            fflush(stdout);
-                        }
-                        break;
                 }
                 break;
             case SDL_KEYDOWN:
