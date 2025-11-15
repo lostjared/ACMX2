@@ -30,6 +30,7 @@
 #include <deque>
 #include <opencv2/opencv.hpp>
 #include <model.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 void transfer_audio(std::string_view, std::string_view);
 
@@ -873,7 +874,7 @@ public:
                 modelScale -= scaleSpeed;
                 if (modelScale < 1.0f) modelScale = 1.0f;  
             }
-            glm::mat4 modelMatrix = glm::mat4(1.0f);            
+            
             glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f); 
             glm::vec3 lookDirection;
 
@@ -910,6 +911,7 @@ public:
                                                         0.1f, 100.0f);
 
             glFrontFace(GL_CW);
+            glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
@@ -919,7 +921,6 @@ public:
             }
             activeShader->setUniform("mv_matrix", mvMatrix);
             activeShader->setUniform("proj_matrix", projectionMatrix);
-            activeShader->setUniform("modelScale", modelScale);  
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
@@ -1223,7 +1224,7 @@ private:
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
     float modelScale = 5.0f;
-    float scaleSpeed = 0.5f;
+    float scaleSpeed = 0.01f;
 private:
 
     void setupCaptureFBO(int width, int height) {
