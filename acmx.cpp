@@ -508,6 +508,9 @@ class ACView : public gl::GLObject {
 #endif
     bool isPaused = false;
     bool isFrozen = false;
+    GLuint pboIds[2] = {0, 0};  
+    int pboIndex = 0;
+    int pboNextIndex = 1;
 public:
     ACView(const MXArguments &args)
         : crf{args.crf},
@@ -556,6 +559,11 @@ public:
 
         stopCaptureThread(); 
         
+        if (pboIds[0]) {
+            glDeleteBuffers(2, pboIds);
+            pboIds[0] = pboIds[1] = 0;
+        }
+
         if (captureFBO) {
             glDeleteFramebuffers(1, &captureFBO);
             captureFBO = 0;
@@ -763,7 +771,13 @@ public:
         sprite.setName("samp");
         sprite.initWithTexture(library.shader(), camera_texture, 0, 0, blankMat.cols, blankMat.rows);
         setupCaptureFBO(win->w, win->h);
-
+        glGenBuffers(2, pboIds);
+        size_t pboSize = win->w * win->h * 4;
+        for (int i = 0; i < 2; i++) {
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[i]);
+            glBufferData(GL_PIXEL_PACK_BUFFER, pboSize, nullptr, GL_STREAM_READ);
+        }
+        glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
         if(!graphic.empty())
             win->setWindowTitle("ACMX2 - Graphics Input");
         else if(filename.empty())
@@ -988,38 +1002,54 @@ public:
 
             if (allowSnapshot || allowVideoFrame) {
                 lastEncodedFrameTime = now;
-
-                std::vector<unsigned char> pixels(win->w * win->h * 4);
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
                 glBindTexture(GL_TEXTURE_2D, fboTexture);
-                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
-                glBindTexture(GL_TEXTURE_2D, 0);
+                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0); 
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboNextIndex]);
+                GLubyte* src = (GLubyte*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+                
+                if (src) {
+                    std::vector<unsigned char> pixels(win->w * win->h * 4);
+                    std::memcpy(pixels.data(), src, pixels.size());
+                    glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+                    
+                    
+                    std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
+                    for (int y = 0; y < win->h; ++y) {
+                        int src_row_start  = y * win->w * 4;
+                        int dest_row_start = (win->h - 1 - y) * win->w * 4;
+                        std::copy(pixels.begin() + src_row_start,
+                                  pixels.begin() + src_row_start + (win->w * 4),
+                                  flipped_pixels.begin() + dest_row_start);
+                    }
 
-                std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
-                for (int y = 0; y < win->h; ++y) {
-                    int src_row_start  = y * win->w * 4;
-                    int dest_row_start = (win->h - 1 - y) * win->w * 4;
-                    std::copy(pixels.begin() + src_row_start,
-                              pixels.begin() + src_row_start + (win->w * 4),
-                              flipped_pixels.begin() + dest_row_start);
-                }
+                    FrameData fd;
+                    fd.pixels = std::move(flipped_pixels);
+                    fd.width  = win->w;
+                    fd.height = win->h;
+                    fd.isSnapshot = snapshot;
+                    snapshot = false;
 
-                FrameData fd;
-                fd.pixels = std::move(flipped_pixels);
-                fd.width  = win->w;
-                fd.height = win->h;
-                fd.isSnapshot = snapshot;
-                snapshot = false;
-
-                {
-                    std::lock_guard<std::mutex> lock(queueMutex);
-                    if (frameQueue.size() > 30) {  
-                        mx::system_err << "acmx2: Warning - encoder queue full (" 
-                                      << frameQueue.size() << " frames), dropping frame\n";
+                    {
+                        std::lock_guard<std::mutex> lock(queueMutex);
+                        if (frameQueue.size() > 30) {
+                        frames_dropped++;
+                        if (frames_dropped % 10 == 0) { 
+                            mx::system_err << "acmx2: Total frames dropped: " << frames_dropped << "\n";
+                        }
                         frameQueue.pop();
                     }
-                    frameQueue.push(std::move(fd));
+                        frameQueue.push(std::move(fd));
+                    }
+                    queueCondVar.notify_one();
                 }
-                queueCondVar.notify_one();
+                
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);
+                
+                
+                pboIndex = (pboIndex + 1) % 2;
+                pboNextIndex = (pboNextIndex + 1) % 2;
             }
         }
 
@@ -1115,13 +1145,14 @@ public:
 
         if (!graphic.empty() || !filename.empty()) {
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
-            lastFrameTime = now;
             if (fps > 0.0) {
                 int target_ms = static_cast<int>(1000.0 / fps);
-                if (elapsed < target_ms) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(target_ms - elapsed));
+                int sleep_ms = target_ms - static_cast<int>(elapsed);
+                if (sleep_ms > 0 && sleep_ms < target_ms) {  // Only sleep if reasonable
+                    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
                 }
             }
+            lastFrameTime = std::chrono::steady_clock::now();  // Update after sleep
         }
     }
 
@@ -1261,7 +1292,7 @@ private:
     bool oscillateScale = false;
     float cameraDistance = 0.0f;
 private:
-
+    std::atomic<uint64_t> frames_dropped{0};
     void setupCaptureFBO(int width, int height) {
         glGenFramebuffers(1, &captureFBO);
         glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
