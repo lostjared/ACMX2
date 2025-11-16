@@ -434,7 +434,6 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     av_log_set_level(AV_LOG_ERROR);
     opened = false;
 
-    
     if (avformat_alloc_output_context2(&format_ctx, nullptr, "mp4", filename.c_str()) < 0) {
         std::cerr << "Could not allocate output context.\n";
         return false;
@@ -459,7 +458,11 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     calculateFPSFraction(fps, fps_num, fps_den);
 
     AVRational tb = { fps_den, fps_num };
+    AVRational fr = { fps_num, fps_den };
+    
     stream->time_base = tb;
+    stream->avg_frame_rate = fr;  
+    stream->r_frame_rate = fr;    
 
     codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
@@ -471,7 +474,7 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     codec_ctx->width        = width;
     codec_ctx->height       = height;
     codec_ctx->time_base    = tb;
-    codec_ctx->framerate    = AVRational{ fps_num, fps_den };
+    codec_ctx->framerate    = fr;
     codec_ctx->pix_fmt      = AV_PIX_FMT_YUV420P;
     codec_ctx->gop_size     = 30;
     codec_ctx->thread_count = std::thread::hardware_concurrency();
@@ -505,10 +508,11 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
 
     if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
         std::cerr << "Could not open codec.\n";
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
 
-    
     if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
         std::cerr << "Failed to copy codec parameters.\n";
         avcodec_free_context(&codec_ctx);
@@ -525,7 +529,6 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
         }
     }
 
-    
     av_dict_set(&format_ctx->metadata, "title", "ACMX2 Recording", 0);
     av_dict_set(&format_ctx->metadata, "encoder", "ACMX2", 0);
 
