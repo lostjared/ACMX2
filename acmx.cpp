@@ -853,15 +853,19 @@ public:
             return;
         }
 
+        bool hasNewFrame = false;
+
         if(!isPaused && !isFrozen) {
             if(!graphic.empty()) {
                 newFrame = graphic_frame.clone();
                 cv::flip(newFrame, newFrame, 0);
+                hasNewFrame = true;
             } else if(filename.empty()) {
                 std::unique_lock<std::mutex> lock(captureQueueMutex);
                 if (!captureQueue.empty()) {
                     newFrame = std::move(captureQueue.front());
                     captureQueue.pop();
+                    hasNewFrame = true;  
                 }
             } else {
                 if(!cap.read(newFrame)) {
@@ -878,8 +882,10 @@ public:
                         return;
                     }
                 }
-                if(!newFrame.empty())
+                if(!newFrame.empty()) {
                     cv::flip(newFrame, newFrame, 0);
+                    hasNewFrame = true;
+                }
             }
         }
         if(library.isBypassed()) {
@@ -1042,7 +1048,7 @@ public:
 
         if (needWriter) {
             bool allowSnapshot   = snapshot;
-            bool allowVideoFrame = true;   
+            bool allowVideoFrame = hasNewFrame;  
 
             if (allowSnapshot || allowVideoFrame) {
                 lastEncodedFrameTime = now;
@@ -1878,6 +1884,7 @@ int main(int argc, char **argv) {
     try {
         args.slib = std::make_tuple(args.mode, 
                                     (args.mode == 0) ? args.fragment : args.library, 
+ 
                                     (args.mode == 0) ? 0 : args.shader_index);
 
         if(args.filename.empty() && args.cache) {
