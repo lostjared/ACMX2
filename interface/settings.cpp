@@ -189,19 +189,17 @@ void SettingsWindow::init() {
     enable3dCheckBox = new QCheckBox("Enable 3D", this);
     enable3dCheckBox->setChecked(false);
     enable3d_layout->addWidget(enable3dCheckBox);
-    
-    
+
     QHBoxLayout *modelFileLayout = new QHBoxLayout;
     modelFileLineEdit = new QLineEdit(this);
     modelFileLineEdit->setText("data/cube.mxmod.z"); 
     modelFileLineEdit->setReadOnly(true);
     modelFileLineEdit->setEnabled(false);
-    browseModelButton = new QPushButton("Set Model", this);
+    browseModelButton = new QPushButton("Model", this);
     browseModelButton->setEnabled(false);
     modelFileLayout->addWidget(modelFileLineEdit);
     modelFileLayout->addWidget(browseModelButton);
 
-    
     connect(enable3dCheckBox, &QCheckBox::toggled, this, [this](bool checked) {
         modelFileLineEdit->setEnabled(checked);
         browseModelButton->setEnabled(checked);
