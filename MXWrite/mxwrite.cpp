@@ -619,8 +619,8 @@ void Writer::write_ts(void* rgba_buffer) {
     std::lock_guard<std::mutex> frame_lock(frame_mutex);
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
-    int64_t pts_val = av_rescale_q(frame_count, AVRational{1, fps_num}, time_base);
-    frameYUV->pts = pts_val;
+    
+    frameYUV->pts = frame_count;
     
     int ret = avcodec_send_frame(codec_ctx, frameYUV);
     if (ret < 0) {
