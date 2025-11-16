@@ -725,12 +725,7 @@ public:
             cap.set(cv::CAP_PROP_FPS, fps);
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-            double actual_fps = cap.get(cv::CAP_PROP_FPS);
-            if (actual_fps > 0.0 && actual_fps != fps) {
-                mx::system_out << "acmx2: Camera requested " << fps 
-                               << " fps but actual is " << actual_fps << " fps\n";
-                fps = actual_fps;  
-            }
+            fps = cap.get(cv::CAP_PROP_FPS);
             frame_w = w;
             frame_h = h;
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
@@ -853,24 +848,33 @@ public:
     cv::Mat newFrame;
 
     virtual void draw(gl::GLWindow *win) override {
+        if (fps > 0.0) {
+            auto now = std::chrono::steady_clock::now();
+            auto frame_duration = std::chrono::microseconds(static_cast<long long>(1000000.0 / fps));
+            if (now > lastFrameTime + (frame_duration * 4)) {
+                lastFrameTime = now;
+            }
+            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastFrameTime);
+            if (elapsed < frame_duration) {
+                std::this_thread::sleep_for(frame_duration - elapsed);
+            }
+            lastFrameTime += frame_duration;
+        }
+
         if(!running) {
             win->quit();
             return;
         }
 
-        bool hasNewFrame = false;
-
         if(!isPaused && !isFrozen) {
             if(!graphic.empty()) {
                 newFrame = graphic_frame.clone();
                 cv::flip(newFrame, newFrame, 0);
-                hasNewFrame = true;
             } else if(filename.empty()) {
                 std::unique_lock<std::mutex> lock(captureQueueMutex);
                 if (!captureQueue.empty()) {
                     newFrame = std::move(captureQueue.front());
                     captureQueue.pop();
-                    hasNewFrame = true;  
                 }
             } else {
                 if(!cap.read(newFrame)) {
@@ -887,10 +891,8 @@ public:
                         return;
                     }
                 }
-                if(!newFrame.empty()) {
+                if(!newFrame.empty())
                     cv::flip(newFrame, newFrame, 0);
-                    hasNewFrame = true;
-                }
             }
         }
         if(library.isBypassed()) {
@@ -1049,14 +1051,14 @@ public:
         bool needWriter = (writer.is_open() || snapshot) && !isFrozen;
 
         static auto lastEncodedFrameTime = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();   
+        auto now2 = std::chrono::steady_clock::now();   
 
         if (needWriter) {
             bool allowSnapshot   = snapshot;
-            bool allowVideoFrame = hasNewFrame;  
+            bool allowVideoFrame = true;   
 
             if (allowSnapshot || allowVideoFrame) {
-                lastEncodedFrameTime = now;
+                lastEncodedFrameTime = now2;
 
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
                 glBindTexture(GL_TEXTURE_2D, fboTexture);
@@ -1121,6 +1123,7 @@ public:
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
 
         static auto lastUpdate = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
         
 
         if (!graphic.empty()) {
@@ -1197,18 +1200,6 @@ public:
                 win->setWindowTitle(stream.str());
                 lastUpdate = now;
             }
-        }
-
-        if (!graphic.empty() || !filename.empty()) {
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFrameTime).count();
-            if (fps > 0.0) {
-                int target_ms = static_cast<int>(1000.0 / fps);
-                int sleep_ms = target_ms - static_cast<int>(elapsed);
-                if (sleep_ms > 0 && sleep_ms < target_ms) {  
-                    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
-                }
-            }
-            lastFrameTime = std::chrono::steady_clock::now();
         }
     }
 
@@ -1349,8 +1340,9 @@ private:
     float cameraDistance = 0.0f;
 private:
     std::atomic<uint64_t> frames_dropped{0};
-    std::atomic<uint64_t> capture_frames_dropped{0};
-
+    int win_w = 0;
+    int win_h = 0;
+    
     void flushPBOs(gl::GLWindow *win) {
         if (!pboIds[0]) return;
            for (int i = 0; i < 2; i++) {
@@ -1420,10 +1412,6 @@ private:
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
-
-    int win_w = 0;
-    int win_h = 0;
-
     GLuint loadTexture(cv::Mat &frame) {
         GLuint texture = 0;
         glGenTextures(1, &texture);
@@ -1469,9 +1457,9 @@ private:
             return; 
         }
         running = true;
-        capture_frames_dropped = 0;
         captureThread = std::thread([this]() {
             try {
+                
                 while(running) {
                     cv::Mat localFrame;
                     if(!cap.read(localFrame)) {
@@ -1485,19 +1473,12 @@ private:
                     cv::flip(localFrame, localFrame, 0);
                     {
                         std::lock_guard<std::mutex> lock(captureQueueMutex);
-                        if(captureQueue.size() >= 10) {  
-                            capture_frames_dropped++;
-                            if(capture_frames_dropped % 30 == 0) {  
-                                mx::system_err << "acmx2: Capture dropped " << capture_frames_dropped << " frames\n";
-                            }
+                        if(captureQueue.size() >= 4) {
                             captureQueue.pop(); 
                         }
                         captureQueue.push(std::move(localFrame));
                     }
                     captureQueueCondVar.notify_one();
-                }
-                if(capture_frames_dropped > 0) {
-                    mx::system_err << "acmx2: Total capture frames dropped: " << capture_frames_dropped << "\n";
                 }
             } catch(const std::exception &e) {
                 mx::system_err << "acmx2: Capture thread exception: " << e.what() << "\n";
@@ -1549,8 +1530,8 @@ private:
                     written_frame_counter++;
                 }
                 if(fd.isSnapshot) {
-                    auto now = std::chrono::system_clock::now();
-                    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                    auto now1 = std::chrono::system_clock::now();
+                    std::time_t now_c = std::chrono::system_clock::to_time_t(now1);
                     std::tm localTime = *std::localtime(&now_c);
 
                     std::ostringstream oss;
@@ -1873,7 +1854,7 @@ int main(int argc, char **argv) {
                 break;
 #endif
             }
-        }
+               }
     } catch (const ArgException<std::string>& e) {
         mx::system_err << e.text() << "\n";
         mx::system_err.flush();
@@ -1881,14 +1862,13 @@ int main(int argc, char **argv) {
     }    
 
     if(args.path.empty()) {
-               args.path = ".";
+        args.path = ".";
         mx::system_out << "acmx2: Path name not provided, using current path...\n";
     }
 
     try {
         args.slib = std::make_tuple(args.mode, 
                                     (args.mode == 0) ? args.fragment : args.library, 
- 
                                     (args.mode == 0) ? 0 : args.shader_index);
 
         if(args.filename.empty() && args.cache) {

@@ -389,12 +389,22 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, const ch
 }
 
 void Writer::write(void* rgba_buffer) {
+    std::lock_guard<std::mutex> lock(writer_mutex);
     if (!opened || !rgba_buffer) {
         return;
     }
-    
-    std::lock_guard<std::mutex> lock(writer_mutex);
-    
+    {
+        std::lock_guard<std::mutex> frame_lock(frame_mutex);
+        if (frame_queue.size() >= MAX_QUEUE_SIZE) {
+            static int drop_counter = 0;
+            if (++drop_counter % 30 == 0) {
+                std::cerr << "Writer: dropped " << drop_counter << " frames (encoder too slow)\n";
+            }
+            return;
+        }
+    }
+
+    std::lock_guard<std::mutex> frame_lock(frame_mutex);
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
     frameYUV->pts = frame_count++;
@@ -404,7 +414,6 @@ void Writer::write(void* rgba_buffer) {
         std::cerr << "Error sending frame to encoder: " << ret << std::endl;
         return;
     }
-    
     AVPacket* pkt = av_packet_alloc();
     while (true) {
         ret = avcodec_receive_packet(codec_ctx, pkt);
@@ -433,7 +442,6 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     avformat_network_init();
     av_log_set_level(AV_LOG_ERROR);
     opened = false;
-
     if (avformat_alloc_output_context2(&format_ctx, nullptr, "mp4", filename.c_str()) < 0) {
         std::cerr << "Could not allocate output context.\n";
         return false;
@@ -457,12 +465,9 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     height = h;
     calculateFPSFraction(fps, fps_num, fps_den);
 
-    AVRational tb = { fps_den, fps_num };
-    AVRational fr = { fps_num, fps_den };
     
-    stream->time_base = tb;
-    stream->avg_frame_rate = fr;  
-    stream->r_frame_rate = fr;
+    AVRational precise_tb = { fps_den, fps_num };
+    stream->time_base = precise_tb;
 
     codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
@@ -473,8 +478,8 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
 
     codec_ctx->width        = width;
     codec_ctx->height       = height;
-    codec_ctx->time_base    = tb;
-    codec_ctx->framerate    = fr;
+    codec_ctx->time_base    = precise_tb;
+    codec_ctx->framerate    = AVRational{ fps_num, fps_den };
     codec_ctx->pix_fmt      = AV_PIX_FMT_YUV420P;
     codec_ctx->gop_size     = 30;
     codec_ctx->thread_count = std::thread::hardware_concurrency();
@@ -493,59 +498,42 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "MXWrite: hardware acceleration enabled (CUDA)\n";
+        std::cout << "MXWrite: hardware acceleration enabled (CUDA) for TS\n";
     } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "MXWrite: hardware acceleration enabled (VAAPI)\n";
+        std::cout << "MXWrite: hardware acceleration enabled (VAAPI) for TS\n";
     } else {
-        std::cerr << "MXWrite: hardware acceleration not available, using CPU encoding\n";
+        std::cerr << "MXWrite: hardware acceleration not available for TS, using CPU encoding\n";
     }
-    time_base = tb;
-
     if (format_ctx->oformat->flags & AVFMT_GLOBALHEADER) {
         codec_ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
 
     if (avcodec_open2(codec_ctx, codec, nullptr) < 0) {
         std::cerr << "Could not open codec.\n";
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
-        return false;
-    }
-
-    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
-        std::cerr << "Failed to copy codec parameters.\n";
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
 
     if (!(format_ctx->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&format_ctx->pb, filename.c_str(), AVIO_FLAG_WRITE) < 0) {
             std::cerr << "Could not open output file.\n";
-            avcodec_free_context(&codec_ctx);
-            avformat_free_context(format_ctx);
             return false;
         }
     }
 
-    av_dict_set(&format_ctx->metadata, "title", "ACMX2 Recording", 0);
-    av_dict_set(&format_ctx->metadata, "encoder", "ACMX2", 0);
+    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
+        std::cerr << "Failed to copy codec parameters.\n";
+        return false;
+    }
 
     if (avformat_write_header(format_ctx, nullptr) < 0) {
         std::cerr << "Error occurred when writing header.\n";
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
 
     frameRGBA = av_frame_alloc();
     if (!frameRGBA) {
         std::cerr << "Could not allocate frameRGBA.\n";
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
     frameRGBA->format = AV_PIX_FMT_RGBA;
@@ -553,20 +541,11 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     frameRGBA->height = height;
     if (av_frame_get_buffer(frameRGBA, 32) < 0) {
         std::cerr << "Could not allocate frame buffer for RGBA frame.\n";
-        av_frame_free(&frameRGBA);
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
-    
     frameYUV = av_frame_alloc();
     if (!frameYUV) {
         std::cerr << "Could not allocate frameYUV.\n";
-        av_frame_free(&frameRGBA);
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
     frameYUV->format = AV_PIX_FMT_YUV420P;
@@ -574,11 +553,6 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     frameYUV->height = height;
     if (av_frame_get_buffer(frameYUV, 32) < 0) {
         std::cerr << "Could not allocate frame buffer for YUV frame.\n";
-        av_frame_free(&frameRGBA);
-        av_frame_free(&frameYUV);
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     } 
     sws_ctx = sws_getContext(
@@ -589,38 +563,31 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     );
     if (!sws_ctx) {
         std::cerr << "Could not create sws context.\n";
-        av_frame_free(&frameRGBA);
-        av_frame_free(&frameYUV);
-        avio_closep(&format_ctx->pb);
-        avcodec_free_context(&codec_ctx);
-        avformat_free_context(format_ctx);
         return false;
     }
-    
     opened = true;
     frame_count = 0;
-    recordingStart = std::chrono::steady_clock::now();
     return true;
 }
 
 
 void Writer::write_ts(void* rgba_buffer) {
+    std::lock_guard<std::mutex> lock(writer_mutex);
     if (!opened || !rgba_buffer) {
         return;
     }
 
-    std::lock_guard<std::mutex> lock(writer_mutex);
-    
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
-    
-    frameYUV->pts = frame_count++;
+    frameYUV->pts = av_rescale_q(frame_count, AVRational{1, fps_num / fps_den}, codec_ctx->time_base);
     
     int ret = avcodec_send_frame(codec_ctx, frameYUV);
     if (ret < 0) {
         std::cerr << "Error sending frame to encoder: " << ret << "\n";
         return;
     }
+
+    frame_count++;
 
     AVPacket* pkt = av_packet_alloc();
     while (true) {
