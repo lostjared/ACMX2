@@ -1468,20 +1468,7 @@ private:
         running = true;
         captureThread = std::thread([this]() {
             try {
-                auto lastCapture = std::chrono::steady_clock::now();
-                auto captureStart = lastCapture;  
-                auto frameInterval = std::chrono::microseconds(static_cast<int64_t>(1000000.0 / fps));
-                
                 while(running) {
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - lastCapture);
-                    if (elapsed < frameInterval) {
-                        std::this_thread::sleep_for(frameInterval - elapsed);
-                        continue;
-                    }
-                    
-                    lastCapture = now;
-                    
                     cv::Mat localFrame;
                     if(!cap.read(localFrame)) {
                         mx::system_err << "acmx2: camera read failed.\n";
