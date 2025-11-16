@@ -457,20 +457,12 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     height = h;
     calculateFPSFraction(fps, fps_num, fps_den);
 
-    // DEBUG: Print what we calculated
-    std::cout << "MXWrite: Input FPS: " << fps 
-              << " -> fraction: " << fps_num << "/" << fps_den 
-              << " = " << (static_cast<double>(fps_num) / fps_den) << "\n";
-
     AVRational tb = { fps_den, fps_num };
     AVRational fr = { fps_num, fps_den };
     
     stream->time_base = tb;
     stream->avg_frame_rate = fr;  
     stream->r_frame_rate = fr;
-
-    std::cout << "MXWrite: time_base: " << tb.num << "/" << tb.den 
-              << ", framerate: " << fr.num << "/" << fr.den << "\n";
 
     codec_ctx = avcodec_alloc_context3(codec);
     if (!codec_ctx) {
