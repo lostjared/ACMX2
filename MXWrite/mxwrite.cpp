@@ -389,22 +389,12 @@ bool Writer::open(const std::string& filename, int w, int h, float fps, const ch
 }
 
 void Writer::write(void* rgba_buffer) {
-    std::lock_guard<std::mutex> lock(writer_mutex);
     if (!opened || !rgba_buffer) {
         return;
     }
-    {
-        std::lock_guard<std::mutex> frame_lock(frame_mutex);
-        if (frame_queue.size() >= MAX_QUEUE_SIZE) {
-            static int drop_counter = 0;
-            if (++drop_counter % 30 == 0) {
-                std::cerr << "Writer: dropped " << drop_counter << " frames (encoder too slow)\n";
-            }
-            return;
-        }
-    }
-
-    std::lock_guard<std::mutex> frame_lock(frame_mutex);
+    
+    std::lock_guard<std::mutex> lock(writer_mutex);
+    
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
     frameYUV->pts = frame_count++;
@@ -414,6 +404,7 @@ void Writer::write(void* rgba_buffer) {
         std::cerr << "Error sending frame to encoder: " << ret << std::endl;
         return;
     }
+    
     AVPacket* pkt = av_packet_alloc();
     while (true) {
         ret = avcodec_receive_packet(codec_ctx, pkt);
@@ -611,24 +602,22 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
 
 
 void Writer::write_ts(void* rgba_buffer) {
-    std::lock_guard<std::mutex> lock(writer_mutex);
     if (!opened || !rgba_buffer) {
         return;
     }
 
-    std::lock_guard<std::mutex> frame_lock(frame_mutex);
+    std::lock_guard<std::mutex> lock(writer_mutex);
+    
     memcpy(frameRGBA->data[0], rgba_buffer, width * height * 4);
     sws_scale(sws_ctx, frameRGBA->data, frameRGBA->linesize, 0, height, frameYUV->data, frameYUV->linesize);
     
-    frameYUV->pts = frame_count;
+    frameYUV->pts = frame_count++;
     
     int ret = avcodec_send_frame(codec_ctx, frameYUV);
     if (ret < 0) {
         std::cerr << "Error sending frame to encoder: " << ret << "\n";
         return;
     }
-
-    frame_count++;
 
     AVPacket* pkt = av_packet_alloc();
     while (true) {
