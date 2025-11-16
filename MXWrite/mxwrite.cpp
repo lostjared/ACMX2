@@ -443,7 +443,8 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     av_log_set_level(AV_LOG_ERROR);
     opened = false;
 
-    if (avformat_alloc_output_context2(&format_ctx, nullptr, "mpegts", filename.c_str()) < 0) {
+    
+    if (avformat_alloc_output_context2(&format_ctx, nullptr, "mp4", filename.c_str()) < 0) {
         std::cerr << "Could not allocate output context.\n";
         return false;
     }
@@ -498,12 +499,12 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     AVBufferRef *hw_device_ctx = nullptr;
     if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "MXWrite: hardware acceleration enabled (CUDA) for TS\n";
+        std::cout << "MXWrite: hardware acceleration enabled (CUDA)\n";
     } else if (av_hwdevice_ctx_create(&hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI, nullptr, nullptr, 0) == 0) {
         codec_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-        std::cout << "MXWrite: hardware acceleration enabled (VAAPI) for TS\n";
+        std::cout << "MXWrite: hardware acceleration enabled (VAAPI)\n";
     } else {
-        std::cerr << "MXWrite: hardware acceleration not available for TS, using CPU encoding\n";
+        std::cerr << "MXWrite: hardware acceleration not available, using CPU encoding\n";
     }
     time_base = tb;
 
@@ -516,26 +517,41 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
         return false;
     }
 
+    
+    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
+        std::cerr << "Failed to copy codec parameters.\n";
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
+        return false;
+    }
+
     if (!(format_ctx->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&format_ctx->pb, filename.c_str(), AVIO_FLAG_WRITE) < 0) {
             std::cerr << "Could not open output file.\n";
+            avcodec_free_context(&codec_ctx);
+            avformat_free_context(format_ctx);
             return false;
         }
     }
 
-    if (avcodec_parameters_from_context(stream->codecpar, codec_ctx) < 0) {
-        std::cerr << "Failed to copy codec parameters.\n";
-        return false;
-    }
+    
+    av_dict_set(&format_ctx->metadata, "title", "ACMX2 Recording", 0);
+    av_dict_set(&format_ctx->metadata, "encoder", "ACMX2", 0);
 
     if (avformat_write_header(format_ctx, nullptr) < 0) {
         std::cerr << "Error occurred when writing header.\n";
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
 
     frameRGBA = av_frame_alloc();
     if (!frameRGBA) {
         std::cerr << "Could not allocate frameRGBA.\n";
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
     frameRGBA->format = AV_PIX_FMT_RGBA;
@@ -543,11 +559,20 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     frameRGBA->height = height;
     if (av_frame_get_buffer(frameRGBA, 32) < 0) {
         std::cerr << "Could not allocate frame buffer for RGBA frame.\n";
+        av_frame_free(&frameRGBA);
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
+    
     frameYUV = av_frame_alloc();
     if (!frameYUV) {
         std::cerr << "Could not allocate frameYUV.\n";
+        av_frame_free(&frameRGBA);
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
     frameYUV->format = AV_PIX_FMT_YUV420P;
@@ -555,6 +580,11 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     frameYUV->height = height;
     if (av_frame_get_buffer(frameYUV, 32) < 0) {
         std::cerr << "Could not allocate frame buffer for YUV frame.\n";
+        av_frame_free(&frameRGBA);
+        av_frame_free(&frameYUV);
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     } 
     sws_ctx = sws_getContext(
@@ -565,10 +595,17 @@ bool Writer::open_ts(const std::string& filename, int w, int h, float fps, const
     );
     if (!sws_ctx) {
         std::cerr << "Could not create sws context.\n";
+        av_frame_free(&frameRGBA);
+        av_frame_free(&frameYUV);
+        avio_closep(&format_ctx->pb);
+        avcodec_free_context(&codec_ctx);
+        avformat_free_context(format_ctx);
         return false;
     }
+    
     opened = true;
     frame_count = 0;
+    recordingStart = std::chrono::steady_clock::now();
     return true;
 }
 
