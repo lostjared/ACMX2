@@ -725,7 +725,12 @@ public:
             cap.set(cv::CAP_PROP_FPS, fps);
             w = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
             h = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
-            fps = cap.get(cv::CAP_PROP_FPS);
+            double actual_fps = cap.get(cv::CAP_PROP_FPS);
+            if (actual_fps > 0.0 && actual_fps != fps) {
+                mx::system_out << "acmx2: Camera requested " << fps 
+                               << " fps but actual is " << actual_fps << " fps\n";
+                fps = actual_fps;  
+            }
             frame_w = w;
             frame_h = h;
             mx::system_out << "acmx2: Camera opened: " << w << "x" << h << " at FPS: " << fps << "\n";
@@ -1464,6 +1469,7 @@ private:
         captureThread = std::thread([this]() {
             try {
                 auto lastCapture = std::chrono::steady_clock::now();
+                auto captureStart = lastCapture;  
                 auto frameInterval = std::chrono::microseconds(static_cast<int64_t>(1000000.0 / fps));
                 
                 while(running) {
@@ -1877,7 +1883,7 @@ int main(int argc, char **argv) {
     }    
 
     if(args.path.empty()) {
-        args.path = ".";
+               args.path = ".";
         mx::system_out << "acmx2: Path name not provided, using current path...\n";
     }
 
