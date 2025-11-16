@@ -1349,9 +1349,8 @@ private:
     float cameraDistance = 0.0f;
 private:
     std::atomic<uint64_t> frames_dropped{0};
-    int win_w = 0;
-    int win_h = 0;
-    
+    std::atomic<uint64_t> capture_frames_dropped{0};
+
     void flushPBOs(gl::GLWindow *win) {
         if (!pboIds[0]) return;
            for (int i = 0; i < 2; i++) {
@@ -1421,6 +1420,10 @@ private:
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
+
+    int win_w = 0;
+    int win_h = 0;
+
     GLuint loadTexture(cv::Mat &frame) {
         GLuint texture = 0;
         glGenTextures(1, &texture);
@@ -1466,6 +1469,7 @@ private:
             return; 
         }
         running = true;
+        capture_frames_dropped = 0;
         captureThread = std::thread([this]() {
             try {
                 while(running) {
@@ -1481,12 +1485,19 @@ private:
                     cv::flip(localFrame, localFrame, 0);
                     {
                         std::lock_guard<std::mutex> lock(captureQueueMutex);
-                        while(captureQueue.size() >= 2) {
+                        if(captureQueue.size() >= 10) {  
+                            capture_frames_dropped++;
+                            if(capture_frames_dropped % 30 == 0) {  
+                                mx::system_err << "acmx2: Capture dropped " << capture_frames_dropped << " frames\n";
+                            }
                             captureQueue.pop(); 
                         }
                         captureQueue.push(std::move(localFrame));
                     }
                     captureQueueCondVar.notify_one();
+                }
+                if(capture_frames_dropped > 0) {
+                    mx::system_err << "acmx2: Total capture frames dropped: " << capture_frames_dropped << "\n";
                 }
             } catch(const std::exception &e) {
                 mx::system_err << "acmx2: Capture thread exception: " << e.what() << "\n";
