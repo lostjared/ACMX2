@@ -1667,7 +1667,6 @@ public:
         delay();
     }
 
-    
     void event(SDL_Event &e) override {
         
     }
@@ -1749,7 +1748,7 @@ int main(int argc, char **argv) {
           .addOptionSingleValue('q', "Audio Sensitivty")
           .addOptionDoubleValue('Q', "sense", "Audio sensitivty")
           .addOptionSingle('y', "Enable Audio Pass-through")
-          .addOptionDouble('Y', "pass-through", "Enable audio pass thorugh")
+          .addOptionDouble('Y', "pass-through", "Enable audio pass through")
           .addOptionDoubleValue(300, "audio-input", "Audio input device")
           .addOptionDoubleValue(301, "audio-output", "Audio output device")
           .addOptionDouble(302, "list-devices", "list audio devices")
