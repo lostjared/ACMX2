@@ -1146,7 +1146,7 @@ public:
                                 frameQueue.pop();
                             }
                         } else {
-                            queueCondVar.wait(lock, [this] { return frameQueue.size() < 30; });
+                            queueCondVar.wait(lock, [this] { return frameQueue.size() < 30 || !running; });
                         }
                         frameQueue.push(std::move(fd));
                     }
@@ -1553,66 +1553,68 @@ private:
         running = true;
         written_frame_counter = 0;
         writerThread = std::thread([this]() {
-        try {
-            captureStartTime = std::chrono::steady_clock::now();
-    
-            while (running) {
-                FrameData fd;
-                {
-                    std::unique_lock<std::mutex> lock(queueMutex);
-                    queueCondVar.wait(lock, [this]() {
-                        return !frameQueue.empty() || !running;
-                    });
+            try {
+                captureStartTime = std::chrono::steady_clock::now();
 
-                    if (!running && frameQueue.empty()) {
-                        break;
+                while (running) {
+                    FrameData fd;
+                    {
+                        std::unique_lock<std::mutex> lock(queueMutex);
+                        queueCondVar.wait(lock, [this]() {
+                            return !frameQueue.empty() || !running;
+                        });
+
+                        if (!running && frameQueue.empty()) {
+                            break;
+                        }
+
+                        fd = std::move(frameQueue.front());
+                        frameQueue.pop();
+
+                        queueCondVar.notify_all();
                     }
 
-                    fd = std::move(frameQueue.front());
-                    frameQueue.pop();
-                }
+                    if (fd.isSnapshot) {
+                        uint64_t current_offset = snapshotOffset.fetch_add(1);
+                        snapshot_pool.enqueue([this, fd, current_offset] {
+                            auto now1 = std::chrono::system_clock::now();
+                            std::time_t now_c = std::chrono::system_clock::to_time_t(now1);
+                            std::tm localTime = *std::localtime(&now_c);
 
-                if (fd.isSnapshot) {
-                    uint64_t current_offset = snapshotOffset.fetch_add(1);
-                    snapshot_pool.enqueue([this, fd, current_offset] {
-                        auto now1 = std::chrono::system_clock::now();
-                        std::time_t now_c = std::chrono::system_clock::to_time_t(now1);
-                        std::tm localTime = *std::localtime(&now_c);
+                            std::ostringstream oss;
+                            oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
+                            std::string name = prefix_path + "/ACMX2.Snapshot-"
+                                            + oss.str() + "-"
+                                            + std::to_string(fd.width) + "x"
+                                            + std::to_string(fd.height) + "-"
+                                            + std::to_string(current_offset) 
+                                            + ".png";
 
-                        std::ostringstream oss;
-                        oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-                        std::string name = prefix_path + "/ACMX2.Snapshot-"
-                                         + oss.str() + "-"
-                                         + std::to_string(fd.width) + "x"
-                                         + std::to_string(fd.height) + "-"
-                                         + std::to_string(current_offset) 
-                                         + ".png";
+                            png::SavePNG_RGBA(name.c_str(), 
+                                            const_cast<unsigned char*>(fd.pixels.data()), 
+                                            fd.width, fd.height);
 
-                        png::SavePNG_RGBA(name.c_str(), 
-                                          const_cast<unsigned char*>(fd.pixels.data()), 
-                                          fd.width, fd.height);
-
-                        mx::system_out << "acmx2: Took snapshot: " << name << "\n";
-                        fflush(stdout);
-                    });
-                }
-
-                if (writer.is_open() && !fd.isSnapshot) { 
-                    if(!filename.empty() || !graphic.empty()) { 
-                        writer.write(fd.pixels.data());
-                    } else {
-                        writer.write_ts(fd.pixels.data());
+                            mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                            fflush(stdout);
+                        });
                     }
-                    written_frame_counter++;
+
+                    if (writer.is_open() && !fd.isSnapshot) { 
+                        if(!filename.empty() || !graphic.empty()) { 
+                            writer.write(fd.pixels.data());
+                        } else {
+                            writer.write_ts(fd.pixels.data());
+                        }
+                        written_frame_counter++;
+                    }
                 }
+            } catch(const std::exception &e) {
+                mx::system_err << "acmx2: Writer thread exception: " << e.what() << "\n";
+                running = false;
+                fflush(stderr);
+                fflush(stdout);
             }
-        } catch(const std::exception &e) {
-            mx::system_err << "acmx2: Writer thread exception: " << e.what() << "\n";
-            running = false;
-            fflush(stderr);
-            fflush(stdout);
-        }
-    });
+        });
     }
 
     void stopWriterThread() {
@@ -1933,7 +1935,7 @@ int main(int argc, char **argv) {
         main_window.loop();
     } 
     catch(const mx::Exception &e) {
-               mx::system_err << "acmx2: Exception: " << e.text() << "\n";
+        mx::system_err << "acmx2: Exception: " << e.text() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
     } 
