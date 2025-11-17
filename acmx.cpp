@@ -34,6 +34,55 @@
 
 void transfer_audio(std::string_view, std::string_view);
 
+class SnapshotThreadPool {
+public:
+    SnapshotThreadPool(size_t threads) : stop(false) {
+        for(size_t i = 0; i < threads; ++i)
+            workers.emplace_back([this] {
+                for(;;) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock<std::mutex> lock(this->queue_mutex);
+                        this->condition.wait(lock, [this]{ return this->stop || !this->tasks.empty(); });
+                        if(this->stop) {
+                            return;
+                        }
+                        task = std::move(this->tasks.front());
+                        this->tasks.pop();
+                    }
+                    task();
+                }
+            });
+    }
+
+    template<class F>
+    void enqueue(F&& f) {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            if(stop) throw std::runtime_error("enqueue on stopped SnapshotThreadPool");
+            tasks.emplace(std::forward<F>(f));
+        }
+        condition.notify_one();
+    }
+
+    ~SnapshotThreadPool() {
+        {
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            stop = true;
+        }
+        condition.notify_all();
+        for(std::thread &worker: workers)
+            worker.join();
+    }
+
+private:
+    std::vector<std::thread> workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex queue_mutex;
+    std::condition_variable condition;
+    bool stop;
+};
+
 class FrameCache {
 public:
     explicit FrameCache(std::size_t num)
@@ -511,6 +560,7 @@ class ACView : public gl::GLObject {
     GLuint pboIds[2] = {0, 0};  
     int pboIndex = 0;
     int pboNextIndex = 1;
+    SnapshotThreadPool snapshot_pool{2};
 public:
     ACView(const MXArguments &args)
         : crf{args.crf},
@@ -1087,18 +1137,17 @@ public:
                     fd.height = win->h;
                     fd.isSnapshot = snapshot;
                     snapshot = false;
-
                     {
-                        std::lock_guard<std::mutex> lock(queueMutex);
-                        if (frameQueue.size() > 30) {
-                        frames_dropped++;
-                        if (frames_dropped % 10 == 0) { 
-                            mx::system_err << "acmx2: Total frames dropped: " << frames_dropped << "\n";
-                            fflush(stderr);
-                            fflush(stdout);
+                        std::unique_lock<std::mutex> lock(queueMutex);
+                        bool is_camera_mode = filename.empty() && graphic.empty();
+                        if (is_camera_mode) {
+                            if (frameQueue.size() > 30) {
+                                frames_dropped++;
+                                frameQueue.pop();
+                            }
+                        } else {
+                            queueCondVar.wait(lock, [this] { return frameQueue.size() < 30; });
                         }
-                        frameQueue.pop();
-                    }
                         frameQueue.push(std::move(fd));
                     }
                     queueCondVar.notify_one();
@@ -1338,6 +1387,7 @@ private:
     float scaleSpeed = 0.05f;
     bool oscillateScale = false;
     float cameraDistance = 0.0f;
+    std::atomic<uint64_t> snapshotOffset{0};
 private:
     std::atomic<uint64_t> frames_dropped{0};
     int win_w = 0;
@@ -1495,6 +1545,8 @@ private:
         }
     }
 
+    
+
     void startWriterThread() {
         if (writerThread.joinable()) 
             return;
@@ -1502,7 +1554,6 @@ private:
         written_frame_counter = 0;
         writerThread = std::thread([this]() {
         try {
-            static uint64_t snapshotOffset = 0; 
             captureStartTime = std::chrono::steady_clock::now();
     
             while (running) {
@@ -1521,35 +1572,38 @@ private:
                     frameQueue.pop();
                 }
 
-                if (writer.is_open()) {
+                if (fd.isSnapshot) {
+                    uint64_t current_offset = snapshotOffset.fetch_add(1);
+                    snapshot_pool.enqueue([this, fd, current_offset] {
+                        auto now1 = std::chrono::system_clock::now();
+                        std::time_t now_c = std::chrono::system_clock::to_time_t(now1);
+                        std::tm localTime = *std::localtime(&now_c);
+
+                        std::ostringstream oss;
+                        oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
+                        std::string name = prefix_path + "/ACMX2.Snapshot-"
+                                         + oss.str() + "-"
+                                         + std::to_string(fd.width) + "x"
+                                         + std::to_string(fd.height) + "-"
+                                         + std::to_string(current_offset) 
+                                         + ".png";
+
+                        png::SavePNG_RGBA(name.c_str(), 
+                                          const_cast<unsigned char*>(fd.pixels.data()), 
+                                          fd.width, fd.height);
+
+                        mx::system_out << "acmx2: Took snapshot: " << name << "\n";
+                        fflush(stdout);
+                    });
+                }
+
+                if (writer.is_open() && !fd.isSnapshot) { 
                     if(!filename.empty() || !graphic.empty()) { 
                         writer.write(fd.pixels.data());
                     } else {
                         writer.write_ts(fd.pixels.data());
                     }
                     written_frame_counter++;
-                }
-                if(fd.isSnapshot) {
-                    auto now1 = std::chrono::system_clock::now();
-                    std::time_t now_c = std::chrono::system_clock::to_time_t(now1);
-                    std::tm localTime = *std::localtime(&now_c);
-
-                    std::ostringstream oss;
-                    oss << std::put_time(&localTime, "%Y.%m.%d-%H.%M.%S");
-                    std::string name = prefix_path + "/ACMX2.Snapshot-"
-                                     + oss.str() + "-"
-                                     + std::to_string(fd.width) + "x"
-                                     + std::to_string(fd.height) + "-"
-                                     + std::to_string(snapshotOffset++) 
-                                     + ".png";
-
-                    png::SavePNG_RGBA(name.c_str(), 
-                                      fd.pixels.data(), 
-                                      fd.width, fd.height);
-
-                   mx::system_out << "acmx2: Took snapshot: " << name << "\n";
-                    fflush(stdout);
-                    fflush(stderr);
                 }
             }
         } catch(const std::exception &e) {
@@ -1832,7 +1886,7 @@ int main(int argc, char **argv) {
                 case 'q':
                     args.audio_sensitivty = atof(arg.arg_value.c_str());
                     break;
-                case 'Y':
+                               case 'Y':
                 case 'y':
                     set_output(true);
                     break;
@@ -1879,7 +1933,7 @@ int main(int argc, char **argv) {
         main_window.loop();
     } 
     catch(const mx::Exception &e) {
-        mx::system_err << "acmx2: Exception: " << e.text() << "\n";
+               mx::system_err << "acmx2: Exception: " << e.text() << "\n";
         mx::system_err.flush();
         return EXIT_FAILURE;
     } 
