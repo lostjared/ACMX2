@@ -1760,13 +1760,15 @@ int main(int argc, char **argv) {
 #endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
 
-    mx::system_out << PROGRAM_NAME << " " << VERSION_INFO << "\n";
-    mx::system_out << "(C) 2025 " << VERSION_AUTHOR << "\n";
-
     if(argc == 1) {
         printAbout(parser);
         exit(EXIT_SUCCESS);
     }
+
+    mx::system_out << PROGRAM_NAME << " " << VERSION_INFO << "\n";
+    mx::system_out << "(C) 2025 " << VERSION_AUTHOR << "\n";
+    mx::system_out << "https://lostsidedead.biz\n";
+
     Argument<std::string> arg;
     MXArguments args;
     int value = 0;
