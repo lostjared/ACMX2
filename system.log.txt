@@ -1,0 +1,69 @@
+ACMX2: v1.4.1
+(C) 2025 LostSideDead
+https://lostsidedead.biz
+Command Line Arguments:
+-a        	Repeat    
+-b        	Bitrate in CRF
+-c        	Camera Resolution
+-d        	Camera Device
+-e        	Save Prefix
+-f        	Fragment Shader
+-g        	Input Image
+-h        	Shader Index
+-i        	Input file
+-l        	Audio channels
+-n        	fullscreen
+-o        	output file
+-p        	assets path
+-q        	Audio Sensitivty
+-r        	Resolution WidthxHeight
+-s        	Shader Library Index File
+-u        	frames per second
+-v        	Display help message
+-w        	Enable Audio Reactivity
+-y        	Enable Audio Pass-through
+--repeat    	Video repeat
+--bitrate   	Bitrate in CRF
+--camera-res	Camera Resolution
+--device    	Device Index
+--prefix    	Save Prefix
+--fragment  	Fragment Shader
+--graphic   	Input graphics file
+--shader    	Shader Index
+--input     	Input file
+--channels  	Audio channels
+--fullscreen	Fullscreen Window (Escape to quit)
+--output    	output file
+--path      	assets path
+--sense     	Audio sensitivty
+--resolution	Resolution WidthxHeight
+--shaders   	Shader Library Index File
+--fps       	Frames per second
+--enable-audio	enabled audio reacitivty
+--pass-through	Enable audio pass thorugh
+--texture-cache	Enable texture cache
+--cache-delay	Cache delay in frames
+--copy-audio	Copy audio track
+--enable-3d 	Enable 3D cube
+--model     	Model file
+--help      	print help info
+--audio-input	Audio input device
+--audio-output	Audio output device
+--list-devices	list audio devices
+
+-[ Keyboard controls ]- {
+    Up arrow - Previous shader
+    Down arrow - Next shader
+    Space -  Enable/Disable Processing
+    L - Enable/Disable video freeze (Video/Image Modes)
+    P - Enable/Disable pause video (Video/Image Modes)
+    T - enable/disable time
+    I/O - step time if not disabled
+    Z - take snapshot
+    F - toggle fullscreen
+    Q - toggle reactive time (if AUDIO_ENABLED)
+    3D mode:
+    W,A,S,D - Look around 
+    O - Oscillation Toggle
+    +, - increase / decrease model scale
+}
