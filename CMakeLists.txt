@@ -55,12 +55,10 @@ target_link_libraries(audio_transfer PRIVATE
     MXWrite::mxwrite
 )
 add_executable(acmx2 acmx.cpp ${AUDIO_SRC})
-
 set_target_properties(acmx2 PROPERTIES
     INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib"
     BUILD_WITH_INSTALL_RPATH TRUE
 )
-
 if(AUDIO)
 target_compile_definitions(acmx2 PRIVATE AUDIO_ENABLED)
 endif()
