@@ -1308,12 +1308,6 @@ public:
                     case SDLK_t:
                         library.activeTime(!library.timeActive());
                         break;
-#endif
-                    case SDLK_f:
-                        full = !full;
-                        win->setFullScreen(full);
-                        break;
-#ifdef AUDIO_ENABLED
                     case SDLK_q:
                         library.audioTime(!library.timeAudio());
                         break;
@@ -1765,6 +1759,9 @@ int main(int argc, char **argv) {
           .addOptionDouble(302, "list-devices", "list audio devices")
 #endif
           .addOptionDouble('N', "fullscreen", "Fullscreen Window (Escape to quit)");
+
+    mx::system_out << PROGRAM_NAME << " " << VERSION_INFO << "\n";
+    mx::system_out << "(C) 2025 " << VERSION_AUTHOR << "\n";
 
     if(argc == 1) {
         printAbout(parser);
