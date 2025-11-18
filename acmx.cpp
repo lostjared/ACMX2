@@ -1098,22 +1098,29 @@ public:
             sprite.setName("samp");
             sprite.draw(camera_texture, 0, 0, win->w, win->h);
         }
-        bool needWriter = (writer.is_open() || snapshot) && !isFrozen;
-
-        static auto lastEncodedFrameTime = std::chrono::steady_clock::now();
-        auto now2 = std::chrono::steady_clock::now();   
-
+        bool needWriter = (writer.is_open() || snapshot_state > 0) && !isFrozen;
+        
         if (needWriter) {
-            if (frame_counter > 0) {
-                bool allowSnapshot   = snapshot;
-                bool allowVideoFrame = true;   
+            
+            if (snapshot_state == 1) {
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
+                glBindTexture(GL_TEXTURE_2D, fboTexture);
+                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);
+                
+                pboIndex = (pboIndex + 1) % 2;
+                pboNextIndex = (pboNextIndex + 1) % 2;
+                snapshot_state = 2; 
+            } else {
+                bool is_snapshot_frame = (snapshot_state == 2);
 
-                if (allowSnapshot || allowVideoFrame) {
-                    lastEncodedFrameTime = now2;
-
-                    glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
-                    glBindTexture(GL_TEXTURE_2D, fboTexture);
-                    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0); 
+                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
+                glBindTexture(GL_TEXTURE_2D, fboTexture);
+                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0); 
+                
+                
+                if (writer.is_open() || is_snapshot_frame) {
                     glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboNextIndex]);
                     GLubyte* src = (GLubyte*)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
                     
@@ -1121,7 +1128,6 @@ public:
                         std::vector<unsigned char> pixels(win->w * win->h * 4);
                         std::memcpy(pixels.data(), src, pixels.size());
                         glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-                        
                         
                         std::vector<unsigned char> flipped_pixels(win->w * win->h * 4);
                         for (int y = 0; y < win->h; ++y) {
@@ -1136,12 +1142,16 @@ public:
                         fd.pixels = std::move(flipped_pixels);
                         fd.width  = win->w;
                         fd.height = win->h;
-                        fd.isSnapshot = snapshot;
-                        snapshot = false;
+                        fd.isSnapshot = is_snapshot_frame;
+                        
+                        if (is_snapshot_frame) {
+                            snapshot_state = 0; 
+                        }
+
                         {
                             std::unique_lock<std::mutex> lock(queueMutex);
                             bool is_camera_mode = filename.empty() && graphic.empty();
-                            if (is_camera_mode) {
+                            if (is_camera_mode && !is_snapshot_frame) { 
                                 if (frameQueue.size() > 30) {
                                     frames_dropped++;
                                     frameQueue.pop();
@@ -1153,18 +1163,10 @@ public:
                         }
                         queueCondVar.notify_one();
                     }
-                    
-                    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-                    glBindTexture(GL_TEXTURE_2D, 0);                
-                    pboIndex = (pboIndex + 1) % 2;
-                    pboNextIndex = (pboNextIndex + 1) % 2;
                 }
-            } else {
-                glBindBuffer(GL_PIXEL_PACK_BUFFER, pboIds[pboIndex]);
-                glBindTexture(GL_TEXTURE_2D, fboTexture);
-                glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+                
                 glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-                glBindTexture(GL_TEXTURE_2D, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);                
                 pboIndex = (pboIndex + 1) % 2;
                 pboNextIndex = (pboNextIndex + 1) % 2;
             }
@@ -1302,7 +1304,9 @@ public:
                         }
                         break;
                     case SDLK_z:
-                        snapshot = true;
+                        if (snapshot_state == 0) { 
+                            snapshot_state = 1;
+                        }
                         break;
 #ifdef AUDIO_ENABLED
                     case SDLK_t:
@@ -1359,6 +1363,7 @@ private:
     bool repeat = false;
     bool full = false;
     bool snapshot = false;
+    int snapshot_state = 0; 
     double totalFrames = 0;
     cv::VideoCapture cap;
     cv::Mat graphic_frame;
