@@ -1609,6 +1609,11 @@ private:
                         });
                     }
 
+                    if (writer.is_open() && written_frame_counter == 0) {
+                        written_frame_counter++;
+                        continue;
+                    }
+
                     if (writer.is_open() && !fd.isSnapshot) { 
                         if(!filename.empty() || !graphic.empty()) { 
                             writer.write(fd.pixels.data());
