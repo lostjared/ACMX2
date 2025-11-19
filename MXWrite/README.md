@@ -78,7 +78,7 @@ You can include the `mxwrite.hpp` header in your own C++ files and link against 
 int main() {
     Writer writer;
     // 1. Open an output MP4
-    bool ok = writer.open("output.mp4", 1280, 720, 30.0f, 2500);  // width=1280, height=720, fps=30, bitrate=2500 kbps
+    bool ok = writer.open("output.mp4", 1280, 720, 30.0f, "24");  // width=1280, height=720, fps=30, bitrate=24 CRF
     if (!ok) {
         return 1;
     }
