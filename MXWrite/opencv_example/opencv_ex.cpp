@@ -39,9 +39,9 @@ int main(int argc, char **argv) {
     bool status;
 
     if(mode == 0)
-        status = writer.open("output.mp4", width, height, fps, 5000);
+        status = writer.open("output.mp4", width, height, fps, "24");
     else if(mode == 1)
-        status = writer.open_ts("output.mp4", width, height, fps, 5000); 
+        status = writer.open_ts("output.mp4", width, height, fps, "234"); 
 
     if(!status) {
         std::cerr << "Failed to open file for writing\n";
@@ -70,3 +70,4 @@ int main(int argc, char **argv) {
     cv::destroyAllWindows();
     return 0;
 }
+
