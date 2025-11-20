@@ -1058,7 +1058,7 @@ public:
                 glm::radians(120.0f),
                 static_cast<float>(win->w) / static_cast<float>(win->h),
                 0.01f,
-                10.0f
+                1000.0f
             );
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
             gl::ShaderProgram *activeShader;
@@ -1184,8 +1184,7 @@ public:
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
 
         static auto lastUpdate = std::chrono::steady_clock::now();
-        auto now = std::chrono::steady_clock::now();
-        
+        auto now = std::chrono::steady_clock::now();        
 
         if (!graphic.empty()) {
             if (writer.is_open() &&
