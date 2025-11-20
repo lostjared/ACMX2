@@ -1336,10 +1336,10 @@ public:
                 break;
             case SDL_KEYDOWN:
                 switch(e.key.keysym.sym) {
-                    case SDLK_i:
+                    case SDLK_u:
                         library.incTime(0.05f);
                         break;
-                    case SDLK_o:
+                    case SDLK_i:
                         library.decTime(0.05f);
                         break;
                 }
@@ -1695,7 +1695,7 @@ const char *message = R"(
     L - Enable/Disable video freeze (Video/Image Modes)
     P - Enable/Disable pause video (Video/Image Modes)
     T - enable/disable time
-    I/O - step time if not disabled
+    U/I - step time if not disabled
     Z - take snapshot
     F - toggle fullscreen
     Q - toggle reactive time (if AUDIO_ENABLED)
@@ -1945,11 +1945,9 @@ int main(int argc, char **argv) {
         args.slib = std::make_tuple(args.mode, 
                                     (args.mode == 0) ? args.fragment : args.library, 
                                     (args.mode == 0) ? 0 : args.shader_index);
-
         if(args.filename.empty() && args.cache) {
             throw mx::Exception("Texture cache only works in video mode\n");
         }
-
         MainWindow main_window(args);
         main_window.loop();
     } 
