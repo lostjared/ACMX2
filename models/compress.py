@@ -8,9 +8,11 @@ def compress_files(path):
 
     lst = os.listdir(path)
     for i in lst:
+        temp_path = path + "/compressed/"
         full_path = os.path.join(path, i)
+        temp_path = os.path.join(temp_path, i)
         if os.path.isfile(full_path) and i.endswith(".mxmod"):
-            output_file = full_path + ".z"
+            output_file = temp_path +  ".z"
             print(f"Compressing {i}...")
             cmd = f"mxmod_compress -c \"{full_path}\" -o \"{output_file}\""
             result = os.system(cmd)
