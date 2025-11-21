@@ -1006,7 +1006,6 @@ public:
             static float t = 0.0f;
             float oscOffset = 0.0f;
             if (oscillateScale) {
-                t += 0.02f;
                 oscOffset = 0.3f * std::sin(t);
             }
 
