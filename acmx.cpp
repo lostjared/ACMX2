@@ -986,7 +986,6 @@ public:
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);  
-            
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
             
