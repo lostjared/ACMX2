@@ -896,6 +896,7 @@ public:
     }
 
     cv::Mat newFrame;
+    float movementSpeed = 0.01f;
 
     virtual void draw(gl::GLWindow *win) override {
         if (fps > 0.0) {
@@ -992,13 +993,26 @@ public:
             
             const Uint8* keystatex = SDL_GetKeyboardState(NULL);
             if (!oscillateScale) {
+
+                if(keystatex[SDL_SCANCODE_V]) {
+                    movementSpeed += 0.1f;
+                    mx::system_out << "acmx2: movement increased: " << movementSpeed << "\n";
+                    fflush(stdout);
+                }
+
+                if(keystatex[SDL_SCANCODE_B]) {
+                    movementSpeed -= 0.1f;
+                    mx::system_out << "acmx2: movement decreased: " << movementSpeed << "\n";
+                    fflush(stdout);
+                }
+
                 if (keystatex[SDL_SCANCODE_EQUALS] || keystatex[SDL_SCANCODE_KP_PLUS]) {
-                    cameraDistance += 0.01f;
+                    cameraDistance += movementSpeed;
                     mx::system_out << "acmx2: cameraDistance increased: " << cameraDistance << "\n";
                     fflush(stdout);
                 }
                 if (keystatex[SDL_SCANCODE_MINUS] || keystatex[SDL_SCANCODE_KP_MINUS]) {
-                    cameraDistance -= 0.01f;
+                    cameraDistance -= movementSpeed;
                     mx::system_out << "acmx2: cameraDistance decreased: " << cameraDistance << "\n";
                     fflush(stdout);
                 }
