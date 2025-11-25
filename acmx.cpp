@@ -986,6 +986,7 @@ public:
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);  
+            glDepthMask(GL_FALSE);
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
             
@@ -1080,6 +1081,7 @@ public:
                 m.draw();
             }
             glFrontFace(GL_CCW); 
+            glDepthMask(GL_TRUE);
         } else {
             glDisable(GL_DEPTH_TEST);
             gl::ShaderProgram *activeShader;
