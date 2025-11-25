@@ -992,12 +992,12 @@ public:
             const Uint8* keystatex = SDL_GetKeyboardState(NULL);
             if (!oscillateScale) {
                 if (keystatex[SDL_SCANCODE_EQUALS] || keystatex[SDL_SCANCODE_KP_PLUS]) {
-                    cameraDistance += 0.1f;
+                    cameraDistance += 0.01f;
                     mx::system_out << "acmx2: cameraDistance increased: " << cameraDistance << "\n";
                     fflush(stdout);
                 }
                 if (keystatex[SDL_SCANCODE_MINUS] || keystatex[SDL_SCANCODE_KP_MINUS]) {
-                    cameraDistance -= 0.1f;                 
+                    cameraDistance -= 0.01f;
                     mx::system_out << "acmx2: cameraDistance decreased: " << cameraDistance << "\n";
                     fflush(stdout);
                 }
