@@ -995,13 +995,13 @@ public:
             if (!oscillateScale) {
 
                 if(keystatex[SDL_SCANCODE_B]) {
-                    movementSpeed += 0.1f;
+                    movementSpeed += 0.01f;
                     mx::system_out << "acmx2: movement increased: " << movementSpeed << "\n";
                     fflush(stdout);
                 }
 
                 if(keystatex[SDL_SCANCODE_N]) {
-                    movementSpeed -= 0.1f;
+                    movementSpeed -= 0.01f;
                     mx::system_out << "acmx2: movement decreased: " << movementSpeed << "\n";
                     fflush(stdout);
                 }
