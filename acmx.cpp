@@ -994,13 +994,13 @@ public:
             const Uint8* keystatex = SDL_GetKeyboardState(NULL);
             if (!oscillateScale) {
 
-                if(keystatex[SDL_SCANCODE_V]) {
+                if(keystatex[SDL_SCANCODE_B]) {
                     movementSpeed += 0.1f;
                     mx::system_out << "acmx2: movement increased: " << movementSpeed << "\n";
                     fflush(stdout);
                 }
 
-                if(keystatex[SDL_SCANCODE_B]) {
+                if(keystatex[SDL_SCANCODE_N]) {
                     movementSpeed -= 0.1f;
                     mx::system_out << "acmx2: movement decreased: " << movementSpeed << "\n";
                     fflush(stdout);
