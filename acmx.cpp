@@ -1100,7 +1100,6 @@ public:
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
-            //glEnableVertexAttribArray(2);
             
             if(!library.isBypassed()) {
                 cube.setShaderProgram(activeShader);
@@ -1114,6 +1113,7 @@ public:
             glFrontFace(GL_CCW);
         } else {
             glDisable(GL_DEPTH_TEST);
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
                 activeShader = &fshader;
