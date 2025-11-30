@@ -591,7 +591,6 @@ public:
         }
 
 #endif
-        running = true;
         library.is3D(args.is3d);
         is3d_enabled = args.is3d;
         m_file = args.model_file;
@@ -892,7 +891,7 @@ public:
         if(full) {
             win->setFullScreen(true);
         }
-
+        running = true;
         if(writer.is_open() || true /* snapshots possible */) {
             startWriterThread();
         }
@@ -904,7 +903,6 @@ public:
 
     cv::Mat newFrame;
     float movementSpeed = 0.01f;
-    bool wireframe = false;
 
     virtual void draw(gl::GLWindow *win) override {
         if (fps > 0.0) {
@@ -1030,6 +1028,7 @@ public:
             static float t = 0.0f;
             float oscOffset = 0.0f;
             if (oscillateScale) {
+                t += 0.016f;
                 oscOffset = 0.3f * std::sin(t);
             }
 
@@ -1176,7 +1175,7 @@ public:
                                     frameQueue.pop();
                                 }
                             } else {
-                                queueCondVar.wait(lock, [this] { return frameQueue.size() < 30 || !running; });
+                                queueCondVar.wait(lock, [this] { return frameQueue.size() < 30 || !writerRunning; });
                             }
                             frameQueue.push(std::move(fd));
                         }
@@ -1380,19 +1379,19 @@ private:
     double fps = 30;
     bool repeat = false;
     bool full = false;
-    bool snapshot = false;
     int snapshot_state = 0; 
     double totalFrames = 0;
     cv::VideoCapture cap;
     cv::Mat graphic_frame;
     gl::GLSprite sprite;
-    gl::ShaderProgram shader;
     GLuint camera_texture = 0;
     GLuint captureFBO = 0;
     GLuint fboTexture = 0;
     GLuint depthBuffer = 0;
     std::thread writerThread;
     std::atomic<bool> running{false};
+    std::atomic<bool> captureRunning{false};    
+    std::atomic<bool> writerRunning{false};    
     std::queue<FrameData> frameQueue;
     std::mutex queueMutex;
     std::condition_variable queueCondVar;
@@ -1404,7 +1403,7 @@ private:
     std::chrono::steady_clock::time_point captureStartTime;
     FrameCache frame_cache;
     bool texture_cache = false;
-    GLuint cache_textures[4];
+    GLuint cache_textures[4] = {0};
     int cache_delay = 1;
     std::atomic<bool> finished{false};
     std::atomic<bool> copy_audio{false};
@@ -1412,8 +1411,6 @@ private:
     float cameraPitch = 0.0f; 
     const float cameraRotationSpeed = 5.0f; 
     bool viewRotationActive = false; 
-    float modelScale = 1.0f;
-    float scaleSpeed = 0.05f;
     bool oscillateScale = false;
     float cameraDistance = 0.0f;
     std::atomic<uint64_t> snapshotOffset{0};
@@ -1540,15 +1537,16 @@ private:
         if(captureThread.joinable()) {
             return; 
         }
-        running = true;
+        captureRunning = true;
         captureThread = std::thread([this]() {
             try {
                 
-                while(running) {
+                while(captureRunning) {
                     cv::Mat localFrame;
                     if(!cap.read(localFrame)) {
                         mx::system_err << "acmx2: camera read failed.\n";
-                        running = false;
+                        captureRunning = false;
+                        running = false;  // Signal main loop to quit
                         break;
                     }
                     if(localFrame.empty()) {
@@ -1566,13 +1564,14 @@ private:
                 }
             } catch(const std::exception &e) {
                 mx::system_err << "acmx2: Capture thread exception: " << e.what() << "\n";
-                running = false;
+                captureRunning = false;
+                running = false;  
             }
         });
     }
 
     void stopCaptureThread() {
-        running = false;
+        captureRunning = false;
         captureQueueCondVar.notify_all();
         if (captureThread.joinable()) {
             captureThread.join();
@@ -1584,21 +1583,21 @@ private:
     void startWriterThread() {
         if (writerThread.joinable()) 
             return;
-        running = true;
+        writerRunning = true;
         written_frame_counter = 0;
         writerThread = std::thread([this]() {
             try {
                 captureStartTime = std::chrono::steady_clock::now();
 
-                while (running) {
+                while (writerRunning) {
                     FrameData fd;
                     {
                         std::unique_lock<std::mutex> lock(queueMutex);
                         queueCondVar.wait(lock, [this]() {
-                            return !frameQueue.empty() || !running;
+                            return !frameQueue.empty() || !writerRunning;
                         });
 
-                        if (!running && frameQueue.empty()) {
+                        if (!writerRunning && frameQueue.empty()) {
                             break;
                         }
 
@@ -1649,7 +1648,8 @@ private:
                 }
             } catch(const std::exception &e) {
                 mx::system_err << "acmx2: Writer thread exception: " << e.what() << "\n";
-                running = false;
+                writerRunning = false;
+                running = false;  
                 fflush(stderr);
                 fflush(stdout);
             }
@@ -1658,7 +1658,7 @@ private:
 
     void stopWriterThread() {
         bool recording = writer.is_open();
-        running = false;
+        writerRunning = false;
         queueCondVar.notify_all();
         if (writerThread.joinable()) {
             writerThread.join();
@@ -1869,7 +1869,7 @@ int main(int argc, char **argv) {
                 case 'F':
                 case 'f':
                     args.mode = 0;
-                    args.fragment = arg.arg_value;
+                                       args.fragment = arg.arg_value;
                     break;
                 case 'h':
                 case 'H':
