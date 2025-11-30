@@ -1344,10 +1344,10 @@ public:
                         fflush(stdout);
                         break;
                     case SDLK_j:
-                        static bool active = false;
-                        glPolygonMode(GL_FRONT_AND_BACK, active ? GL_FILL : GL_LINE);
-                        active = !active;
-                        mx::system_out << "acmx2: Wireframe mode: " << (active ? "disabled" : "enabled") << "\n";
+                        static bool wireframe = false;
+                        wireframe = !wireframe;
+                        glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+                        mx::system_out << "acmx2: Wireframe mode: " << (wireframe ? "enabled" : "disabled") << "\n";
                         fflush(stdout);
                         break;
                 }
