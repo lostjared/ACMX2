@@ -1721,6 +1721,9 @@ const char *message = R"(
     W,A,S,D - Look around 
     O - Oscillation Toggle
     +, - increase / decrease model scale
+    J, Toggle Polygon mode
+    B, increase movement size
+    N, decrease movement size
 }
 )";
 
