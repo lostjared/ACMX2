@@ -1008,27 +1008,27 @@ public:
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
             
-            const Uint8* keystatex = SDL_GetKeyboardState(NULL);
+            const Uint8* keystate = SDL_GetKeyboardState(NULL);
             if (!oscillateScale) {
 
-                if(keystatex[SDL_SCANCODE_B]) {
+                if(keystate[SDL_SCANCODE_B]) {
                     movementSpeed += 0.01f;
                     mx::system_out << "acmx2: movement increased: " << movementSpeed << "\n";
                     fflush(stdout);
                 }
 
-                if(keystatex[SDL_SCANCODE_N]) {
+                if(keystate[SDL_SCANCODE_N]) {
                     movementSpeed -= 0.01f;
                     mx::system_out << "acmx2: movement decreased: " << movementSpeed << "\n";
                     fflush(stdout);
                 }
 
-                if (keystatex[SDL_SCANCODE_EQUALS] || keystatex[SDL_SCANCODE_KP_PLUS]) {
+                if (keystate[SDL_SCANCODE_EQUALS] || keystate[SDL_SCANCODE_KP_PLUS]) {
                     cameraDistance += movementSpeed;
                     mx::system_out << "acmx2: cameraDistance increased: " << cameraDistance << "\n";
                     fflush(stdout);
                 }
-                if (keystatex[SDL_SCANCODE_MINUS] || keystatex[SDL_SCANCODE_KP_MINUS]) {
+                if (keystate[SDL_SCANCODE_MINUS] || keystate[SDL_SCANCODE_KP_MINUS]) {
                     cameraDistance -= movementSpeed;
                     mx::system_out << "acmx2: cameraDistance decreased: " << cameraDistance << "\n";
                     fflush(stdout);
@@ -1043,8 +1043,7 @@ public:
             glm::mat4 modelMatrix = glm::mat4(1.0f);
             glm::vec3 cameraPosBase = glm::vec3(0.0f, 0.0f, 0.0f);
             glm::vec3 lookDirection;
-            const Uint8* keystate = SDL_GetKeyboardState(NULL);
-
+        
             if (!viewRotationActive) {
                 if (keystate[SDL_SCANCODE_W]) {
                     cameraPitch += cameraRotationSpeed * 0.3f;
