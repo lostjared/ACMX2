@@ -997,14 +997,7 @@ public:
             glDepthFunc(GL_LESS);
             glDepthMask(GL_TRUE);
             glDisable(GL_CULL_FACE);  
-
-            glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
-            if(wireframe) {
-                glLineWidth(2.0f);
-            } else  {
-                glLineWidth(1.0f);
-            }
-            
+  
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
             
@@ -1112,7 +1105,6 @@ public:
             glFrontFace(GL_CCW);
         } else {
             glDisable(GL_DEPTH_TEST);
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
                 activeShader = &fshader;
@@ -1356,11 +1348,6 @@ public:
                         oscillateScale = !oscillateScale;
                         mx::system_out << "acmx2: Scale oscillation "
                                        << (oscillateScale ? "enabled" : "disabled") << "\n";
-                        fflush(stdout);
-                        break;
-                    case SDLK_j:
-                        wireframe = !wireframe;
-                        mx::system_out << "acmx2: Wireframe mode: " << (wireframe ? "enabled" : "disabled") << "\n";
                         fflush(stdout);
                         break;
                 }
