@@ -664,6 +664,10 @@ public:
             glDeleteTextures(1, &fboTexture);
             fboTexture = 0;
         }
+         if (depthBuffer) {
+            glDeleteRenderbuffers(1, &depthBuffer);
+            depthBuffer = 0;
+        }
         if(camera_texture) {
             glDeleteTextures(1, &camera_texture);
             camera_texture = 0;
@@ -675,6 +679,9 @@ public:
                 cache_textures[i] = 0;
             }
         }
+
+        if(cap.isOpened())
+            cap.release();
     }
     
     mx::Model cube;
@@ -897,6 +904,7 @@ public:
 
     cv::Mat newFrame;
     float movementSpeed = 0.01f;
+    bool wireframe = false;
 
     virtual void draw(gl::GLWindow *win) override {
         if (fps > 0.0) {
@@ -986,8 +994,17 @@ public:
 
         if (is3d_enabled) {
             glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+            glDepthMask(GL_TRUE);
             glDisable(GL_CULL_FACE);  
-            glDepthMask(GL_FALSE);
+
+            glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+            if(wireframe) {
+                glLineWidth(2.0f);
+            } else  {
+                glLineWidth(1.0f);
+            }
+            
             static float rotation = 0.0f;
             rotation = fmod(rotation + 0.5f, 360.0f);
             
@@ -1083,7 +1100,7 @@ public:
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, camera_texture);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
-            glEnableVertexAttribArray(2);
+            //glEnableVertexAttribArray(2);
             
             if(!library.isBypassed()) {
                 cube.setShaderProgram(activeShader);
@@ -1094,8 +1111,7 @@ public:
             for(auto &m : cube.meshes) {
                 m.draw();
             }
-            glFrontFace(GL_CCW); 
-            glDepthMask(GL_TRUE);
+            glFrontFace(GL_CCW);
         } else {
             glDisable(GL_DEPTH_TEST);
             gl::ShaderProgram *activeShader;
@@ -1344,9 +1360,7 @@ public:
                         fflush(stdout);
                         break;
                     case SDLK_j:
-                        static bool wireframe = false;
                         wireframe = !wireframe;
-                        glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
                         mx::system_out << "acmx2: Wireframe mode: " << (wireframe ? "enabled" : "disabled") << "\n";
                         fflush(stdout);
                         break;
@@ -1390,6 +1404,7 @@ private:
     GLuint camera_texture = 0;
     GLuint captureFBO = 0;
     GLuint fboTexture = 0;
+    GLuint depthBuffer = 0;
     std::thread writerThread;
     std::atomic<bool> running{false};
     std::queue<FrameData> frameQueue;
@@ -1483,6 +1498,11 @@ private:
                                GL_TEXTURE_2D,
                                fboTexture,
                                0);
+
+        glGenRenderbuffers(1, &depthBuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
