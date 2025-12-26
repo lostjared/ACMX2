@@ -17,6 +17,8 @@
 #include <QApplication>
 #include <QLabel>
 #include <QStatusBar>
+#include<QFile>
+#include<QTextStream>
 
 TextEditor::TextEditor(QWidget *parent)
     : QDialog(parent), m_modified(false), m_textEdit(nullptr), m_highlighter(nullptr), 

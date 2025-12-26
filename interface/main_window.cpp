@@ -11,7 +11,8 @@
 #include"audio-window.hpp"
 #include <random>
 #include <algorithm>
-
+#include<QProcess>
+#include<QTextStream>
 
 void MainWindow::initControls() {
     process = new QProcess(this);
@@ -29,13 +30,17 @@ void MainWindow::initControls() {
         }
     });
 
-    connect(process, &QProcess::finished, this, [=](int exitCode, QProcess::ExitStatus) {
-        QString text;
-        QTextStream stream(&text);
-        stream << "acmx2: Exited with Code: " << exitCode;
-        Log(text + "<br>");
-        play_stop->setEnabled(false);
-    });
+      connect(process,
+        static_cast<void (QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
+        this,
+        [this](int exitCode, QProcess::ExitStatus) {
+            QString text;
+            QTextStream stream(&text);
+            stream << "acmx2: Exited with Code: " << exitCode;
+            Log(text + "<br>");
+            play_stop->setEnabled(false);
+        });
+
     camera_index = 0;
     camera_res = QSize(1280, 720);
     screen_res = QSize(0, 0);

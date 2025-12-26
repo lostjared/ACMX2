@@ -9,6 +9,9 @@
 #include <QFileDialog>
 #include <QLineEdit>
 #include <QMessageBox>
+#include<QFile>
+#include<QDir>
+#include<QTextStream>
 
 class LibraryWindow : public QDialog {
     Q_OBJECT

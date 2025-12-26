@@ -1,5 +1,8 @@
 
 #include "shaderlibrary.hpp"
+#include<QFile>
+#include<QDir>
+#include<QTextStream>
 
 LibraryWindow::LibraryWindow(QWidget *parent) : QDialog(parent) {
     init();
