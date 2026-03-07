@@ -12,6 +12,7 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
     libswscale 
 )
 add_library(mxwrite STATIC mxwrite.cpp)
+add_library(MXWrite::mxwrite ALIAS mxwrite)
 target_include_directories(mxwrite PUBLIC ${FFMPEG_INCLUDE_DIRS})
 target_link_libraries(mxwrite PUBLIC PkgConfig::FFMPEG)
 target_compile_options(mxwrite PRIVATE -O3 -Wall  -pedantic)

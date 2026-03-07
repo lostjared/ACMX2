@@ -9,7 +9,6 @@ find_package(SDL2_ttf REQUIRED)
 find_package(libmx2 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(PkgConfig REQUIRED)
-find_package(MXWrite REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
@@ -18,6 +17,13 @@ pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
     libavutil
     libswscale
 )
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/MXWrite/CMakeLists.txt")
+    add_subdirectory(MXWrite)
+    set(MXWrite_INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/MXWrite")
+else()
+    find_package(MXWrite REQUIRED)
+endif()
 
 option(AUDIO "Audio support" OFF)
 
