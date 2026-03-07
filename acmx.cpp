@@ -232,7 +232,7 @@ public:
             std::string line_data;
             std::getline(file, line_data);
             if(file && !line_data.empty() && std::filesystem::exists(text + "/" + line_data) && line_data.find("material") == std::string::npos) {
-                programs.push_back(std::make_unique<gl::ShaderProgram>());
+                    programs.push_back(std::make_unique<gl::ShaderProgram>());
             
                 mx::system_out << "acmx2: Compiling Shader: " << index++  << ": [" << line_data << "]\n";
                 fflush(stdout);
