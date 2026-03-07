@@ -1194,6 +1194,15 @@ public:
             GLuint textureForMesh = camera_texture;
             if(shader_pass_enabled && !shader_pass_list.empty() && !library.isBypassed()) {
                 glDisable(GL_DEPTH_TEST);
+                auto logPassWarning3D = [](const std::string &msg) {
+                    static Uint64 last_warn_tick = 0;
+                    Uint64 now_tick = SDL_GetTicks64();
+                    if(now_tick - last_warn_tick >= 1000) {
+                        mx::system_out << "acmx2: multipass(3D) " << msg << "\n";
+                        fflush(stdout);
+                        last_warn_tick = now_tick;
+                    }
+                };
 
                 if(passFBO[0] == 0) {
                     for(int p = 0; p < 2; ++p) {
@@ -1203,6 +1212,8 @@ public:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->w, win->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                         glBindFramebuffer(GL_FRAMEBUFFER, passFBO[p]);
                         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, passTexture[p], 0);
                         if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -1235,12 +1246,18 @@ public:
                             pass_applied = true;
                             inputTex = passTexture[pingpong];
                             pingpong = 1 - pingpong;
+                        } else {
+                            logPassWarning3D("skipping pass index " + std::to_string(shader_idx) + " (null shader)");
                         }
+                    } else {
+                        logPassWarning3D("skipping invalid pass index " + std::to_string(shader_idx) + " (valid range 0-" + std::to_string(static_cast<int>(library.size()) - 1) + ")");
                     }
                 }
 
                 if(pass_applied) {
                     textureForMesh = inputTex;
+                } else {
+                    logPassWarning3D("no pass applied; using base camera texture");
                 }
 
                 glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
@@ -1257,6 +1274,7 @@ public:
             } else {
                 activeShader = library.shader();
             }
+            activeShader->useProgram();
             activeShader->setUniform("mv_matrix", mvMatrix);
             activeShader->setUniform("proj_matrix", projectionMatrix);
             glActiveTexture(GL_TEXTURE0);
@@ -1277,6 +1295,15 @@ public:
             glDisable(GL_DEPTH_TEST);
             GLuint textureForSprite = camera_texture;
             if(shader_pass_enabled && !shader_pass_list.empty() && !library.isBypassed()) {
+                auto logPassWarning2D = [](const std::string &msg) {
+                    static Uint64 last_warn_tick = 0;
+                    Uint64 now_tick = SDL_GetTicks64();
+                    if(now_tick - last_warn_tick >= 1000) {
+                        mx::system_out << "acmx2: multipass(2D) " << msg << "\n";
+                        fflush(stdout);
+                        last_warn_tick = now_tick;
+                    }
+                };
                 if(passFBO[0] == 0) {
                     for(int p = 0; p < 2; ++p) {
                         glGenFramebuffers(1, &passFBO[p]);
@@ -1285,6 +1312,8 @@ public:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->w, win->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                         glBindFramebuffer(GL_FRAMEBUFFER, passFBO[p]);
                         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, passTexture[p], 0);
                         if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -1318,12 +1347,18 @@ public:
                             pass_applied = true;
                             inputTex = passTexture[pingpong];
                             pingpong = 1 - pingpong;
+                        } else {
+                            logPassWarning2D("skipping pass index " + std::to_string(shader_idx) + " (null shader)");
                         }
+                    } else {
+                        logPassWarning2D("skipping invalid pass index " + std::to_string(shader_idx) + " (valid range 0-" + std::to_string(static_cast<int>(library.size()) - 1) + ")");
                     }
                 }
 
                 if(pass_applied) {
                     textureForSprite = inputTex;
+                } else {
+                    logPassWarning2D("no pass applied; using base camera texture");
                 }
 
                 glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
@@ -1337,6 +1372,7 @@ public:
             } else {
                 activeShader = library.shader();
             }
+            activeShader->useProgram();
             activeShader->setUniform("mv_matrix", glm::mat4(1.0f));
             activeShader->setUniform("proj_matrix", glm::mat4(1.0f));
             sprite.setShader(activeShader);
