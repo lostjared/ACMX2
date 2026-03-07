@@ -25,6 +25,12 @@ else()
     find_package(MXWrite REQUIRED)
 endif()
 
+if(TARGET libmx2::mxgl)
+    set(LIBMX2_RENDER_TARGET libmx2::mxgl)
+else()
+    set(LIBMX2_RENDER_TARGET libmx2::mx)
+endif()
+
 option(AUDIO "Audio support" OFF)
 
 if(AUDIO)
@@ -91,7 +97,7 @@ target_include_directories(acmx2 PRIVATE
 )
 
 target_link_libraries(acmx2 PRIVATE 
-    libmx2::mx 
+    ${LIBMX2_RENDER_TARGET}
     ${SDL2_LIBRARIES} 
     ${SDL2_TTF_LIBRARIES} 
     ${OpenCV_LIBRARIES} 
