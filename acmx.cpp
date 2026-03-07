@@ -330,11 +330,93 @@ public:
             setIndex(library_index-1);
     }
     size_t index() { return library_index; }
+    size_t size() { return programs.size(); }
 
     void useProgram() { 
         programs[index()]->useProgram(); 
     }
     gl::ShaderProgram *shader() { return programs[index()].get(); }
+    gl::ShaderProgram *getShader(size_t idx) {
+        if(idx < programs.size()) {
+            return programs[idx].get();
+        }
+        return nullptr;
+    }
+
+    std::string getFullShaderName() {
+        if(program_names.find(library_index) != program_names.end()) {
+            return std::to_string(library_index) + ": " + program_names[library_index].name;
+        }
+        return std::to_string(library_index);
+    }
+
+    std::string getFullShaderName(const std::vector<int> &pass_list) {
+        std::string name = getFullShaderName();
+        if(!pass_list.empty()) {
+            name += " [";
+            for(size_t i = 0; i < pass_list.size(); ++i) {
+                int idx = pass_list[i];
+                if(program_names.find(idx) != program_names.end()) {
+                    name += program_names[idx].name;
+                } else {
+                    name += std::to_string(idx);
+                }
+                if(i + 1 < pass_list.size()) {
+                    name += ", ";
+                }
+            }
+            name += "]";
+        }
+        return name;
+    }
+
+    void updateShaderUniforms(gl::GLWindow *win, size_t idx) {
+        if(idx >= programs.size()) return;
+        if(program_names.find(idx) == program_names.end()) return;
+
+        static Uint64 start_time = SDL_GetPerformanceCounter();
+        static Uint64 last_frame_time = start_time;
+        static uint64_t frame_counter = 0;
+
+        Uint64 now_time = SDL_GetPerformanceCounter();
+        double elapsed_time = (double)(now_time - start_time) / SDL_GetPerformanceFrequency();
+        double delta_time = (double)(now_time - last_frame_time) / SDL_GetPerformanceFrequency();
+        last_frame_time = now_time;
+        frame_counter++;
+
+        auto &n = program_names[idx];
+        programs[idx]->useProgram();
+        glUniform1f(n.loc, alpha);
+        glUniform1f(n.iTime, static_cast<float>(elapsed_time));
+        glUniform1f(n.time_f, time_f);
+        glUniform1i(n.iFrame, static_cast<int>(frame_counter % INT_MAX));
+        glUniform1f(n.iTimeDelta, static_cast<float>(delta_time));
+
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+        std::tm *localTime = std::localtime(&now_c);
+        float year = static_cast<float>(localTime->tm_year + 1900);
+        float month = static_cast<float>(localTime->tm_mon + 1);
+        float day = static_cast<float>(localTime->tm_mday);
+        float seconds = static_cast<float>(localTime->tm_hour * 3600 +
+                                     localTime->tm_min * 60 +
+                                     localTime->tm_sec);
+        glUniform4f(n.iDate, year, month, day, seconds);
+
+        if(n.iFrameRate != GL_INVALID_INDEX) {
+            glUniform1f(n.iFrameRate, 24.0f);
+        }
+
+        int mouseX = 0, mouseY = 0;
+        SDL_GetMouseState(&mouseX, &mouseY);
+        float currentY = static_cast<float>(win->h - mouseY);
+        float currentX = static_cast<float>(mouseX);
+        glUniform4f(n.iMouse, currentX, currentY, 0.0f, 0.0f);
+        if(n.iMouseClick != GL_INVALID_INDEX) {
+            glUniform2f(n.iMouseClick, currentX, currentY);
+        }
+        glUniform2f(n.iResolution, static_cast<float>(win->w), static_cast<float>(win->h));
+    }
 
     void update(gl::GLWindow *win) {
         static Uint64 start_time = SDL_GetPerformanceCounter();
@@ -539,6 +621,8 @@ struct MXArguments {
     unsigned int audio_channels = 2;
     float audio_sensitivty = 0.25f;
 #endif
+    std::vector<int> shader_pass_list;
+    bool shader_pass_enabled = false;
 };
 
 struct FrameData {
@@ -594,9 +678,25 @@ public:
         library.is3D(args.is3d);
         is3d_enabled = args.is3d;
         m_file = args.model_file;
+
+        if(args.shader_pass_enabled && !args.shader_pass_list.empty()) {
+            shader_pass_list = args.shader_pass_list;
+            shader_pass_enabled = true;
+            mx::system_out << "acmx2: Shader pass list enabled with " << shader_pass_list.size() << " shader(s)\n";
+            fflush(stdout);
+        }
     }
 
     bool is3d_enabled = false;
+    std::vector<int> shader_pass_list;
+    bool shader_pass_enabled = false;
+    std::string cached_shader_name;
+
+    void updateShaderNameCache() {
+        cached_shader_name = shader_pass_enabled
+            ? library.getFullShaderName(shader_pass_list)
+            : library.getFullShaderName();
+    }
 
     
     ~ACView() override {
@@ -663,6 +763,16 @@ public:
             glDeleteTextures(1, &fboTexture);
             fboTexture = 0;
         }
+        for(int p = 0; p < 2; ++p) {
+            if(passFBO[p]) {
+                glDeleteFramebuffers(1, &passFBO[p]);
+                passFBO[p] = 0;
+            }
+            if(passTexture[p]) {
+                glDeleteTextures(1, &passTexture[p]);
+                passTexture[p] = 0;
+            }
+        }
          if (depthBuffer) {
             glDeleteRenderbuffers(1, &depthBuffer);
             depthBuffer = 0;
@@ -695,6 +805,7 @@ public:
         else
             library.loadProgram(win, std::get<1>(flib));
         library.setIndex(std::get<2>(flib));
+        updateShaderNameCache();
 
         std::string m_file_path;
         if(std::filesystem::exists(m_file)) {
@@ -1080,6 +1191,66 @@ public:
                 1000.0f
             );
             glm::mat4 mvMatrix = viewMatrix * modelMatrix;
+            GLuint textureForMesh = camera_texture;
+            if(shader_pass_enabled && !shader_pass_list.empty() && !library.isBypassed()) {
+                glDisable(GL_DEPTH_TEST);
+
+                if(passFBO[0] == 0) {
+                    for(int p = 0; p < 2; ++p) {
+                        glGenFramebuffers(1, &passFBO[p]);
+                        glGenTextures(1, &passTexture[p]);
+                        glBindTexture(GL_TEXTURE_2D, passTexture[p]);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->w, win->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glBindFramebuffer(GL_FRAMEBUFFER, passFBO[p]);
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, passTexture[p], 0);
+                        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+                            throw mx::Exception("acmx2: 3D pass framebuffer is not complete");
+                        }
+                    }
+                }
+
+                GLuint inputTex = camera_texture;
+                int pingpong = 0;
+                bool pass_applied = false;
+                for(size_t i = 0; i < shader_pass_list.size(); ++i) {
+                    int shader_idx = shader_pass_list[i];
+                    if(shader_idx >= 0 && shader_idx < static_cast<int>(library.size())) {
+                        gl::ShaderProgram *pass_shader = library.getShader(shader_idx);
+                        if(pass_shader) {
+                            glBindFramebuffer(GL_FRAMEBUFFER, passFBO[pingpong]);
+                            glViewport(0, 0, win->w, win->h);
+                            glClear(GL_COLOR_BUFFER_BIT);
+                            pass_shader->useProgram();
+                            library.updateShaderUniforms(win, shader_idx);
+                            pass_shader->setUniform("mv_matrix", glm::mat4(1.0f));
+                            pass_shader->setUniform("proj_matrix", glm::mat4(1.0f));
+                            glActiveTexture(GL_TEXTURE0);
+                            glBindTexture(GL_TEXTURE_2D, inputTex);
+                            glUniform1i(glGetUniformLocation(pass_shader->id(), "samp"), 0);
+                            sprite.setShader(pass_shader);
+                            sprite.setName("samp");
+                            sprite.draw(inputTex, 0, 0, win->w, win->h);
+                            pass_applied = true;
+                            inputTex = passTexture[pingpong];
+                            pingpong = 1 - pingpong;
+                        }
+                    }
+                }
+
+                if(pass_applied) {
+                    textureForMesh = inputTex;
+                }
+
+                glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+                glViewport(0, 0, win->w, win->h);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glEnable(GL_DEPTH_TEST);
+                glDepthFunc(GL_LESS);
+                glDepthMask(GL_TRUE);
+            }
+
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
                 activeShader = &fshader3d;
@@ -1089,7 +1260,7 @@ public:
             activeShader->setUniform("mv_matrix", mvMatrix);
             activeShader->setUniform("proj_matrix", projectionMatrix);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, camera_texture);
+            glBindTexture(GL_TEXTURE_2D, textureForMesh);
             glUniform1i(glGetUniformLocation(activeShader->id(), "samp"), 0);
             
             if(!library.isBypassed()) {
@@ -1104,6 +1275,62 @@ public:
             glFrontFace(GL_CCW);
         } else {
             glDisable(GL_DEPTH_TEST);
+            GLuint textureForSprite = camera_texture;
+            if(shader_pass_enabled && !shader_pass_list.empty() && !library.isBypassed()) {
+                if(passFBO[0] == 0) {
+                    for(int p = 0; p < 2; ++p) {
+                        glGenFramebuffers(1, &passFBO[p]);
+                        glGenTextures(1, &passTexture[p]);
+                        glBindTexture(GL_TEXTURE_2D, passTexture[p]);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, win->w, win->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glBindFramebuffer(GL_FRAMEBUFFER, passFBO[p]);
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, passTexture[p], 0);
+                        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+                            throw mx::Exception("acmx2: pass framebuffer is not complete");
+                        }
+                    }
+                    glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+                }
+
+                GLuint inputTex = camera_texture;
+                int pingpong = 0;
+                bool pass_applied = false;
+                for(size_t i = 0; i < shader_pass_list.size(); ++i) {
+                    int shader_idx = shader_pass_list[i];
+                    if(shader_idx >= 0 && shader_idx < static_cast<int>(library.size())) {
+                        gl::ShaderProgram *pass_shader = library.getShader(shader_idx);
+                        if(pass_shader) {
+                            glBindFramebuffer(GL_FRAMEBUFFER, passFBO[pingpong]);
+                            glViewport(0, 0, win->w, win->h);
+                            glClear(GL_COLOR_BUFFER_BIT);
+                            pass_shader->useProgram();
+                            library.updateShaderUniforms(win, shader_idx);
+                            pass_shader->setUniform("mv_matrix", glm::mat4(1.0f));
+                            pass_shader->setUniform("proj_matrix", glm::mat4(1.0f));
+                            glActiveTexture(GL_TEXTURE0);
+                            glBindTexture(GL_TEXTURE_2D, inputTex);
+                            glUniform1i(glGetUniformLocation(pass_shader->id(), "samp"), 0);
+                            sprite.setShader(pass_shader);
+                            sprite.setName("samp");
+                            sprite.draw(inputTex, 0, 0, win->w, win->h);
+                            pass_applied = true;
+                            inputTex = passTexture[pingpong];
+                            pingpong = 1 - pingpong;
+                        }
+                    }
+                }
+
+                if(pass_applied) {
+                    textureForSprite = inputTex;
+                }
+
+                glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+                glViewport(0, 0, win->w, win->h);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+
             gl::ShaderProgram *activeShader;
             if(library.isBypassed()) {
                 activeShader = &fshader;
@@ -1114,7 +1341,7 @@ public:
             activeShader->setUniform("proj_matrix", glm::mat4(1.0f));
             sprite.setShader(activeShader);
             sprite.setName("samp");
-            sprite.draw(camera_texture, 0, 0, win->w, win->h);
+            sprite.draw(textureForSprite, 0, 0, win->w, win->h);
         }
         bool needWriter = (writer.is_open() || snapshot_state > 0) && !isFrozen;
         
@@ -1292,6 +1519,7 @@ public:
                             cube.setShaderProgram(library.shader());
                         else
                             sprite.setShader(library.shader());
+                        updateShaderNameCache();
                         break;
                     case SDLK_DOWN:
                         library.inc();
@@ -1299,10 +1527,12 @@ public:
                             cube.setShaderProgram(library.shader());
                         else
                             sprite.setShader(library.shader());
+                        updateShaderNameCache();
                         
                         break;
                     case SDLK_SPACE:
                         library.toggleBypass();
+                        updateShaderNameCache();
                         break;
                     case SDLK_p:
                         if(!filename.empty() || !graphic.empty()) {
@@ -1349,6 +1579,18 @@ public:
                                        << (oscillateScale ? "enabled" : "disabled") << "\n";
                         fflush(stdout);
                         break;
+                    case SDLK_m:
+                        if(!shader_pass_list.empty()) {
+                            shader_pass_enabled = !shader_pass_enabled;
+                            updateShaderNameCache();
+                            mx::system_out << "acmx2: Multi-shader pass "
+                                           << (shader_pass_enabled ? "enabled" : "disabled") << "\n";
+                            fflush(stdout);
+                        } else {
+                            mx::system_out << "acmx2: No shader pass list defined (use --shader-pass)\n";
+                            fflush(stdout);
+                        }
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -1387,6 +1629,8 @@ private:
     GLuint camera_texture = 0;
     GLuint captureFBO = 0;
     GLuint fboTexture = 0;
+    GLuint passFBO[2] = {0, 0};
+    GLuint passTexture[2] = {0, 0};
     GLuint depthBuffer = 0;
     std::thread writerThread;
     std::atomic<bool> running{false};
@@ -1721,6 +1965,7 @@ const char *message = R"(
     T - enable/disable time
     U/I - step time if not disabled
     Z - take snapshot
+    M - toggle multi-pass
     F - toggle fullscreen
     Q - toggle reactive time (if AUDIO_ENABLED)
     3D mode:
@@ -1782,6 +2027,7 @@ int main(int argc, char **argv) {
           .addOptionDouble(259, "enable-3d", "Enable 3D cube")
           .addOptionDoubleValue(260, "model", "Model file")
           .addOptionDouble(261, "help", "print help info")
+          .addOptionDoubleValue(406, "shader-pass", "Shader pass indices (comma-separated, e.g. 0,1,2)")
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -1921,6 +2167,33 @@ int main(int argc, char **argv) {
                 case 260:
                     args.model_file = arg.arg_value;
                     break;
+                case 406: {
+                    std::string pass_list = arg.arg_value;
+                    size_t start = 0;
+                    while (true) {
+                        size_t pos = pass_list.find(',', start);
+                        std::string tok = (pos == std::string::npos)
+                            ? pass_list.substr(start)
+                            : pass_list.substr(start, pos - start);
+                        if (!tok.empty()) {
+                            try {
+                                int idx = std::stoi(tok);
+                                if (idx >= 0) {
+                                    args.shader_pass_list.push_back(idx);
+                                }
+                            } catch (...) {
+                                mx::system_err << "acmx2: Warning: Invalid shader pass index: " << tok << "\n";
+                            }
+                        }
+                        if (pos == std::string::npos) break;
+                        start = pos + 1;
+                    }
+                    if (!args.shader_pass_list.empty()) {
+                        args.shader_pass_enabled = true;
+                        mx::system_out << "acmx2: Shader pass list enabled with " << args.shader_pass_list.size() << " passes\n";
+                    }
+                    break;
+                }
 #ifdef AUDIO_ENABLED
                 case 'W':
                 case 'w':
