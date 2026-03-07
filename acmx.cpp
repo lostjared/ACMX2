@@ -799,6 +799,11 @@ public:
     
     virtual void load(gl::GLWindow *win) override {
         frame_counter = 0;
+        sessionStartTime = std::chrono::steady_clock::now();
+        fpsLastTime = sessionStartTime;
+        fpsFrameCount = 0;
+        displayFPS = 0.0;
+        overlayFont.tryLoadFont(win->util.getFilePath("data/font.ttf"), 24);
         library.is3D(is3d_enabled);
         if(std::get<0>(flib) == 1)
             library.loadPrograms(win, std::get<1>(flib));
@@ -1464,6 +1469,29 @@ public:
         sprite.setShader(&fshader);
         sprite.draw(fboTexture, 0, 0, win->w, win->h);
 
+        if(show_hud && overlayFont.handle().has_value()) {
+            fpsFrameCount++;
+            auto currentTime = std::chrono::steady_clock::now();
+            auto fpsDelta = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - fpsLastTime).count();
+            if(fpsDelta >= 500) {
+                displayFPS = (fpsFrameCount * 1000.0) / fpsDelta;
+                fpsFrameCount = 0;
+                fpsLastTime = currentTime;
+            }
+
+            std::string timerStr = getTimeString();
+            std::ostringstream fpsStr;
+            fpsStr << std::fixed << std::setprecision(1) << displayFPS << " FPS";
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            win->text.setColor({0,0,255,255});
+            win->text.printText_Blended(overlayFont, 10, 10, cached_shader_name);
+            win->text.setColor({255,255,255,255});
+            win->text.printText_Blended(overlayFont, 10, 40, timerStr);
+            win->text.printText_Blended(overlayFont, 10, 70, fpsStr.str());
+            glDisable(GL_BLEND);
+        }
+
         static auto lastUpdate = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();        
 
@@ -1543,6 +1571,35 @@ public:
             }
         }
         frame_counter++;
+    }
+
+    std::string getTimeString() {
+        int64_t frameCount = 0;
+        double timeSeconds = 0.0;
+
+        if (writer.is_open()) {
+            frameCount = writer.get_frame_count();
+            timeSeconds = (fps > 0.0) ? static_cast<double>(frameCount) / fps : 0.0;
+        } else {
+            frameCount = static_cast<int64_t>(frame_counter);
+            timeSeconds = (fps > 0.0) ? static_cast<double>(frameCount) / fps : 0.0;
+        }
+
+        uint64_t hours = static_cast<uint64_t>(timeSeconds / 3600);
+        uint64_t minutes = static_cast<uint64_t>(timeSeconds / 60) % 60;
+        uint64_t seconds = static_cast<uint64_t>(timeSeconds) % 60;
+
+        std::ostringstream timerStr;
+        if (!filename.empty() && totalFrames > 0.0) {
+            double currentFrame = static_cast<double>(frame_counter);
+            double percentage = (currentFrame / totalFrames) * 100.0;
+            timerStr << std::fixed << std::setprecision(1) << percentage << "% - ";
+        }
+
+        timerStr << std::setfill('0') << std::setw(2) << hours << ":"
+                 << std::setfill('0') << std::setw(2) << minutes << ":"
+                 << std::setfill('0') << std::setw(2) << seconds;
+        return timerStr.str();
     }
 
     virtual void event(gl::GLWindow *win, SDL_Event &e) override {
@@ -1627,6 +1684,11 @@ public:
                             fflush(stdout);
                         }
                         break;
+                    case SDLK_F4:
+                        show_hud = !show_hud;
+                        mx::system_out << "acmx2: HUD " << (show_hud ? "enabled" : "disabled") << "\n";
+                        fflush(stdout);
+                        break;
                 }
                 break;
             case SDL_KEYDOWN:
@@ -1646,6 +1708,12 @@ public:
 private:
     unsigned int frame_counter = 0;
     unsigned int written_frame_counter = 0; 
+    mx::Font overlayFont;
+    std::chrono::steady_clock::time_point sessionStartTime;
+    double displayFPS = 0.0;
+    int fpsFrameCount = 0;
+    std::chrono::steady_clock::time_point fpsLastTime;
+    bool show_hud = true;
     std::string crf = "23";
     std::string prefix_path;
     std::string filename, ofilename, graphic;
