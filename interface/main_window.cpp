@@ -85,6 +85,10 @@ void MainWindow::initControls() {
         process->terminate();
     });
     playbackMenu->addAction(play_stop);
+    playbackMenu->addSeparator();
+    shaderPassAction = new QAction(tr("Multi-Pass Shader Settings..."), this);
+    connect(shaderPassAction, &QAction::triggered, this, &MainWindow::menuShaderPassSettings);
+    playbackMenu->addAction(shaderPassAction);
     listMenu_new = new QAction(tr("New Shader Library"), this);
     connect(listMenu_new,  &QAction::triggered, this, &MainWindow::newList);
     listMenu->addAction(listMenu_new);
@@ -545,6 +549,38 @@ void MainWindow::menuAudioSettings() {
     }
 }
 
+void MainWindow::menuShaderPassSettings() {
+    if(shader_path.isEmpty()) {
+        QMessageBox::information(this, "Load Shaders First",
+            "Please load a shader library before configuring multi-pass shaders.");
+        return;
+    }
+
+    if(items.isEmpty()) {
+        if(!loadShaders(shader_path)) {
+            QMessageBox::information(this, "Load Shaders First",
+                "Please load a shader library before configuring multi-pass shaders.");
+            return;
+        }
+    }
+
+    ShaderPassDialog passDialog(items, this);
+    passDialog.setEnabled(shader_pass_enabled);
+    if(!shader_pass_names.isEmpty()) {
+        passDialog.setSelectedShaderNames(shader_pass_names);
+    }
+
+    if(passDialog.exec() == QDialog::Accepted) {
+        shader_pass_enabled = passDialog.isShaderPassEnabled();
+        shader_pass_names = passDialog.getSelectedShaderNames();
+        if(shader_pass_enabled) {
+            Log("Multi-Pass Shader Settings Saved: " + QString::number(shader_pass_names.size()) + " passes");
+        } else {
+            Log("Multi-Pass Shader Disabled");
+        }
+    }
+}
+
 void MainWindow::cameraSettings() {
     SettingsWindow settingsWindow(this);
     if(settingsWindow.exec() == QDialog::Accepted) {
@@ -675,6 +711,13 @@ void MainWindow::runSelected() {
         arguments << "--enable-3d";
         arguments << "--model" << model_file;
     }
+
+    if(shader_pass_enabled && !shader_pass_names.isEmpty()) {
+        QString passIndices = getShaderPassIndicesFromNames();
+        if(!passIndices.isEmpty()) {
+            arguments << "--shader-pass" << passIndices;
+        }
+    }
  
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
@@ -773,6 +816,13 @@ void MainWindow::runAll() {
         arguments << "--enable-3d";
         arguments << "--model" << model_file;
     }
+
+    if(shader_pass_enabled && !shader_pass_names.isEmpty()) {
+        QString passIndices = getShaderPassIndicesFromNames();
+        if(!passIndices.isEmpty()) {
+            arguments << "--shader-pass" << passIndices;
+        }
+    }
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -790,6 +840,17 @@ QString MainWindow::concatList(const QStringList lst) {
         stream << i << " ";
      }
      return text;
+}
+
+QString MainWindow::getShaderPassIndicesFromNames() {
+    QStringList indices;
+    for (const QString &name : shader_pass_names) {
+        int idx = items.indexOf(name);
+        if (idx >= 0) {
+            indices.append(QString::number(idx));
+        }
+    }
+    return indices.join(",");
 }
 
 void MainWindow::menuShuffle() {
