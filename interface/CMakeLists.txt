@@ -131,6 +131,13 @@ else()
 endif()
 
 target_compile_options(acmx2_interface PRIVATE ${COMPILER_FLAGS})
+
+add_custom_command(TARGET acmx2_interface POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/data
+        ${CMAKE_CURRENT_BINARY_DIR}/data
+)
+
 install(TARGETS acmx2_interface DESTINATION bin RENAME launcher)
 
 message(STATUS "")
