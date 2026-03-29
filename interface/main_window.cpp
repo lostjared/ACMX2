@@ -89,6 +89,28 @@ void MainWindow::initControls() {
     shaderPassAction = new QAction(tr("Multi-Pass Shader Settings..."), this);
     connect(shaderPassAction, &QAction::triggered, this, &MainWindow::menuShaderPassSettings);
     playbackMenu->addAction(shaderPassAction);
+    playbackMenu->addSeparator();
+    buildCacheAction = new QAction(tr("Rebuild Shader Cache"), this);
+    connect(buildCacheAction, &QAction::triggered, this, &MainWindow::menuBuildShaderCache);
+    playbackMenu->addAction(buildCacheAction);
+
+    runFromCacheAction = new QAction(tr("Run from Cache"), this);
+    runFromCacheAction->setCheckable(true);
+    runFromCacheAction->setChecked(true);
+    connect(runFromCacheAction, &QAction::toggled, this, [this](bool checked) {
+        use_shader_cache = checked;
+        if (checked) {
+            Log("Shader cache enabled - will use cached shaders if available");
+        } else {
+            Log("Shader cache disabled - shaders will be recompiled each run");
+        }
+    });
+    playbackMenu->addAction(runFromCacheAction);
+
+    recompileShadersAction = new QAction(tr("Recompile All Shaders"), this);
+    connect(recompileShadersAction, &QAction::triggered, this, &MainWindow::menuRecompileShaders);
+    playbackMenu->addAction(recompileShadersAction);
+
     listMenu_new = new QAction(tr("New Shader Library"), this);
     connect(listMenu_new,  &QAction::triggered, this, &MainWindow::newList);
     listMenu->addAction(listMenu_new);
@@ -718,6 +740,10 @@ void MainWindow::runSelected() {
             arguments << "--shader-pass" << passIndices;
         }
     }
+
+    if(use_shader_cache) {
+        arguments << "--shader-cache";
+    }
  
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
@@ -823,6 +849,11 @@ void MainWindow::runAll() {
             arguments << "--shader-pass" << passIndices;
         }
     }
+
+    if(use_shader_cache) {
+        arguments << "--shader-cache";
+    }
+
     Log("shell: acmx2 " + concatList(arguments) + "<br>");
     process->start(executable_path, arguments);
     if(!process->waitForStarted()) {
@@ -886,4 +917,92 @@ void MainWindow::menuSort() {
     model->setStringList(items);
     updateIndex();
     Log("Shaders sorted alphabetically");
+}
+
+void MainWindow::menuBuildShaderCache() {
+    QString build_path = shader_path;
+    if (build_path.isEmpty()) {
+        QSettings appSettings("LostSideDead");
+        build_path = appSettings.value("shaders", "").toString();
+    }
+
+    if (build_path.isEmpty()) {
+        QMessageBox::warning(this, "Error", "No shader library loaded. Please set a shader directory in Properties or load a shader library first.");
+        return;
+    }
+
+    if (process->state() == QProcess::Running) {
+        QMessageBox::warning(this, "Error", "A process is already running. Please wait for it to finish.");
+        return;
+    }
+
+    QString dirPath = QCoreApplication::applicationDirPath();
+#ifdef BUILD_BUNDLE
+    QString assets_path = dirPath + "/../Helpers";
+#else
+    QString assets_path = dirPath;
+#endif
+
+    QStringList args;
+    args << "--build" << build_path;
+    args << "-p" << assets_path;
+
+    if (enable_3d) {
+        args << "--enable-3d";
+    }
+
+    Log("Building shader cache for: " + build_path);
+    Log("Command: " + executable_path + " " + args.join(" "));
+
+    play_stop->setEnabled(true);
+    process->start(executable_path, args);
+
+    if (!process->waitForStarted()) {
+        Log("<b style='color:red;'>Error:</b> Failed to start shader cache build process");
+        play_stop->setEnabled(false);
+    }
+}
+
+void MainWindow::menuRunFromCache() {
+}
+
+void MainWindow::menuRecompileShaders() {
+    QString recompile_path = shader_path;
+
+    if (recompile_path.isEmpty()) {
+        QSettings appSettings("LostSideDead");
+        recompile_path = appSettings.value("shaders", "").toString();
+    }
+
+    if (recompile_path.isEmpty()) {
+        QMessageBox::warning(this, "Error", "No shader library loaded. Please set a shader directory in Properties or load a shader library first.");
+        return;
+    }
+
+    QString cacheFile = recompile_path + "/.shader_cache";
+    QFile cache(cacheFile);
+    if (cache.exists()) {
+        if (cache.remove()) {
+            Log("Deleted shader cache: " + cacheFile);
+        } else {
+            Log("<b style='color:red;'>Warning:</b> Could not delete cache file: " + cacheFile);
+        }
+    } else {
+        Log("No existing shader cache found");
+    }
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this,
+        "Rebuild Cache?",
+        "Shader cache has been cleared. Would you like to rebuild the cache now?",
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes) {
+        QString old_path = shader_path;
+        shader_path = recompile_path;
+        menuBuildShaderCache();
+        shader_path = old_path;
+    } else {
+        Log("Shaders will be recompiled on next run");
+    }
 }

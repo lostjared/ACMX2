@@ -53,6 +53,9 @@ public slots:
     void menuRemove();
     void menuAudioSettings();
     void menuShaderPassSettings();
+    void menuBuildShaderCache();
+    void menuRunFromCache();
+    void menuRecompileShaders();
     void menuSort();
     void menuShuffle();
     void menuSearch();
@@ -85,6 +88,9 @@ private:
     QAction *runMenu_select, *runMenu_all;
     QAction *play_repeat, *play_stop;
     QAction *shaderPassAction;
+    QAction *buildCacheAction;
+    QAction *runFromCacheAction;
+    QAction *recompileShadersAction;
     QAction *listMenu_new,*listMenu_shader, *listMenu_remove, *listMenu_up, *listMenu_down, *listMenu_shuffle, *listMenu_sort;
     QAction *helpMenu_about;
     QAction *listMenu_findNext;
@@ -120,6 +126,7 @@ private:
     bool shader_pass_enabled = false;
     QStringList shader_pass_names;
     QString getShaderPassIndicesFromNames();
+    bool use_shader_cache = true;
 };
 
 

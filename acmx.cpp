@@ -123,14 +123,221 @@ private:
     std::deque<cv::Mat> frames;   
 };
 
+struct ShaderCacheEntry {
+    std::string shader_name;
+    std::vector<char> binary_2d;
+    GLenum format_2d = 0;
+    std::vector<char> binary_3d;
+    GLenum format_3d = 0;
+    uint64_t source_hash = 0;
+};
+
+struct ShaderCache {
+    static constexpr uint32_t CACHE_MAGIC = 0x53484452;
+    static constexpr uint32_t CACHE_VERSION = 2;
+    std::string gl_renderer;
+    std::string gl_version;
+    bool dual_mode = false;
+    std::vector<ShaderCacheEntry> entries;
+
+    bool save(const std::string &path) const {
+        std::ofstream file(path, std::ios::binary);
+        if (!file.is_open())
+            return false;
+
+        file.write(reinterpret_cast<const char *>(&CACHE_MAGIC), sizeof(CACHE_MAGIC));
+        file.write(reinterpret_cast<const char *>(&CACHE_VERSION), sizeof(CACHE_VERSION));
+
+        auto writeString = [&file](const std::string &s) {
+            uint32_t len = static_cast<uint32_t>(s.size());
+            file.write(reinterpret_cast<const char *>(&len), sizeof(len));
+            file.write(s.data(), len);
+        };
+
+        writeString(gl_renderer);
+        writeString(gl_version);
+        file.write(reinterpret_cast<const char *>(&dual_mode), sizeof(dual_mode));
+
+        uint32_t count = static_cast<uint32_t>(entries.size());
+        file.write(reinterpret_cast<const char *>(&count), sizeof(count));
+
+        for (const auto &e : entries) {
+            writeString(e.shader_name);
+            file.write(reinterpret_cast<const char *>(&e.source_hash), sizeof(e.source_hash));
+            file.write(reinterpret_cast<const char *>(&e.format_2d), sizeof(e.format_2d));
+            uint32_t size_2d = static_cast<uint32_t>(e.binary_2d.size());
+            file.write(reinterpret_cast<const char *>(&size_2d), sizeof(size_2d));
+            file.write(e.binary_2d.data(), size_2d);
+
+            file.write(reinterpret_cast<const char *>(&e.format_3d), sizeof(e.format_3d));
+            uint32_t size_3d = static_cast<uint32_t>(e.binary_3d.size());
+            file.write(reinterpret_cast<const char *>(&size_3d), sizeof(size_3d));
+            file.write(e.binary_3d.data(), size_3d);
+        }
+        return file.good();
+    }
+
+    bool load(const std::string &path) {
+        std::ifstream file(path, std::ios::binary);
+        if (!file.is_open())
+            return false;
+
+        uint32_t magic, version;
+        file.read(reinterpret_cast<char *>(&magic), sizeof(magic));
+        file.read(reinterpret_cast<char *>(&version), sizeof(version));
+
+        if (magic != CACHE_MAGIC || version != CACHE_VERSION)
+            return false;
+
+        auto readString = [&file]() -> std::string {
+            uint32_t len;
+            file.read(reinterpret_cast<char *>(&len), sizeof(len));
+            std::string s(len, '\0');
+            file.read(s.data(), len);
+            return s;
+        };
+
+        gl_renderer = readString();
+        gl_version = readString();
+        file.read(reinterpret_cast<char *>(&dual_mode), sizeof(dual_mode));
+
+        uint32_t count;
+        file.read(reinterpret_cast<char *>(&count), sizeof(count));
+        entries.resize(count);
+
+        for (auto &e : entries) {
+            e.shader_name = readString();
+            file.read(reinterpret_cast<char *>(&e.source_hash), sizeof(e.source_hash));
+            file.read(reinterpret_cast<char *>(&e.format_2d), sizeof(e.format_2d));
+            uint32_t size_2d;
+            file.read(reinterpret_cast<char *>(&size_2d), sizeof(size_2d));
+            e.binary_2d.resize(size_2d);
+            file.read(e.binary_2d.data(), size_2d);
+
+            file.read(reinterpret_cast<char *>(&e.format_3d), sizeof(e.format_3d));
+            uint32_t size_3d;
+            file.read(reinterpret_cast<char *>(&size_3d), sizeof(size_3d));
+            e.binary_3d.resize(size_3d);
+            file.read(e.binary_3d.data(), size_3d);
+        }
+        return file.good();
+    }
+};
+
+static uint64_t fnv1a64_file(const std::string &filepath) {
+    std::ifstream f(filepath, std::ios::binary);
+    if (!f.is_open())
+        return 0;
+
+    uint64_t h = 1469598103934665603ull;
+    char buf[1 << 15];
+    while (f.good()) {
+        f.read(buf, sizeof(buf));
+        std::streamsize n = f.gcount();
+        for (std::streamsize i = 0; i < n; ++i) {
+            h ^= static_cast<uint8_t>(buf[i]);
+            h *= 1099511628211ull;
+        }
+    }
+    return h;
+}
+
+static uint64_t hashFileContents(const std::string &filepath) {
+    return fnv1a64_file(filepath);
+}
+
+typedef void(APIENTRYP PFNGLGETPROGRAMBINARYPROC_LOCAL)(GLuint program, GLsizei bufSize, GLsizei *length, GLenum *binaryFormat, void *binary);
+typedef void(APIENTRYP PFNGLPROGRAMBINARYPROC_LOCAL)(GLuint program, GLenum binaryFormat, const void *binary, GLsizei length);
+
+static PFNGLGETPROGRAMBINARYPROC_LOCAL glGetProgramBinaryFunc = nullptr;
+static PFNGLPROGRAMBINARYPROC_LOCAL glProgramBinaryFunc = nullptr;
+
+static bool loadProgramBinaryFunctions() {
+    if (glGetProgramBinaryFunc != nullptr)
+        return true;
+    glGetProgramBinaryFunc = reinterpret_cast<PFNGLGETPROGRAMBINARYPROC_LOCAL>(SDL_GL_GetProcAddress("glGetProgramBinary"));
+    glProgramBinaryFunc = reinterpret_cast<PFNGLPROGRAMBINARYPROC_LOCAL>(SDL_GL_GetProcAddress("glProgramBinary"));
+
+    if (glGetProgramBinaryFunc == nullptr || glProgramBinaryFunc == nullptr) {
+        mx::system_err << "acmx2: Failed to load glGetProgramBinary/glProgramBinary functions\n";
+        return false;
+    }
+    return true;
+}
+
 class ShaderLibrary {
     float alpha = 1.0;
     float time_f = 1.0;
     bool time_active = true;
     bool is3d = false;
+
+    struct ProgramData {
+        std::string name;
+        GLuint loc, iTime, iMouse, time_f, iResolution;
+#ifdef AUDIO_ENABLED
+        GLuint amp, amp_untouched;
+#endif
+        GLuint texture_cache_loc[4];
+        GLuint iFrame;
+        GLuint iTimeDelta;
+        GLuint iDate; 
+        GLuint iChannelTime[4];
+        GLuint iChannelResolution[4];
+        GLuint iSampleRate;
+        GLuint iFrameRate; 
+        GLuint iMouseClick;
+    };
+
 public:
     ShaderLibrary() = default;
     ~ShaderLibrary() {}
+
+    void setupProgramData(gl::GLWindow *win, gl::ShaderProgram *prog,
+                          std::unordered_map<int, ProgramData> &names, size_t pos,
+                          const std::string &text) {
+        GLenum error = glGetError();
+        if(error != GL_NO_ERROR) {
+            throw mx::Exception("OpenGL Error: on ShaderLibary::setupProgramData: " + std::to_string(error));
+        }
+        prog->useProgram();
+        GLint loc = glGetUniformLocation(prog->id(), "iResolution");
+        glUniform2f(loc, win->w, win->h);
+        error = glGetError();
+        if(error != GL_NO_ERROR) {
+            throw mx::Exception("setUniform");
+        }
+        std::filesystem::path file_path(text);
+        std::string name = file_path.stem().string();
+        if(!name.empty()) {
+            names[pos].name = name;
+            names[pos].loc = glGetUniformLocation(prog->id(), "alpha");
+            names[pos].iTime = glGetUniformLocation(prog->id(), "iTime");
+            names[pos].iMouse = glGetUniformLocation(prog->id(), "iMouse");
+            names[pos].time_f = glGetUniformLocation(prog->id(), "time_f");
+            names[pos].iResolution = glGetUniformLocation(prog->id(), "iResolution");
+            names[pos].iFrame = glGetUniformLocation(prog->id(), "iFrame");
+            names[pos].iTimeDelta = glGetUniformLocation(prog->id(), "iTimeDelta");
+            names[pos].iDate = glGetUniformLocation(prog->id(), "iDate");
+            names[pos].iFrameRate = glGetUniformLocation(prog->id(), "iFrameRate");
+            names[pos].iMouseClick = glGetUniformLocation(prog->id(), "iMouseClick");
+            for(int i = 0; i < 4; ++i) {
+                std::string channelTime = "iChannelTime[" + std::to_string(i) + "]";
+                std::string channelRes = "iChannelResolution[" + std::to_string(i) + "]";
+                names[pos].iChannelTime[i] = glGetUniformLocation(prog->id(), channelTime.c_str());
+                names[pos].iChannelResolution[i] = glGetUniformLocation(prog->id(), channelRes.c_str());
+            }
+            if(name.find("cache") != std::string::npos) {
+                for(int i = 0; i < 4; ++i) {
+                    names[pos].texture_cache_loc[i] = glGetUniformLocation(prog->id(), std::string("samp" + std::to_string(i+1)).c_str());
+                }
+            }
+#ifdef AUDIO_ENABLED
+            names[pos].amp = glGetUniformLocation(prog->id(), "amp");
+            names[pos].amp_untouched = glGetUniformLocation(prog->id(), "uamp");
+            names[pos].iSampleRate = glGetUniformLocation(prog->id(), "iSampleRate");
+#endif
+        }
+    }
 
     void loadProgram(gl::GLWindow *win, const std::string text) {
         programs.push_back(std::make_unique<gl::ShaderProgram>());
@@ -143,55 +350,15 @@ public:
                 throw mx::Exception("Error loading shader program: " + text);
             }
         }
-        GLenum error;
-        error = glGetError();
-        if(error != GL_NO_ERROR){
-            throw mx::Exception("OpenGL Error: on ShaderLibary::loadProgram: " + std::to_string(error));
-        }
-        programs.back()->useProgram();
-        
-        GLint loc = glGetUniformLocation(programs.back()->id(), "iResolution");
-        glUniform2f(loc, win->w, win->h);
-        error = glGetError();
-        if(error != GL_NO_ERROR) {
-            throw mx::Exception("setUniform");
+        setupProgramData(win, programs.back().get(), program_names, programs.size()-1, text);
+        if(is3d) {
+            programs_2d.push_back(std::make_unique<gl::ShaderProgram>());
+            if(!programs_2d.back()->loadProgram(win->util.getFilePath("data/vert.glsl"), text)) {
+                throw mx::Exception("Error loading 2D shader program: " + text);
+            }
+            setupProgramData(win, programs_2d.back().get(), program_names_2d, programs_2d.size()-1, text);
         }
         mx::system_out << "acmx2: Compiled Shader 0: " << text << "\n";
-        std::filesystem::path file_path(text);
-        std::string name = file_path.stem().string();
-        if(!name.empty()) {
-            size_t pos = programs.size()-1;
-            program_names[pos].name = name;
-            program_names[pos].loc = glGetUniformLocation(programs.back()->id(), "alpha");
-            program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
-            program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
-            program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
-            program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-            program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
-            program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
-            program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
-            program_names[pos].iFrameRate = glGetUniformLocation(programs.back()->id(), "iFrameRate");
-            program_names[pos].iMouseClick = glGetUniformLocation(programs.back()->id(), "iMouseClick");
-            
-            for(int i = 0; i < 4; ++i) {
-                std::string channelTime = "iChannelTime[" + std::to_string(i) + "]";
-                std::string channelRes = "iChannelResolution[" + std::to_string(i) + "]";
-                program_names[pos].iChannelTime[i] = glGetUniformLocation(programs.back()->id(), channelTime.c_str());
-                program_names[pos].iChannelResolution[i] = glGetUniformLocation(programs.back()->id(), channelRes.c_str());
-            }
-
-            if(name.find("cache") != std::string::npos) {
-                for(int i = 0; i < 4; ++i) {
-                    program_names[pos].texture_cache_loc[i] = glGetUniformLocation(programs.back()->id(), std::string("samp" + std::to_string(i+1)).c_str());
-                }
-            }
-
-#ifdef AUDIO_ENABLED
-            program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
-            program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
-            program_names[pos].iSampleRate = glGetUniformLocation(programs.back()->id(), "iSampleRate");
-#endif
-        }
     }
 
     void setFPS(float fps_value) {
@@ -226,17 +393,26 @@ public:
         if(!file.is_open()) {
             throw mx::Exception("acmx2: Could not load index.txt at shader path: " + text);
         }        
-        size_t index = 0;
-        GLenum error;
+        size_t total_shaders = 0;
+        {
+            std::string line;
+            while(std::getline(file, line)) {
+                if(!line.empty() && std::filesystem::exists(text + "/" + line) && line.find("material") == std::string::npos) {
+                    total_shaders++;
+                }
+            }
+            file.clear();
+            file.seekg(0);
+        }
+        mx::system_out << "acmx2: Compiling " << total_shaders << " shaders (" << (is3d ? "2D+3D" : "2D") << ")...\n";
+        fflush(stdout);
+        int last_percent_reported = -1;
+        size_t shader_index = 0;
         while(!file.eof()) {
             std::string line_data;
             std::getline(file, line_data);
             if(file && !line_data.empty() && std::filesystem::exists(text + "/" + line_data) && line_data.find("material") == std::string::npos) {
                     programs.push_back(std::make_unique<gl::ShaderProgram>());
-            
-                mx::system_out << "acmx2: Compiling Shader: " << index++  << ": [" << line_data << "]\n";
-                fflush(stdout);
-                fflush(stderr);
                 try {
                     if(is3d == true) {
                         if(!programs.back()->loadProgram(win->util.getFilePath("data/vertex.glsl"), text + "/" + line_data)) {
@@ -253,59 +429,357 @@ public:
                     fflush(stderr);
                     throw;
                 }
-                error = glGetError();
-                if(error != GL_NO_ERROR) {
-                    throw mx::Exception("OpenGL Error loading shader program");
-                }
-                programs.back()->useProgram();
-                //programs.back()->setUniform("proj_matrix", glm::mat4(1.0f));
-                //programs.back()->setUniform("mv_matrix", glm::mat4(1.0f));
-                GLint loc = glGetUniformLocation(programs.back()->id(), "iResolution");
-                glUniform2f(loc, win->w, win->h);
-                error = glGetError();
-                if(error != GL_NO_ERROR) {
-                    throw mx::Exception("setUniform");
-                }
-            
-                fflush(stdout);
-                fflush(stderr);
-                std::filesystem::path file_path(line_data);
-                std::string name = file_path.stem().string();
-                if(!name.empty()) {
-                    size_t pos = programs.size()-1;
-                    program_names[pos].name = name;
-                    program_names[pos].loc = glGetUniformLocation(programs.back()->id(), "alpha");
-                    program_names[pos].iTime = glGetUniformLocation(programs.back()->id(), "iTime");
-                    program_names[pos].iMouse = glGetUniformLocation(programs.back()->id(), "iMouse");
-                    program_names[pos].time_f = glGetUniformLocation(programs.back()->id(), "time_f");
-                    program_names[pos].iResolution = glGetUniformLocation(programs.back()->id(), "iResolution");
-                    program_names[pos].iFrame = glGetUniformLocation(programs.back()->id(), "iFrame");
-                    program_names[pos].iTimeDelta = glGetUniformLocation(programs.back()->id(), "iTimeDelta");
-                    program_names[pos].iDate = glGetUniformLocation(programs.back()->id(), "iDate");
-                    program_names[pos].iFrameRate = glGetUniformLocation(programs.back()->id(), "iFrameRate");
-                    program_names[pos].iMouseClick = glGetUniformLocation(programs.back()->id(), "iMouseClick");
-                    
-                    for(int i = 0; i < 4; ++i) {
-                        std::string channelTime = "iChannelTime[" + std::to_string(i) + "]";
-                        std::string channelRes = "iChannelResolution[" + std::to_string(i) + "]";
-                        program_names[pos].iChannelTime[i] = glGetUniformLocation(programs.back()->id(), channelTime.c_str());
-                        program_names[pos].iChannelResolution[i] = glGetUniformLocation(programs.back()->id(), channelRes.c_str());
-                    }
-
-                    if(name.find("cache") != std::string::npos) {
-                        for(int i = 0; i < 4; ++i) {
-                            program_names[pos].texture_cache_loc[i] = glGetUniformLocation(programs.back()->id(), std::string("samp" + std::to_string(i+1)).c_str());
+                setupProgramData(win, programs.back().get(), program_names, programs.size()-1, text + "/" + line_data);
+                if(is3d) {
+                    programs_2d.push_back(std::make_unique<gl::ShaderProgram>());
+                    try {
+                        if(!programs_2d.back()->loadProgram(win->util.getFilePath("data/vert.glsl"), text + "/" + line_data)) {
+                            throw mx::Exception("acmx2: Error could not load 2D shader: " + line_data);
                         }
+                    } catch(mx::Exception &e) {
+                        fflush(stdout);
+                        fflush(stderr);
+                        throw;
                     }
-#ifdef AUDIO_ENABLED
-                    program_names[pos].amp = glGetUniformLocation(programs.back()->id(), "amp");
-                    program_names[pos].amp_untouched = glGetUniformLocation(programs.back()->id(), "uamp");
-                    program_names[pos].iSampleRate = glGetUniformLocation(programs.back()->id(), "iSampleRate");
-#endif
+                    setupProgramData(win, programs_2d.back().get(), program_names_2d, programs_2d.size()-1, text + "/" + line_data);
+                }
+                shader_index++;
+                int percent = (total_shaders > 0) ? static_cast<int>(shader_index * 100 / total_shaders) : 100;
+                int percent_bucket = (percent / 10) * 10;
+                if(percent_bucket > last_percent_reported) {
+                    last_percent_reported = percent_bucket;
+                    mx::system_out << "acmx2: Compiling... " << percent_bucket << "% (" << shader_index << "/" << total_shaders << " shaders)\n";
+                    fflush(stdout);
                 }
            }
         }
         file.close();
+        mx::system_out << "acmx2: Compiled " << shader_index << " shaders (" << (is3d ? "2D+3D" : "2D only") << ")\n";
+        fflush(stdout);
+    }
+
+    bool buildShaderCache(gl::GLWindow *win, const std::string &library_path, const std::string &vert_2d, const std::string &vert_3d) {
+        GLint numFormats = 0;
+        glGetIntegerv(GL_NUM_PROGRAM_BINARY_FORMATS, &numFormats);
+        if (numFormats == 0) {
+            mx::system_err << "acmx2: Error - OpenGL driver does not support program binaries\n";
+            return false;
+        }
+        mx::system_out << "acmx2: OpenGL supports " << numFormats << " program binary format(s)\n";
+        fflush(stdout);
+
+        if (!loadProgramBinaryFunctions()) {
+            mx::system_err << "acmx2: Error - Failed to load program binary extension functions\n";
+            return false;
+        }
+        mx::system_out << "acmx2: Program binary functions loaded successfully\n";
+        fflush(stdout);
+
+        std::string cache_file = library_path + "/.shader_cache";
+        std::fstream file;
+        file.open(library_path + "/index.txt", std::ios::in);
+        if (!file.is_open()) {
+            mx::system_err << "acmx2: Could not open index.txt at: " << library_path << "\n";
+            return false;
+        }
+
+        ShaderCache cache;
+        cache.gl_renderer = reinterpret_cast<const char *>(glGetString(GL_RENDERER));
+        cache.gl_version = reinterpret_cast<const char *>(glGetString(GL_VERSION));
+        cache.dual_mode = is3d;
+
+        std::vector<std::string> shader_files;
+        std::string line;
+        while (std::getline(file, line)) {
+            if (!line.empty() && std::filesystem::exists(library_path + "/" + line) && line.find("material") == std::string::npos) {
+                shader_files.push_back(line);
+            }
+        }
+        file.close();
+
+        mx::system_out << "acmx2: Building shader cache for " << shader_files.size() << " shaders...\n";
+        fflush(stdout);
+
+        for (size_t i = 0; i < shader_files.size(); ++i) {
+            const std::string &shader_file = shader_files[i];
+            std::string full_path = library_path + "/" + shader_file;
+
+            mx::system_out << "acmx2: Caching Shader " << i << "/" << shader_files.size() << ": [" << shader_file << "]\n";
+            fflush(stdout);
+
+            ShaderCacheEntry entry;
+            std::filesystem::path file_path(shader_file);
+            entry.shader_name = file_path.stem().string();
+            entry.source_hash = hashFileContents(full_path);
+
+            try {
+                gl::ShaderProgram prog_2d;
+                prog_2d.setSilent(true);
+                if (!prog_2d.loadProgram(vert_2d, full_path)) {
+                    mx::system_out << "acmx2: Shader " << i << " 2D compile failed, skipping\n";
+                    fflush(stdout);
+                    continue;
+                }
+
+                GLint link_status = 0;
+                glGetProgramiv(prog_2d.id(), GL_LINK_STATUS, &link_status);
+                if (link_status != GL_TRUE) {
+                    mx::system_out << "acmx2: Shader " << i << " not properly linked, skipping\n";
+                    fflush(stdout);
+                    continue;
+                }
+
+                GLint binary_length = 0;
+                glGetProgramiv(prog_2d.id(), GL_PROGRAM_BINARY_LENGTH, &binary_length);
+                GLenum gl_error = glGetError();
+
+                if (gl_error != GL_NO_ERROR || binary_length <= 0) {
+                    mx::system_out << "acmx2: Shader " << i << " no binary available, skipping\n";
+                    fflush(stdout);
+                    continue;
+                }
+
+                void *binary_buffer = malloc(binary_length);
+                if (!binary_buffer) {
+                    continue;
+                }
+
+                GLsizei actual_length = 0;
+                GLenum format = 0;
+                glGetProgramBinaryFunc(prog_2d.id(), binary_length, &actual_length, &format, binary_buffer);
+                gl_error = glGetError();
+
+                if (gl_error != GL_NO_ERROR || actual_length == 0) {
+                    mx::system_out << "acmx2: Shader " << i << " binary extraction failed\n";
+                    fflush(stdout);
+                    free(binary_buffer);
+                    continue;
+                }
+
+                entry.binary_2d.resize(actual_length);
+                memcpy(entry.binary_2d.data(), binary_buffer, actual_length);
+                entry.format_2d = format;
+                free(binary_buffer);
+
+                if (is3d) {
+                    gl::ShaderProgram prog_3d;
+                    prog_3d.setSilent(true);
+                    if (!prog_3d.loadProgram(vert_3d, full_path)) {
+                        mx::system_out << "acmx2: Shader " << i << " 3D compile failed, skipping\n";
+                        fflush(stdout);
+                        continue;
+                    }
+
+                    GLint binary_length_3d = 0;
+                    glGetProgramiv(prog_3d.id(), GL_PROGRAM_BINARY_LENGTH, &binary_length_3d);
+
+                    if (binary_length_3d > 0) {
+                        entry.binary_3d.resize(binary_length_3d);
+                        GLsizei actual_length_3d = 0;
+                        glGetProgramBinaryFunc(prog_3d.id(), binary_length_3d, &actual_length_3d, &entry.format_3d, entry.binary_3d.data());
+                        entry.binary_3d.resize(actual_length_3d);
+                    }
+                }
+
+                cache.entries.push_back(std::move(entry));
+            } catch (const std::exception &e) {
+                mx::system_out << "acmx2: Shader " << i << " exception: " << e.what() << "\n";
+                fflush(stdout);
+                continue;
+            } catch (...) {
+                mx::system_out << "acmx2: Shader " << i << " unknown exception\n";
+                fflush(stdout);
+                continue;
+            }
+        }
+
+        if (cache.save(cache_file)) {
+            mx::system_out << "acmx2: Shader cache saved to: " << cache_file << "\n";
+            mx::system_out << "acmx2: Cached " << cache.entries.size() << " shaders (" << (is3d ? "2D+3D" : "2D only") << ")\n";
+            fflush(stdout);
+            return true;
+        } else {
+            mx::system_err << "acmx2: Failed to save shader cache\n";
+            return false;
+        }
+    }
+
+    bool loadFromCache(gl::GLWindow *win, const std::string &library_path,
+                       const std::string &vert_2d, const std::string &vert_3d) {
+        std::string cache_file = library_path + "/.shader_cache";
+
+        mx::system_out << "acmx2: Checking for shader cache at: " << cache_file << "\n";
+        fflush(stdout);
+
+        if (!std::filesystem::exists(cache_file)) {
+            mx::system_out << "acmx2: No shader cache found, will compile shaders\n";
+            fflush(stdout);
+            return false;
+        }
+
+        mx::system_out << "acmx2: Found shader cache, loading...\n";
+        fflush(stdout);
+
+        ShaderCache cache;
+        if (!cache.load(cache_file)) {
+            mx::system_out << "acmx2: Shader cache corrupted or incompatible, will recompile\n";
+            return false;
+        }
+
+        if (!loadProgramBinaryFunctions()) {
+            mx::system_out << "acmx2: Could not load program binary extension, will recompile\n";
+            return false;
+        }
+
+        std::string current_renderer = reinterpret_cast<const char *>(glGetString(GL_RENDERER));
+        std::string current_version = reinterpret_cast<const char *>(glGetString(GL_VERSION));
+
+        if (cache.gl_renderer != current_renderer) {
+            mx::system_out << "acmx2: GPU changed (was: " << cache.gl_renderer << ", now: " << current_renderer << "), will recompile\n";
+            return false;
+        }
+
+        if (cache.gl_version != current_version) {
+            mx::system_out << "acmx2: Driver version changed (was: " << cache.gl_version << ", now: " << current_version << "), will recompile\n";
+            return false;
+        }
+
+        if (is3d && !cache.dual_mode) {
+            mx::system_out << "acmx2: Cache was built in 2D-only mode but 3D is enabled, will rebuild with 2D+3D\n";
+            return false;
+        }
+
+        std::fstream file;
+        file.open(library_path + "/index.txt", std::ios::in);
+        if (!file.is_open()) {
+            return false;
+        }
+
+        std::vector<std::string> shader_files;
+        std::string line;
+        while (std::getline(file, line)) {
+            if (!line.empty() && std::filesystem::exists(library_path + "/" + line) && line.find("material") == std::string::npos) {
+                shader_files.push_back(line);
+            }
+        }
+        file.close();
+
+        if (shader_files.size() != cache.entries.size()) {
+            mx::system_out << "acmx2: Shader count mismatch: index.txt has " << shader_files.size()
+                           << " shaders but cache has " << cache.entries.size()
+                           << " entries. Rebuilding cache...\n";
+            fflush(stdout);
+            programs.clear();
+            programs_2d.clear();
+            program_names.clear();
+            program_names_2d.clear();
+            buildShaderCache(win, library_path, vert_2d, vert_3d);
+            return false;
+        }
+
+        for (size_t i = 0; i < shader_files.size(); ++i) {
+            std::string full_path = library_path + "/" + shader_files[i];
+            uint64_t current_hash = hashFileContents(full_path);
+            if (current_hash != cache.entries[i].source_hash) {
+                mx::system_out << "acmx2: Shader source changed: " << shader_files[i] << ", rebuilding cache...\n";
+                fflush(stdout);
+                programs.clear();
+                programs_2d.clear();
+                program_names.clear();
+                program_names_2d.clear();
+                buildShaderCache(win, library_path, vert_2d, vert_3d);
+                return false;
+            }
+        }
+
+        mx::system_out << "acmx2: Loading " << cache.entries.size() << " shaders from cache...\n";
+        fflush(stdout);
+
+        int last_percent_reported = -1;
+
+        for (size_t i = 0; i < cache.entries.size(); ++i) {
+            const auto &entry = cache.entries[i];
+
+            // Load 2D (or primary when not 3D) program from binary
+            if (is3d) {
+                // In 3D mode: programs = 3D shaders, programs_2d = 2D shaders
+                programs_2d.push_back(std::make_unique<gl::ShaderProgram>());
+                GLuint prog_id_2d = glCreateProgram();
+                glProgramBinaryFunc(prog_id_2d, entry.format_2d, entry.binary_2d.data(), static_cast<GLsizei>(entry.binary_2d.size()));
+
+                GLint link_status = 0;
+                glGetProgramiv(prog_id_2d, GL_LINK_STATUS, &link_status);
+                if (link_status != GL_TRUE) {
+                    mx::system_out << "acmx2: Shader " << i << " [" << entry.shader_name << "] 2D binary load failed\n";
+                    fflush(stdout);
+                    glDeleteProgram(prog_id_2d);
+                    programs_2d.pop_back();
+                    return false;
+                }
+
+                *programs_2d.back() = gl::ShaderProgram(prog_id_2d);
+                setupProgramData(win, programs_2d.back().get(), program_names_2d, programs_2d.size() - 1, library_path + "/" + shader_files[i]);
+
+                // Load 3D program
+                if (!entry.binary_3d.empty()) {
+                    programs.push_back(std::make_unique<gl::ShaderProgram>());
+                    GLuint prog_id_3d = glCreateProgram();
+                    glProgramBinaryFunc(prog_id_3d, entry.format_3d, entry.binary_3d.data(), static_cast<GLsizei>(entry.binary_3d.size()));
+
+                    glGetProgramiv(prog_id_3d, GL_LINK_STATUS, &link_status);
+                    if (link_status != GL_TRUE) {
+                        mx::system_out << "acmx2: Shader " << i << " [" << entry.shader_name << "] 3D binary load failed\n";
+                        fflush(stdout);
+                        glDeleteProgram(prog_id_3d);
+                        programs.pop_back();
+                        return false;
+                    }
+
+                    *programs.back() = gl::ShaderProgram(prog_id_3d);
+                    setupProgramData(win, programs.back().get(), program_names, programs.size() - 1, library_path + "/" + shader_files[i]);
+                }
+            } else {
+                // In 2D mode: programs = 2D shaders, no programs_2d needed
+                programs.push_back(std::make_unique<gl::ShaderProgram>());
+                GLuint prog_id = glCreateProgram();
+                glProgramBinaryFunc(prog_id, entry.format_2d, entry.binary_2d.data(), static_cast<GLsizei>(entry.binary_2d.size()));
+
+                GLint link_status = 0;
+                glGetProgramiv(prog_id, GL_LINK_STATUS, &link_status);
+                if (link_status != GL_TRUE) {
+                    mx::system_out << "acmx2: Shader " << i << " [" << entry.shader_name << "] binary load failed\n";
+                    fflush(stdout);
+                    glDeleteProgram(prog_id);
+                    programs.pop_back();
+                    return false;
+                }
+
+                *programs.back() = gl::ShaderProgram(prog_id);
+                setupProgramData(win, programs.back().get(), program_names, programs.size() - 1, library_path + "/" + shader_files[i]);
+            }
+
+            int percent = static_cast<int>((i + 1) * 100 / cache.entries.size());
+            int percent_bucket = (percent / 10) * 10;
+            if (percent_bucket > last_percent_reported) {
+                last_percent_reported = percent_bucket;
+                mx::system_out << "acmx2: Cache loading... " << percent_bucket << "% (" << (i + 1) << "/" << cache.entries.size() << " shaders)\n";
+                fflush(stdout);
+            }
+        }
+
+        mx::system_out << "acmx2: Loaded " << cache.entries.size() << " shaders from cache (" << (is3d ? "2D+3D" : "2D only") << ")\n";
+        fflush(stdout);
+        return true;
+    }
+
+    void loadProgramsWithCache(gl::GLWindow *win, const std::string &text) {
+        std::string vert_2d = win->util.getFilePath("data/vert.glsl");
+        std::string vert_3d = win->util.getFilePath("data/vertex.glsl");
+        if (loadFromCache(win, text, vert_2d, vert_3d)) {
+            return;
+        }
+        loadPrograms(win, text);
+        buildShaderCache(win, text, vert_2d, vert_3d);
     }
 
     bool isCache() {
@@ -331,6 +805,7 @@ public:
     }
     size_t index() { return library_index; }
     size_t size() { return programs.size(); }
+    size_t size2d() { return programs_2d.size(); }
 
     void useProgram() { 
         programs[index()]->useProgram(); 
@@ -339,6 +814,12 @@ public:
     gl::ShaderProgram *getShader(size_t idx) {
         if(idx < programs.size()) {
             return programs[idx].get();
+        }
+        return nullptr;
+    }
+    gl::ShaderProgram *getShader2D(size_t idx) {
+        if(idx < programs_2d.size()) {
+            return programs_2d[idx].get();
         }
         return nullptr;
     }
@@ -370,9 +851,11 @@ public:
         return name;
     }
 
-    void updateShaderUniforms(gl::GLWindow *win, size_t idx) {
-        if(idx >= programs.size()) return;
-        if(program_names.find(idx) == program_names.end()) return;
+    void updateShaderUniformsImpl(gl::GLWindow *win, size_t idx,
+                                   std::vector<std::unique_ptr<gl::ShaderProgram>> &progs,
+                                   std::unordered_map<int, ProgramData> &names) {
+        if(idx >= progs.size()) return;
+        if(names.find(idx) == names.end()) return;
 
         static Uint64 start_time = SDL_GetPerformanceCounter();
         static Uint64 last_frame_time = start_time;
@@ -384,8 +867,8 @@ public:
         last_frame_time = now_time;
         frame_counter++;
 
-        auto &n = program_names[idx];
-        programs[idx]->useProgram();
+        auto &n = names[idx];
+        progs[idx]->useProgram();
         glUniform1f(n.loc, alpha);
         glUniform1f(n.iTime, static_cast<float>(elapsed_time));
         glUniform1f(n.time_f, time_f);
@@ -416,6 +899,14 @@ public:
             glUniform2f(n.iMouseClick, currentX, currentY);
         }
         glUniform2f(n.iResolution, static_cast<float>(win->w), static_cast<float>(win->h));
+    }
+
+    void updateShaderUniforms(gl::GLWindow *win, size_t idx) {
+        updateShaderUniformsImpl(win, idx, programs, program_names);
+    }
+
+    void updateShaderUniforms2D(gl::GLWindow *win, size_t idx) {
+        updateShaderUniformsImpl(win, idx, programs_2d, program_names_2d);
     }
 
     void update(gl::GLWindow *win) {
@@ -572,24 +1063,10 @@ private:
     size_t library_index = 0;
     std::vector<std::unique_ptr<gl::ShaderProgram>> programs;
 
-    struct ProgramData {
-        std::string name;
-        GLuint loc, iTime, iMouse, time_f, iResolution;
-#ifdef AUDIO_ENABLED
-        GLuint amp, amp_untouched;
-#endif
-        GLuint texture_cache_loc[4];
-        GLuint iFrame;
-        GLuint iTimeDelta;
-        GLuint iDate; 
-        GLuint iChannelTime[4];
-        GLuint iChannelResolution[4];
-        GLuint iSampleRate;
-        GLuint iFrameRate; 
-        GLuint iMouseClick;
-    };
     bool time_audio = false;
     std::unordered_map<int, ProgramData> program_names;
+    std::vector<std::unique_ptr<gl::ShaderProgram>> programs_2d;
+    std::unordered_map<int, ProgramData> program_names_2d;
     bool shader_bypass = false;
 };
 
@@ -623,6 +1100,9 @@ struct MXArguments {
 #endif
     std::vector<int> shader_pass_list;
     bool shader_pass_enabled = false;
+    bool use_shader_cache = false;
+    bool build_cache = false;
+    std::string build_library_path;
 };
 
 struct FrameData {
@@ -662,7 +1142,8 @@ public:
           frame_cache{4},
           texture_cache{args.cache},
           cache_delay{args.cache_delay},
-          copy_audio{args.copy_audio} {
+          copy_audio{args.copy_audio},
+          use_shader_cache{args.use_shader_cache} {
 #ifdef AUDIO_ENABLED
         audio_input_device = args.audio_input;
         audio_output_device = args.audio_output;
@@ -805,10 +1286,14 @@ public:
         displayFPS = 0.0;
         overlayFont.tryLoadFont(win->util.getFilePath("data/font.ttf"), 24);
         library.is3D(is3d_enabled);
-        if(std::get<0>(flib) == 1)
-            library.loadPrograms(win, std::get<1>(flib));
-        else
+        if(std::get<0>(flib) == 1) {
+            if(use_shader_cache)
+                library.loadProgramsWithCache(win, std::get<1>(flib));
+            else
+                library.loadPrograms(win, std::get<1>(flib));
+        } else {
             library.loadProgram(win, std::get<1>(flib));
+        }
         library.setIndex(std::get<2>(flib));
         updateShaderNameCache();
 
@@ -861,7 +1346,7 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
-            
+            glViewport(0, 0, w, h);
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
@@ -879,6 +1364,8 @@ public:
         } else if(filename.empty()) {
 #ifdef _WIN32
             cap.open(camera_index, cv::CAP_DSHOW);
+#elif defined(__linux__)
+            cap.open(camera_index, cv::CAP_V4L2);
 #else
             cap.open(camera_index);
 #endif
@@ -889,9 +1376,6 @@ public:
             if(sizec.has_value()) {
                 cap.set(cv::CAP_PROP_FRAME_WIDTH, sizec.value().width);
                 cap.set(cv::CAP_PROP_FRAME_HEIGHT, sizec.value().height);
-            } else {
-                cap.set(cv::CAP_PROP_FRAME_WIDTH, win->w);
-                cap.set(cv::CAP_PROP_FRAME_HEIGHT, win->h);
             }
             cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
             cap.set(cv::CAP_PROP_FPS, fps);
@@ -913,7 +1397,7 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
-
+            glViewport(0, 0, w, h);
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
@@ -957,7 +1441,7 @@ public:
             win->setWindowSize(w, h);
             win->w = w;
             win->h = h;
-            
+            glViewport(0, 0, w, h);
             SDL_SetWindowPosition(win->getWindow(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
             if(!ofilename.empty()) {
@@ -1232,14 +1716,14 @@ public:
                 bool pass_applied = false;
                 for(size_t i = 0; i < shader_pass_list.size(); ++i) {
                     int shader_idx = shader_pass_list[i];
-                    if(shader_idx >= 0 && shader_idx < static_cast<int>(library.size())) {
-                        gl::ShaderProgram *pass_shader = library.getShader(shader_idx);
+                    if(shader_idx >= 0 && shader_idx < static_cast<int>(library.size2d())) {
+                        gl::ShaderProgram *pass_shader = library.getShader2D(shader_idx);
                         if(pass_shader) {
                             glBindFramebuffer(GL_FRAMEBUFFER, passFBO[pingpong]);
                             glViewport(0, 0, win->w, win->h);
                             glClear(GL_COLOR_BUFFER_BIT);
                             pass_shader->useProgram();
-                            library.updateShaderUniforms(win, shader_idx);
+                            library.updateShaderUniforms2D(win, shader_idx);
                             pass_shader->setUniform("mv_matrix", glm::mat4(1.0f));
                             pass_shader->setUniform("proj_matrix", glm::mat4(1.0f));
                             glActiveTexture(GL_TEXTURE0);
@@ -1255,13 +1739,12 @@ public:
                             logPassWarning3D("skipping pass index " + std::to_string(shader_idx) + " (null shader)");
                         }
                     } else {
-                        logPassWarning3D("skipping invalid pass index " + std::to_string(shader_idx) + " (valid range 0-" + std::to_string(static_cast<int>(library.size()) - 1) + ")");
+                        logPassWarning3D("skipping invalid pass index " + std::to_string(shader_idx) + " (valid range 0-" + std::to_string(static_cast<int>(library.size2d()) - 1) + ")");
                     }
                 }
 
-                if(pass_applied) {
-                    textureForMesh = inputTex;
-                } else {
+                textureForMesh = inputTex;
+                if(!pass_applied) {
                     logPassWarning3D("no pass applied; using base camera texture");
                 }
 
@@ -1755,6 +2238,7 @@ private:
     int cache_delay = 1;
     std::atomic<bool> finished{false};
     std::atomic<bool> copy_audio{false};
+    bool use_shader_cache = false;
     float cameraYaw = 270.0f;   
     float cameraPitch = 0.0f; 
     const float cameraRotationSpeed = 5.0f; 
@@ -2132,6 +2616,9 @@ int main(int argc, char **argv) {
           .addOptionDoubleValue(260, "model", "Model file")
           .addOptionDouble(261, "help", "print help info")
           .addOptionDoubleValue(406, "shader-pass", "Shader pass indices (comma-separated, e.g. 0,1,2)")
+          .addOptionDouble(407, "shader-cache", "Enable shader binary cache for faster loading")
+          .addOptionDoubleValue(408, "build", "Build shader cache for specified library path (compiles shaders and exits)")
+          .addOptionDouble(409, "no-cache", "Disable shader caching (always recompile shaders)")
 #ifdef AUDIO_ENABLED
           .addOptionSingle('w', "Enable Audio Reactivity")
           .addOptionDouble('W', "enable-audio", "enabled audio reacitivty")
@@ -2298,6 +2785,18 @@ int main(int argc, char **argv) {
                     }
                     break;
                 }
+                case 407:
+                    args.use_shader_cache = true;
+                    mx::system_out << "acmx2: Shader binary cache enabled.\n";
+                    break;
+                case 408:
+                    args.build_cache = true;
+                    args.build_library_path = arg.arg_value;
+                    break;
+                case 409:
+                    args.use_shader_cache = false;
+                    mx::system_out << "acmx2: Shader caching disabled\n";
+                    break;
 #ifdef AUDIO_ENABLED
                 case 'W':
                 case 'w':
@@ -2345,12 +2844,110 @@ int main(int argc, char **argv) {
         mx::system_out << "acmx2: Path name not provided, using current path...\n";
     }
 
+    if (args.build_cache) {
+        if (args.build_library_path.empty()) {
+            mx::system_err << "acmx2: Error: --build requires a shader library path\n";
+            mx::system_err.flush();
+            return EXIT_FAILURE;
+        }
+        if (!std::filesystem::exists(args.build_library_path + "/index.txt")) {
+            mx::system_err << "acmx2: Error: No index.txt found at: " << args.build_library_path << "\n";
+            mx::system_err.flush();
+            return EXIT_FAILURE;
+        }
+
+        try {
+            mx::system_out << "acmx2: Creating build window...\n";
+            fflush(stdout);
+
+            class BuildWindow : public gl::GLWindow {
+              public:
+                ShaderLibrary library;
+                std::string lib_path;
+                bool enable_3d;
+                std::string assets_path;
+                bool success = false;
+                bool active = true;
+
+                BuildWindow(const std::string &path, bool is3d, const std::string &assets)
+                    : gl::GLWindow("ACMX2 Shader Builder", 640, 480, false),
+                      lib_path(path), enable_3d(is3d), assets_path(assets) {
+                    util.path = assets;
+                    mx::system_out << "acmx2: Building shader cache for: " << lib_path << "\n";
+                    fflush(stdout);
+                    library.is3D(enable_3d);
+                    library.loadProgramsWithCache(this, lib_path);
+                    mx::system_out << "acmx2: Shader cache build complete.\n";
+                    fflush(stdout);
+                    success = true;
+                    active = false;
+                }
+
+                void draw() override {
+                    if (!active) {
+                        quit();
+                    }
+                }
+
+                void event(SDL_Event &e) override {
+                    if (e.type == SDL_QUIT) {
+                        active = false;
+                    }
+                }
+            };
+
+            BuildWindow buildWin(args.build_library_path, args.is3d, args.path);
+            buildWin.loop();
+
+            if (buildWin.success) {
+                mx::system_out << "acmx2: Cache built successfully.\n";
+                fflush(stdout);
+                return EXIT_SUCCESS;
+            } else {
+                mx::system_err << "acmx2: Cache build failed.\n";
+                mx::system_err.flush();
+                return EXIT_FAILURE;
+            }
+        } catch (const mx::Exception &e) {
+            mx::system_err << "acmx2: Build cache error: " << e.text() << "\n";
+            mx::system_err.flush();
+            return EXIT_FAILURE;
+        } catch (const std::exception &e) {
+            mx::system_err << "acmx2: Build cache error: " << e.what() << "\n";
+            mx::system_err.flush();
+            return EXIT_FAILURE;
+        }
+    }
+
     try {
         args.slib = std::make_tuple(args.mode, 
                                     (args.mode == 0) ? args.fragment : args.library, 
                                     (args.mode == 0) ? 0 : args.shader_index);
         if(args.filename.empty() && args.cache) {
             throw mx::Exception("Texture cache only works in video mode\n");
+        }
+        if(!args.sizev.has_value()) {
+            if(!args.filename.empty()) {
+                cv::VideoCapture probe(args.filename);
+                if(probe.isOpened()) {
+                    int vw = static_cast<int>(probe.get(cv::CAP_PROP_FRAME_WIDTH));
+                    int vh = static_cast<int>(probe.get(cv::CAP_PROP_FRAME_HEIGHT));
+                    if(vw > 0 && vh > 0) {
+                        args.tw = vw;
+                        args.th = vh;
+                    }
+                    probe.release();
+                }
+            } else if(!args.graphic_file.empty()) {
+                cv::Mat img = cv::imread(args.graphic_file, cv::IMREAD_UNCHANGED);
+                if(!img.empty()) {
+                    args.tw = img.cols;
+                    args.th = img.rows;
+                }
+            } else if(args.csize.has_value()) {
+                args.tw = args.csize.value().width;
+                args.th = args.csize.value().height;
+            }
         }
         MainWindow main_window(args);
         main_window.loop();
