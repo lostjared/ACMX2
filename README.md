@@ -1,14 +1,11 @@
 
 # ACMX2
 
-Live Webcam Effects Powered by OpenGL Shaders and Real-time Audio
+Live Webcam/Video Effects Powered by OpenGL Shaders and Real-time Audio
 
-![image](https://github.com/user-attachments/assets/7cdf6c57-0938-49ea-906d-594b48149acb)
-![image](https://github.com/user-attachments/assets/ee30f7b4-3255-44a2-b9f7-3efadc0650e8)
-![image](https://github.com/user-attachments/assets/c5eec97b-4d3b-4da2-bf23-c0689e9bfe7a)
-![image](https://github.com/user-attachments/assets/4fb33aa5-31a2-4240-ba33-58338c98c0ed)
-<img width="2048" height="1152" alt="image" src="https://github.com/user-attachments/assets/8aaba334-3e80-46e9-951f-4da2d75ec527" />
+![logo](https://github.com/user-attachments/assets/b743186d-10e3-4141-b530-e24e3df87c99)
 
+<img width="1280" height="720" alt="image" src="https://github.com/user-attachments/assets/6357d3ff-7f07-4dc9-9d71-26deecf6d009" />
 
 ## Basic Information
 
