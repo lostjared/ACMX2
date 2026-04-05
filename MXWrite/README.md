@@ -34,12 +34,12 @@ It can handle both:
 
 ### Required Libraries
 
-1. **FFmpeg** – The code specifically uses the following components:
+1. **FFmpeg**  The code specifically uses the following components:
    - `libavcodec`
    - `libavformat`
    - `libavutil`
    - `libswscale`
-2. **Threads** (C++11 and above) – Uses `<thread>` and `<mutex>` from the standard library.
+2. **Threads** (C++11 and above)  Uses `<thread>` and `<mutex>` from the standard library.
 3. A **C++17 (or higher)** compatible compiler.
 
 To install FFmpeg development libraries on your platform:

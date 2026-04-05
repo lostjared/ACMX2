@@ -51,10 +51,10 @@ void ShaderPassDialog::setupUI() {
     shaderMainLayout->addLayout(comboLayout);
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
-    addButton = new QPushButton("Add →", this);
-    removeButton = new QPushButton("← Remove", this);
-    upButton = new QPushButton("↑ Up", this);
-    downButton = new QPushButton("↓ Down", this);
+    addButton = new QPushButton("Add ", this);
+    removeButton = new QPushButton(" Remove", this);
+    upButton = new QPushButton(" Up", this);
+    downButton = new QPushButton(" Down", this);
     clearButton = new QPushButton("Clear All", this);
     buttonLayout->addWidget(addButton);
     buttonLayout->addWidget(removeButton);
